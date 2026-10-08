@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Sign in – SecureTrade</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=Figtree:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <main class="auth">
+
+    <!-- Left: how escrow protects a trade -->
+    <section class="auth-story">
+      <a class="brand" href="login.html">Secure<span>Trade</span></a>
+
+      <div>
+        <h1>Trade items without trusting strangers.</h1>
+        <p>We hold the buyer's payment until the item arrives. Nobody pays for nothing, and nobody delivers for free.</p>
+
+        <ol class="flow" aria-label="How a trade works">
+          <li>
+            <span class="dot">1</span>
+            <strong>Buyer pays into escrow</strong>
+            <span class="desc">Money goes to SecureTrade, not the seller.</span>
+          </li>
+          <li class="held">
+            <span class="dot">2</span>
+            <strong>Payment is held</strong>
+            <span class="desc">Seller sees it is safe and hands over the item in-game.</span>
+          </li>
+          <li>
+            <span class="dot">3</span>
+            <strong>Buyer confirms receipt</strong>
+            <span class="desc">Problem? Upload proof and open a dispute.</span>
+          </li>
+          <li>
+            <span class="dot">4</span>
+            <strong>Seller is paid</strong>
+            <span class="desc">Funds release, minus a 3% service fee.</span>
+          </li>
+        </ol>
+      </div>
+
+      <p class="auth-foot">SIA101 UI prototype – Team Alt-F4</p>
+    </section>
+
+    <!-- Right: sign in / create account -->
+    <section class="auth-panel">
+      <div class="auth-box">
+
+        <div class="tabs" role="tablist">
+          <button type="button" role="tab" id="tab-login" aria-selected="true" aria-controls="form-login">Sign in</button>
+          <button type="button" role="tab" id="tab-register" aria-selected="false" aria-controls="form-register">Create account</button>
+        </div>
+
+        <!-- Sign in -->
+        <form id="form-login" action="dashboard.html" aria-labelledby="tab-login">
+          <h2>Welcome back</h2>
+          <p class="hint" style="margin-bottom:1.5rem">Sign in to see your trades.</p>
+
+          <div class="field">
+            <label for="login-email">Email</label>
+            <input id="login-email" type="email" placeholder="you@example.com" required>
+          </div>
+          <div class="field">
+            <label for="login-password">Password</label>
+            <input id="login-password" type="password" placeholder="Enter your password" required>
+          </div>
+
+          <button class="btn btn-primary btn-block" type="submit">Sign in</button>
+          <p class="auth-switch">New here? <a href="#" data-switch="register">Create an account</a></p>
+        </form>
+
+        <!-- Create account -->
+        <form id="form-register" action="dashboard.html" aria-labelledby="tab-register" hidden>
+          <h2>Create your account</h2>
+          <p class="hint" style="margin-bottom:1.5rem">It takes a minute. You can buy and sell with one account.</p>
+
+          <div class="field">
+            <label for="reg-name">Full name</label>
+            <input id="reg-name" type="text" placeholder="Juan Dela Cruz" required>
+          </div>
+          <div class="field">
+            <label for="reg-username">Gamer username</label>
+            <input id="reg-username" type="text" placeholder="Shown to trade partners" required>
+          </div>
+          <div class="field">
+            <label for="reg-email">Email</label>
+            <input id="reg-email" type="email" placeholder="you@example.com" required>
+          </div>
+          <div class="row-2">
+            <div class="field">
+              <label for="reg-password">Password</label>
+              <input id="reg-password" type="password" placeholder="8+ characters" minlength="8" required>
+            </div>
+            <div class="field">
+              <label for="reg-confirm">Confirm password</label>
+              <input id="reg-confirm" type="password" placeholder="Repeat password" minlength="8" required>
+            </div>
+          </div>
+
+          <label class="check">
+            <input type="checkbox" required>
+            <span>I agree to the terms, including the 3% service fee on completed trades.</span>
+          </label>
+
+          <button class="btn btn-primary btn-block" type="submit">Create account</button>
+          <p class="auth-switch">Already registered? <a href="#" data-switch="login">Sign in</a></p>
+        </form>
+
+      </div>
+    </section>
+
+  </main>
+
+  <script>
+    // Switch between the Sign in and Create account forms
+    const tabs = {
+      login:    { tab: document.getElementById('tab-login'),    form: document.getElementById('form-login') },
+      register: { tab: document.getElementById('tab-register'), form: document.getElementById('form-register') }
+    };
+
+    function show(name) {
+      for (const key in tabs) {
+        const active = key === name;
+        tabs[key].tab.setAttribute('aria-selected', active);
+        tabs[key].form.hidden = !active;
+      }
+    }
+
+    tabs.login.tab.addEventListener('click', () => show('login'));
+    tabs.register.tab.addEventListener('click', () => show('register'));
+
+    document.querySelectorAll('[data-switch]').forEach(link => {
+      link.addEventListener('click', e => { e.preventDefault(); show(link.dataset.switch); });
+    });
+  </script>
+</body>
+</html>

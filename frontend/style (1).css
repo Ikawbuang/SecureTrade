@@ -1,0 +1,254 @@
+/* ==========================================================
+   SecureTrade – shared stylesheet (UI prototype, SIA101 D5)
+   Change the colors in :root and every page updates.
+   ========================================================== */
+
+:root {
+  /* Color tokens */
+  --ink: #171a33;          /* deepest background */
+  --ink-2: #1f2347;        /* panels */
+  --ink-3: #2b305c;        /* borders, hover */
+  --paper: #f5f6fb;        /* light page background */
+  --white: #ffffff;
+  --gold: #f2b134;         /* main accent: held funds / primary action */
+  --gold-dark: #c98f14;
+  --teal: #2fbfa5;         /* success / released */
+  --red: #e5584f;          /* danger / dispute */
+  --text: #1c1f3a;
+  --text-soft: #5d6288;
+  --text-on-dark: #e9eaf7;
+  --text-on-dark-soft: #a3a7cf;
+
+  /* Type */
+  --font-display: "Chakra Petch", "Segoe UI", system-ui, sans-serif;
+  --font-body: "Figtree", "Segoe UI", system-ui, sans-serif;
+
+  /* Shape */
+  --radius-s: 6px;
+  --radius-m: 12px;
+  --radius-l: 20px;
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+
+html { -webkit-text-size-adjust: 100%; }
+
+body {
+  margin: 0;
+  font-family: var(--font-body);
+  font-size: 16px;
+  line-height: 1.55;
+  color: var(--text);
+  background: var(--paper);
+}
+
+h1, h2, h3 {
+  font-family: var(--font-display);
+  line-height: 1.15;
+  margin: 0 0 .5em;
+}
+h1 { font-size: 2.25rem; font-weight: 700; }
+h2 { font-size: 1.5rem; font-weight: 600; }
+h3 { font-size: 1.1rem; font-weight: 600; }
+
+p { margin: 0 0 1em; }
+a { color: var(--gold-dark); text-underline-offset: 3px; }
+
+:focus-visible {
+  outline: 3px solid var(--gold);
+  outline-offset: 2px;
+}
+
+/* ---------- Buttons ---------- */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: .5rem;
+  padding: .75rem 1.25rem;
+  font: 600 1rem var(--font-body);
+  border: 2px solid transparent;
+  border-radius: var(--radius-s);
+  cursor: pointer;
+  text-decoration: none;
+  transition: background .15s, border-color .15s;
+}
+.btn-primary { background: var(--gold); color: var(--ink); }
+.btn-primary:hover { background: var(--gold-dark); color: var(--white); }
+.btn-outline { background: transparent; border-color: var(--ink-3); color: var(--text); }
+.btn-outline:hover { background: var(--ink-3); color: var(--white); }
+.btn-danger { background: var(--red); color: var(--white); }
+.btn-block { width: 100%; }
+
+/* ---------- Forms ---------- */
+.field { margin-bottom: 1.1rem; }
+.field label {
+  display: block;
+  font-weight: 600;
+  font-size: .9rem;
+  margin-bottom: .35rem;
+}
+.field input,
+.field select,
+.field textarea {
+  width: 100%;
+  padding: .7rem .85rem;
+  font: 1rem var(--font-body);
+  color: var(--text);
+  background: var(--white);
+  border: 2px solid #d5d8ec;
+  border-radius: var(--radius-s);
+}
+.field input:focus,
+.field select:focus,
+.field textarea:focus {
+  outline: none;
+  border-color: var(--gold);
+  box-shadow: 0 0 0 3px rgba(242, 177, 52, .25);
+}
+.hint { font-size: .85rem; color: var(--text-soft); margin-top: .3rem; }
+
+/* ---------- Cards, badges, tables (for later pages) ---------- */
+.card {
+  background: var(--white);
+  border: 1px solid #e0e3f2;
+  border-radius: var(--radius-m);
+  padding: 1.5rem;
+}
+
+.badge {
+  display: inline-block;
+  padding: .2rem .65rem;
+  font-size: .8rem;
+  font-weight: 700;
+  border-radius: 999px;
+}
+.badge-held     { background: #fdf0d0; color: #8a5f00; }
+.badge-released { background: #d6f4ee; color: #146b5a; }
+.badge-dispute  { background: #fbdcd9; color: #9c2a22; }
+.badge-pending  { background: #e4e6f6; color: #3d4272; }
+
+table { width: 100%; border-collapse: collapse; }
+th, td { text-align: left; padding: .75rem .5rem; border-bottom: 1px solid #e6e8f5; }
+th { font-size: .85rem; color: var(--text-soft); font-weight: 600; }
+
+/* ---------- App shell (dashboard pages will reuse this) ---------- */
+.app { display: grid; grid-template-columns: 240px 1fr; min-height: 100vh; }
+.sidebar { background: var(--ink); color: var(--text-on-dark); padding: 1.5rem 1rem; }
+.sidebar a {
+  display: block;
+  padding: .65rem .85rem;
+  margin-bottom: .25rem;
+  color: var(--text-on-dark-soft);
+  text-decoration: none;
+  border-radius: var(--radius-s);
+}
+.sidebar a:hover, .sidebar a[aria-current="page"] { background: var(--ink-3); color: var(--white); }
+.main { padding: 2rem; }
+
+/* ---------- Brand mark ---------- */
+.brand {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 1.35rem;
+  letter-spacing: .01em;
+  color: var(--white);
+  text-decoration: none;
+}
+.brand span { color: var(--gold); }
+
+/* ==========================================================
+   Login / Register page
+   ========================================================== */
+.auth { display: grid; grid-template-columns: 1.05fr 1fr; min-height: 100vh; }
+
+/* Left: the escrow flow – the one memorable element */
+.auth-story {
+  background: var(--ink);
+  color: var(--text-on-dark);
+  padding: 3rem clamp(1.5rem, 5vw, 4.5rem);
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 2.5rem;
+}
+.auth-story h1 { color: var(--white); max-width: 14ch; font-size: clamp(2rem, 4vw, 3rem); }
+.auth-story p { color: var(--text-on-dark-soft); max-width: 42ch; }
+
+.flow { list-style: none; margin: 0; padding: 0; position: relative; }
+.flow::before {              /* the vertical line connecting the steps */
+  content: "";
+  position: absolute;
+  left: 15px; top: 8px; bottom: 8px;
+  width: 2px;
+  background: var(--ink-3);
+}
+.flow li { position: relative; padding: 0 0 1.4rem 3rem; }
+.flow li:last-child { padding-bottom: 0; }
+.flow .dot {
+  position: absolute;
+  left: 0; top: 0;
+  width: 32px; height: 32px;
+  border-radius: 50%;
+  background: var(--ink-2);
+  border: 2px solid var(--ink-3);
+  display: grid;
+  place-items: center;
+  font: 700 .85rem var(--font-display);
+  color: var(--text-on-dark-soft);
+}
+.flow .held .dot { background: var(--gold); border-color: var(--gold); color: var(--ink); }
+.flow strong { display: block; color: var(--white); font-family: var(--font-display); }
+.flow span.desc { color: var(--text-on-dark-soft); font-size: .92rem; }
+
+.auth-foot { font-size: .85rem; color: var(--text-on-dark-soft); margin: 0; }
+
+/* Right: the form */
+.auth-panel {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem 1.25rem;
+}
+.auth-box { width: 100%; max-width: 400px; }
+
+.tabs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  background: #e4e6f6;
+  border-radius: var(--radius-s);
+  padding: 4px;
+  margin-bottom: 1.75rem;
+}
+.tabs button {
+  padding: .6rem;
+  font: 600 .95rem var(--font-body);
+  color: var(--text-soft);
+  background: transparent;
+  border: 0;
+  border-radius: 4px;
+  cursor: pointer;
+}
+.tabs button[aria-selected="true"] { background: var(--white); color: var(--text); }
+
+.auth-box form[hidden] { display: none; }
+.row-2 { display: grid; grid-template-columns: 1fr 1fr; gap: .9rem; }
+.check { display: flex; gap: .55rem; align-items: flex-start; font-size: .9rem; margin-bottom: 1.2rem; }
+.check input { margin-top: .25rem; }
+.auth-switch { text-align: center; font-size: .9rem; color: var(--text-soft); margin-top: 1.25rem; }
+
+/* ---------- Responsive ---------- */
+@media (max-width: 860px) {
+  .auth { grid-template-columns: 1fr; }
+  .auth-story { padding: 1.75rem 1.5rem; gap: 1.5rem; }
+  .flow { display: none; }            /* keep mobile login short */
+  .app { grid-template-columns: 1fr; }
+  .sidebar { padding: 1rem; }
+}
+@media (max-width: 480px) {
+  .row-2 { grid-template-columns: 1fr; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * { transition: none !important; }
+}
