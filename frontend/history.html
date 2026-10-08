@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>History – SecureTrade</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=Figtree:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+  <style>
+    /* Page-specific styles (style.css stays unchanged) */
+    .sidebar .brand { display: block; margin-bottom: 2rem; padding-left: .85rem; }
+    .sidebar .spacer { margin-top: 2rem; padding-top: 1rem; border-top: 1px solid var(--ink-3); }
+    .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+    .page-head { margin-bottom: 1.5rem; }
+    .page-head h1 { margin: 0; font-size: 1.9rem; }
+    .page-head p { margin: .25rem 0 0; color: var(--text-soft); }
+
+    .filters { display: flex; gap: .75rem; flex-wrap: wrap; margin-bottom: 1.25rem; }
+    .filters input, .filters select {
+      padding: .65rem .85rem; font: 1rem var(--font-body); color: var(--text);
+      background: var(--white); border: 2px solid #d5d8ec; border-radius: var(--radius-s);
+    }
+    .filters input { flex: 1; min-width: 200px; }
+    .filters input:focus, .filters select:focus { outline: none; border-color: var(--gold); }
+
+    .table-wrap { overflow-x: auto; }
+    .role { color: var(--text-soft); font-size: .9rem; }
+    .link-btn { background: none; border: 0; padding: 0; font: 600 1rem var(--font-body); color: var(--gold-dark); text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
+    .empty { padding: 1.5rem .5rem; color: var(--text-soft); }
+    .empty[hidden] { display: none; }
+
+    /* Receipt dialog */
+    dialog.receipt { border: 0; border-radius: var(--radius-l); padding: 0; width: min(92vw, 420px); }
+    dialog.receipt::backdrop { background: rgba(23, 26, 51, .6); }
+    .receipt-top { background: var(--ink); color: var(--text-on-dark); padding: 1.5rem; border-radius: var(--radius-l) var(--radius-l) 0 0; }
+    .receipt-top .brand { font-size: 1.15rem; }
+    .receipt-top p { margin: .5rem 0 0; color: var(--text-on-dark-soft); font-size: .9rem; }
+    .receipt-body { padding: 1.25rem 1.5rem 1.5rem; }
+    .receipt-body .line { display: flex; justify-content: space-between; gap: 1rem; padding: .5rem 0; border-bottom: 1px dashed #d5d8ec; }
+    .receipt-body dt { color: var(--text-soft); }
+    .receipt-body dd { margin: 0; font-weight: 600; text-align: right; }
+    .receipt-body .total dd { font: 700 1.2rem var(--font-display); color: var(--gold-dark); }
+    .receipt-body dl { margin: 0 0 1.25rem; }
+    .receipt-actions { display: flex; gap: .75rem; }
+    .receipt-actions .btn { flex: 1; }
+  </style>
+</head>
+<body>
+  <div class="app">
+
+    <nav class="sidebar" aria-label="Main">
+      <a class="brand" href="dashboard.html">Secure<span>Trade</span></a>
+      <a href="dashboard.html">Dashboard</a>
+      <a href="create-transaction.html">New trade</a>
+      <a href="transaction.html">My trades</a>
+      <a href="dispute.html">Disputes</a>
+      <a href="history.html" aria-current="page">History</a>
+      <div class="spacer">
+        <a href="login.html">Sign out</a>
+      </div>
+    </nav>
+
+    <main class="main">
+
+      <header class="page-head">
+        <h1>Trade history</h1>
+        <p>Every trade you have made, with a receipt for each completed one.</p>
+      </header>
+
+      <div class="filters">
+        <label class="sr-only" for="search">Search trades</label>
+        <input id="search" type="search" placeholder="Search by item or username">
+        <label class="sr-only" for="status">Filter by status</label>
+        <select id="status">
+          <option value="all">All statuses</option>
+          <option value="completed">Completed</option>
+          <option value="refunded">Refunded</option>
+          <option value="cancelled">Cancelled</option>
+        </select>
+      </div>
+
+      <section class="card" aria-label="Past trades">
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Date</th>
+                <th>Item</th>
+                <th>You were the</th>
+                <th>Partner</th>
+                <th>Amount</th>
+                <th>Status</th>
+                <th><span class="sr-only">Receipt</span></th>
+              </tr>
+            </thead>
+            <tbody id="rows">
+              <tr data-status="completed" data-id="ST-1031" data-fee="90.00">
+                <td>Oct 5, 2026</td>
+                <td>Valorant account (Gold)</td>
+                <td class="role">Seller</td>
+                <td>@jett_ph</td>
+                <td>₱3,000</td>
+                <td><span class="badge badge-released">Completed</span></td>
+                <td><button class="link-btn" type="button">Receipt</button></td>
+              </tr>
+              <tr data-status="completed" data-id="ST-1024" data-fee="36.00">
+                <td>Sep 29, 2026</td>
+                <td>Mobile Legends skin</td>
+                <td class="role">Buyer</td>
+                <td>@kuya_rico</td>
+                <td>₱1,200</td>
+                <td><span class="badge badge-released">Completed</span></td>
+                <td><button class="link-btn" type="button">Receipt</button></td>
+              </tr>
+              <tr data-status="refunded" data-id="ST-1018" data-fee="0.00">
+                <td>Sep 21, 2026</td>
+                <td>Roblox Robux (1,000)</td>
+                <td class="role">Buyer</td>
+                <td>@mika_plays</td>
+                <td>₱500</td>
+                <td><span class="badge badge-dispute">Refunded</span></td>
+                <td>-</td>
+              </tr>
+              <tr data-status="completed" data-id="ST-1009" data-fee="45.00">
+                <td>Sep 12, 2026</td>
+                <td>Genshin primogems (1,980)</td>
+                <td class="role">Seller</td>
+                <td>@paimon_ph</td>
+                <td>₱1,500</td>
+                <td><span class="badge badge-released">Completed</span></td>
+                <td><button class="link-btn" type="button">Receipt</button></td>
+              </tr>
+              <tr data-status="cancelled" data-id="ST-1002" data-fee="0.00">
+                <td>Sep 3, 2026</td>
+                <td>Valorant skin bundle</td>
+                <td class="role">Buyer</td>
+                <td>@sage_main</td>
+                <td>₱800</td>
+                <td><span class="badge badge-pending">Cancelled</span></td>
+                <td>-</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <p class="empty" id="empty" hidden>No trades match your search. Try a different word or status.</p>
+      </section>
+
+    </main>
+  </div>
+
+  <!-- Digital receipt -->
+  <dialog class="receipt" id="receipt" aria-labelledby="r-title">
+    <div class="receipt-top">
+      <span class="brand">Secure<span>Trade</span></span>
+      <p id="r-title">Digital receipt</p>
+    </div>
+    <div class="receipt-body">
+      <dl>
+        <div class="line"><dt>Trade</dt><dd id="r-id"></dd></div>
+        <div class="line"><dt>Date</dt><dd id="r-date"></dd></div>
+        <div class="line"><dt>Item</dt><dd id="r-item"></dd></div>
+        <div class="line"><dt>Partner</dt><dd id="r-partner"></dd></div>
+        <div class="line"><dt>Item price</dt><dd id="r-price"></dd></div>
+        <div class="line"><dt>Service fee (3%)</dt><dd id="r-fee"></dd></div>
+        <div class="line total"><dt>Seller received</dt><dd id="r-net"></dd></div>
+      </dl>
+      <div class="receipt-actions">
+        <button class="btn btn-outline" type="button" id="r-print">Print</button>
+        <button class="btn btn-primary" type="button" id="r-close">Close</button>
+      </div>
+    </div>
+  </dialog>
+
+  <script>
+    const rows = [...document.querySelectorAll('#rows tr')];
+    const search = document.getElementById('search');
+    const status = document.getElementById('status');
+    const empty = document.getElementById('empty');
+
+    // Filter by status and search text
+    function filter() {
+      const q = search.value.trim().toLowerCase();
+      let shown = 0;
+      rows.forEach(row => {
+        const okStatus = status.value === 'all' || row.dataset.status === status.value;
+        const okText = row.textContent.toLowerCase().includes(q);
+        row.hidden = !(okStatus && okText);
+        if (!row.hidden) shown++;
+      });
+      empty.hidden = shown > 0;
+    }
+    search.addEventListener('input', filter);
+    status.addEventListener('change', filter);
+
+    // Receipt dialog
+    const dlg = document.getElementById('receipt');
+    const peso = n => '₱' + n.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+    rows.forEach(row => {
+      const btn = row.querySelector('.link-btn');
+      if (!btn) return;
+      btn.addEventListener('click', () => {
+        const c = row.cells;
+        const price = parseFloat(c[4].textContent.replace(/[^0-9.]/g, ''));
+        const fee = parseFloat(row.dataset.fee);
+        document.getElementById('r-id').textContent = '#' + row.dataset.id;
+        document.getElementById('r-date').textContent = c[0].textContent;
+        document.getElementById('r-item').textContent = c[1].textContent;
+        document.getElementById('r-partner').textContent = c[3].textContent;
+        document.getElementById('r-price').textContent = peso(price);
+        document.getElementById('r-fee').textContent = peso(fee);
+        document.getElementById('r-net').textContent = peso(price - fee);
+        dlg.showModal();
+      });
+    });
+
+    document.getElementById('r-close').addEventListener('click', () => dlg.close());
+    document.getElementById('r-print').addEventListener('click', () => window.print());
+  </script>
+</body>
+</html>
