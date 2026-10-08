@@ -12,6 +12,7 @@
     /* Page-specific styles (style.css stays unchanged) */
     .sidebar .brand { display: block; margin-bottom: 2rem; padding-left: .85rem; }
     .sidebar .spacer { margin-top: 2rem; padding-top: 1rem; border-top: 1px solid var(--ink-3); }
+    .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 
     .page-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem; flex-wrap: wrap; margin-bottom: 1.5rem; }
     .page-head h1 { margin: 0; font-size: 1.9rem; }
@@ -23,7 +24,7 @@
     /* Status tracker */
     .tracker { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(4, 1fr); gap: .5rem; }
     .tracker li { position: relative; padding-top: 2.4rem; font-size: .88rem; color: var(--text-soft); }
-    .tracker li::before {           /* the dot */
+    .tracker li::before {
       content: attr(data-n);
       position: absolute; top: 0; left: 0;
       width: 30px; height: 30px; border-radius: 50%;
@@ -32,7 +33,7 @@
       background: #e4e6f6; color: var(--text-soft);
       z-index: 1;
     }
-    .tracker li::after {            /* the line to the next dot */
+    .tracker li::after {
       content: "";
       position: absolute; top: 14px; left: 34px; right: -.5rem;
       height: 2px; background: #e4e6f6;
@@ -46,15 +47,12 @@
     .notice { margin: 1.25rem 0 0; padding: .85rem 1rem; background: #fff8e6; border-left: 4px solid var(--gold); border-radius: var(--radius-s); font-size: .92rem; }
     .notice.ok { background: #e3f7f2; border-color: var(--teal); }
     .actions { display: flex; gap: .75rem; flex-wrap: wrap; margin-top: 1.25rem; }
-    .btn[disabled] { opacity: .5; cursor: not-allowed; }
 
-    /* Trade details list */
     .details { margin: 0; }
     .details .line { display: flex; justify-content: space-between; gap: 1rem; padding: .55rem 0; border-bottom: 1px solid #e6e8f5; }
     .details dt { color: var(--text-soft); }
     .details dd { margin: 0; font-weight: 600; text-align: right; }
 
-    /* Chat */
     .chat { display: flex; flex-direction: column; height: 360px; }
     .messages { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: .6rem; padding: .25rem .25rem 1rem; }
     .msg { max-width: 80%; padding: .6rem .85rem; border-radius: var(--radius-m); background: #eceef9; font-size: .95rem; }
@@ -65,7 +63,6 @@
     .chat-form input { flex: 1; padding: .65rem .85rem; font: 1rem var(--font-body); border: 2px solid #d5d8ec; border-radius: var(--radius-s); }
     .chat-form input:focus { outline: none; border-color: var(--gold); }
 
-    /* Evidence */
     .evidence input[type="file"] { width: 100%; padding: .7rem; border: 2px dashed #c3c7e3; border-radius: var(--radius-s); background: var(--paper); }
     .files { list-style: none; margin: .75rem 0 0; padding: 0; font-size: .92rem; }
     .files li { padding: .35rem 0; border-bottom: 1px solid #e6e8f5; }
@@ -93,10 +90,10 @@
 
       <header class="page-head">
         <div>
-          <h1>Genshin primogems (3,280)</h1>
-          <p>Trade #ST-1042 · You are the buyer</p>
+          <h1 id="title"></h1>
+          <p id="subtitle"></p>
         </div>
-        <span class="badge badge-held" id="status-badge">Waiting for your confirmation</span>
+        <span class="badge" id="status-badge"></span>
       </header>
 
       <div class="layout">
@@ -105,29 +102,14 @@
 
           <section class="card" aria-labelledby="progress-title">
             <h2 id="progress-title">Trade progress</h2>
-            <ol class="tracker" id="tracker">
-              <li class="done"    data-n="1"><strong>Paid</strong>Your ₱1,500 is held in escrow.</li>
-              <li class="done"    data-n="2"><strong>Delivered</strong>Seller says the item was sent.</li>
-              <li class="current" data-n="3"><strong>Your check</strong>Confirm you received it.</li>
-              <li                 data-n="4"><strong>Seller paid</strong>Funds release to the seller.</li>
-            </ol>
-
-            <p class="notice" id="notice">
-              Check your game account first. If you do nothing, payment releases to the seller automatically in 1 hour 42 minutes.
-            </p>
-
-            <div class="actions" id="actions">
-              <button class="btn btn-primary" type="button" id="confirm-btn">I received the item</button>
-              <a class="btn btn-outline" href="dispute.html">Something is wrong</a>
-            </div>
+            <ol class="tracker" id="tracker"></ol>
+            <p class="notice" id="notice"></p>
+            <div class="actions" id="actions"></div>
           </section>
 
           <section class="card chat" aria-labelledby="chat-title">
-            <h2 id="chat-title">Chat with @paimon_ph</h2>
-            <div class="messages" id="messages" aria-live="polite">
-              <div class="msg"><small>@paimon_ph · 2:14 PM</small>Sent the primogems to your UID. Please check.</div>
-              <div class="msg me"><small>You · 2:16 PM</small>Checking now, thanks.</div>
-            </div>
+            <h2 id="chat-title"></h2>
+            <div class="messages" id="messages" aria-live="polite"></div>
             <form class="chat-form" id="chat-form">
               <input id="chat-input" type="text" placeholder="Write a message" aria-label="Message" autocomplete="off">
               <button class="btn btn-primary" type="submit">Send</button>
@@ -140,19 +122,12 @@
 
           <section class="card" aria-labelledby="details-title">
             <h2 id="details-title">Trade details</h2>
-            <dl class="details">
-              <div class="line"><dt>Game</dt><dd>Genshin Impact</dd></div>
-              <div class="line"><dt>Seller</dt><dd>@paimon_ph</dd></div>
-              <div class="line"><dt>Price</dt><dd>₱1,500.00</dd></div>
-              <div class="line"><dt>Service fee (3%)</dt><dd>₱45.00</dd></div>
-              <div class="line"><dt>Seller receives</dt><dd>₱1,455.00</dd></div>
-              <div class="line"><dt>Started</dt><dd>Oct 8, 2026</dd></div>
-            </dl>
+            <dl class="details" id="details"></dl>
           </section>
 
           <section class="card evidence" aria-labelledby="evidence-title">
             <h2 id="evidence-title">Evidence</h2>
-            <p class="hint" style="margin-top:0">Add screenshots that show what was delivered. They help if a dispute is opened.</p>
+            <p class="hint" style="margin-top:0" id="evidence-hint"></p>
             <label class="sr-only" for="evidence-file">Choose screenshots</label>
             <input id="evidence-file" type="file" accept="image/*" multiple>
             <ul class="files" id="files"></ul>
@@ -163,25 +138,162 @@
     </main>
   </div>
 
-  <style>.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }</style>
-
   <script>
-    // Chat: add the message to the list (prototype only, nothing is saved)
-    const form = document.getElementById('chat-form');
-    const input = document.getElementById('chat-input');
-    const box = document.getElementById('messages');
+    // The same page serves both roles. Open it as transaction.html?role=seller for the seller view.
+    const role = new URLSearchParams(location.search).get('role') === 'seller' ? 'seller' : 'buyer';
 
-    form.addEventListener('submit', e => {
-      e.preventDefault();
-      const text = input.value.trim();
-      if (!text) return;
+    const peso = n => '₱' + n.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+    const TRADES = {
+      buyer: {
+        title: 'Genshin primogems (3,280)',
+        subtitle: 'Trade #ST-1042 · You are the buyer',
+        badge: ['badge-held', 'Waiting for your confirmation'],
+        partner: '@paimon_ph', partnerLabel: 'Seller', game: 'Genshin Impact', price: 1500,
+        steps: [
+          ['done', 'Paid', 'Your ₱1,500 is held in escrow.'],
+          ['done', 'Delivered', 'Seller says the item was sent.'],
+          ['current', 'Your check', 'Confirm you received it.'],
+          ['', 'Seller paid', 'Funds release to the seller.']
+        ],
+        notice: 'Check your game account first. If you do nothing, payment releases to the seller automatically in 1 hour 42 minutes.',
+        primary: 'I received the item',
+        evidence: 'Add screenshots that show what was delivered. They help if a dispute is opened.',
+        chat: [['them', '2:14 PM', 'Sent the primogems to your UID. Please check.'], ['me', '2:16 PM', 'Checking now, thanks.']]
+      },
+      seller: {
+        title: 'Mobile Legends account (Mythic)',
+        subtitle: 'Trade #ST-1051 · You are the seller',
+        badge: ['badge-held', 'Your turn: deliver the item'],
+        partner: '@kuya_rico', partnerLabel: 'Buyer', game: 'Mobile Legends', price: 3000,
+        steps: [
+          ['done', 'Buyer paid', '₱3,000 is held in escrow.'],
+          ['current', 'You deliver', 'Hand over the item in-game.'],
+          ['', 'Buyer checks', 'Buyer confirms receipt.'],
+          ['', 'You are paid', '₱2,910.00 releases to you.']
+        ],
+        notice: 'The payment is safe in escrow. Hand over the account in-game, then mark it as delivered. Take screenshots as proof.',
+        primary: 'I delivered the item',
+        evidence: 'Add screenshots that show what you delivered. They protect you if the buyer opens a dispute.',
+        chat: [['them', '1:48 PM', 'I paid. Ready when you are.'], ['me', '1:51 PM', 'Sending the account details now.']]
+      }
+    };
+
+    const t = TRADES[role];
+    const fee = t.price * 0.03;
+    const net = t.price - fee;
+
+    // Header
+    document.getElementById('title').textContent = t.title;
+    document.getElementById('subtitle').textContent = t.subtitle;
+    const badge = document.getElementById('status-badge');
+    badge.className = 'badge ' + t.badge[0];
+    badge.textContent = t.badge[1];
+
+    // Tracker
+    const tracker = document.getElementById('tracker');
+    function drawSteps(steps) {
+      tracker.innerHTML = '';
+      steps.forEach((s, i) => {
+        const li = document.createElement('li');
+        li.className = s[0];
+        li.dataset.n = i + 1;
+        const strong = document.createElement('strong');
+        strong.textContent = s[1];
+        li.append(strong, document.createTextNode(s[2]));
+        tracker.appendChild(li);
+      });
+    }
+    drawSteps(t.steps);
+
+    // Notice and actions
+    const notice = document.getElementById('notice');
+    const actions = document.getElementById('actions');
+    notice.textContent = t.notice;
+
+    function setActions(primaryText, onPrimary) {
+      actions.innerHTML = '';
+      if (primaryText) {
+        const b = document.createElement('button');
+        b.type = 'button';
+        b.className = 'btn btn-primary';
+        b.textContent = primaryText;
+        b.addEventListener('click', onPrimary);
+        actions.appendChild(b);
+      }
+      const d = document.createElement('a');
+      d.className = 'btn btn-outline';
+      d.href = 'dispute.html';
+      d.textContent = 'Something is wrong';
+      actions.appendChild(d);
+    }
+
+    function finish(text) {
+      notice.className = 'notice ok';
+      notice.textContent = text;
+      actions.innerHTML = '<a class="btn btn-outline" href="dashboard.html">Back to dashboard</a>';
+    }
+
+    if (role === 'buyer') {
+      setActions(t.primary, () => {
+        drawSteps([['done', 'Paid', t.steps[0][2]], ['done', 'Delivered', t.steps[1][2]], ['done', 'Your check', 'You confirmed.'], ['done', 'Seller paid', 'Funds were released.']]);
+        badge.className = 'badge badge-released';
+        badge.textContent = 'Completed';
+        finish('Thanks for confirming. ' + peso(net) + ' was released to ' + t.partner + '.');
+      });
+    } else {
+      setActions(t.primary, () => {
+        drawSteps([['done', 'Buyer paid', t.steps[0][2]], ['done', 'You delivered', 'Marked as delivered.'], ['current', 'Buyer checks', 'Waiting for confirmation.'], ['', 'You are paid', t.steps[3][2]]]);
+        badge.className = 'badge badge-pending';
+        badge.textContent = 'Waiting for buyer';
+        notice.className = 'notice';
+        notice.textContent = t.partner + ' has 2 hours to confirm. If they do not respond, ' + peso(net) + ' releases to you automatically.';
+        setActions(null);
+      });
+    }
+
+    // Details
+    const rows = [
+      ['Game', t.game],
+      [t.partnerLabel, t.partner],
+      ['Price', peso(t.price)],
+      ['Service fee (3%)', peso(fee)],
+      [role === 'seller' ? 'You receive' : 'Seller receives', peso(net)],
+      ['Started', 'Oct 8, 2026']
+    ];
+    const dl = document.getElementById('details');
+    rows.forEach(r => {
+      const line = document.createElement('div');
+      line.className = 'line';
+      const dt = document.createElement('dt'); dt.textContent = r[0];
+      const dd = document.createElement('dd'); dd.textContent = r[1];
+      line.append(dt, dd);
+      dl.appendChild(line);
+    });
+
+    // Evidence hint
+    document.getElementById('evidence-hint').textContent = t.evidence;
+
+    // Chat
+    document.getElementById('chat-title').textContent = 'Chat with ' + t.partner;
+    const box = document.getElementById('messages');
+    function addMsg(who, time, text) {
       const msg = document.createElement('div');
-      msg.className = 'msg me';
+      msg.className = 'msg' + (who === 'me' ? ' me' : '');
       const small = document.createElement('small');
-      small.textContent = 'You · now';
+      small.textContent = (who === 'me' ? 'You' : t.partner) + ' · ' + time;
       msg.append(small, document.createTextNode(text));
       box.appendChild(msg);
       box.scrollTop = box.scrollHeight;
+    }
+    t.chat.forEach(m => addMsg(m[0], m[1], m[2]));
+
+    const input = document.getElementById('chat-input');
+    document.getElementById('chat-form').addEventListener('submit', e => {
+      e.preventDefault();
+      const text = input.value.trim();
+      if (!text) return;
+      addMsg('me', 'now', text);
       input.value = '';
     });
 
@@ -194,24 +306,6 @@
         li.textContent = f.name;
         list.appendChild(li);
       }
-    });
-
-    // Confirm receipt: move the tracker to the final step
-    document.getElementById('confirm-btn').addEventListener('click', () => {
-      const steps = document.querySelectorAll('#tracker li');
-      steps[2].className = 'done';
-      steps[3].className = 'done';
-
-      const notice = document.getElementById('notice');
-      notice.className = 'notice ok';
-      notice.textContent = 'Thanks for confirming. ₱1,455.00 was released to @paimon_ph.';
-
-      const badge = document.getElementById('status-badge');
-      badge.className = 'badge badge-released';
-      badge.textContent = 'Completed';
-
-      document.getElementById('actions').innerHTML =
-        '<a class="btn btn-outline" href="dashboard.html">Back to dashboard</a>';
     });
   </script>
 </body>

@@ -172,7 +172,7 @@
                 <td>@kuya_rico</td>
                 <td>₱3,000</td>
                 <td><span class="badge badge-held">Payment held</span></td>
-                <td><a href="transaction.html">Open</a></td>
+                <td><a href="transaction.html?role=seller">Open</a></td>
               </tr>
               <tr data-role="buyer">
                 <td>Valorant skin bundle</td>
@@ -253,7 +253,7 @@
           td.appendChild(b);
         } else if (i === 5) {
           const a = document.createElement('a');
-          a.href = 'transaction.html';
+          a.href = d.role === 'seller' ? 'transaction.html?role=seller' : 'transaction.html';
           a.textContent = 'Open';
           td.appendChild(a);
         } else { td.textContent = text; }
