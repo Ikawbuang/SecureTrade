@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Dashboard – SecureTrade</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=Figtree:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+  <style>
+    /* Page-specific styles (kept here so style.css stays unchanged) */
+    .sidebar .brand { display: block; margin-bottom: 2rem; padding-left: .85rem; }
+    .sidebar .spacer { margin-top: 2rem; padding-top: 1rem; border-top: 1px solid var(--ink-3); }
+
+    .page-head { display: flex; justify-content: space-between; align-items: center; gap: 1rem; flex-wrap: wrap; margin-bottom: 1.75rem; }
+    .page-head h1 { margin: 0; font-size: 1.9rem; }
+    .page-head p { margin: .25rem 0 0; color: var(--text-soft); }
+
+    /* The held-funds figure is the main thing on this page */
+    .vault {
+      background: var(--ink);
+      color: var(--text-on-dark);
+      border-radius: var(--radius-l);
+      padding: 1.75rem 2rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 1.5rem;
+      flex-wrap: wrap;
+      margin-bottom: 1.5rem;
+    }
+    .vault .label { color: var(--text-on-dark-soft); margin: 0 0 .25rem; }
+    .vault .amount { font: 700 2.75rem var(--font-display); color: var(--gold); margin: 0; line-height: 1; }
+    .vault .note { color: var(--text-on-dark-soft); margin: .5rem 0 0; font-size: .92rem; }
+    .vault-side { display: flex; gap: 2rem; }
+    .vault-side div p { margin: 0; }
+    .vault-side .num { font: 700 1.6rem var(--font-display); color: var(--white); }
+    .vault-side .cap { color: var(--text-on-dark-soft); font-size: .9rem; }
+
+    .card-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; }
+    .card-head h2 { margin: 0; }
+    .table-wrap { overflow-x: auto; }
+    td a { font-weight: 600; }
+    .role { color: var(--text-soft); font-size: .9rem; }
+    .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+  </style>
+</head>
+<body>
+  <div class="app">
+
+    <nav class="sidebar" aria-label="Main">
+      <a class="brand" href="dashboard.html">Secure<span>Trade</span></a>
+      <a href="dashboard.html" aria-current="page">Dashboard</a>
+      <a href="create-transaction.html">New trade</a>
+      <a href="transaction.html">My trades</a>
+      <a href="dispute.html">Disputes</a>
+      <a href="history.html">History</a>
+      <div class="spacer">
+        <a href="login.html">Sign out</a>
+      </div>
+    </nav>
+
+    <main class="main">
+
+      <header class="page-head">
+        <div>
+          <h1>Hi, Juan</h1>
+          <p>Here is where your trades stand today.</p>
+        </div>
+        <a class="btn btn-primary" href="create-transaction.html">Start a new trade</a>
+      </header>
+
+      <section class="vault" aria-label="Summary">
+        <div>
+          <p class="label">Held in escrow right now</p>
+          <p class="amount">₱6,000</p>
+          <p class="note">Released once each buyer confirms receipt.</p>
+        </div>
+        <div class="vault-side">
+          <div>
+            <p class="num">3</p>
+            <p class="cap">Active trades</p>
+          </div>
+          <div>
+            <p class="num">1</p>
+            <p class="cap">Open dispute</p>
+          </div>
+          <div>
+            <p class="num">12</p>
+            <p class="cap">Completed</p>
+          </div>
+        </div>
+      </section>
+
+      <section class="card" aria-labelledby="active-title">
+        <div class="card-head">
+          <h2 id="active-title">Active trades</h2>
+          <a href="history.html">See all history</a>
+        </div>
+
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Item</th>
+                <th>You are the</th>
+                <th>Trade partner</th>
+                <th>Amount</th>
+                <th>Status</th>
+                <th><span class="sr-only">Open</span></th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Mobile Legends account (Mythic)</td>
+                <td class="role">Seller</td>
+                <td>@kuya_rico</td>
+                <td>₱3,000</td>
+                <td><span class="badge badge-held">Payment held</span></td>
+                <td><a href="transaction.html">Open</a></td>
+              </tr>
+              <tr>
+                <td>Valorant skin bundle</td>
+                <td class="role">Buyer</td>
+                <td>@sage_main</td>
+                <td>₱1,200</td>
+                <td><span class="badge badge-pending">Waiting for seller</span></td>
+                <td><a href="transaction.html">Open</a></td>
+              </tr>
+              <tr>
+                <td>Roblox limited item</td>
+                <td class="role">Seller</td>
+                <td>@mika_plays</td>
+                <td>₱300</td>
+                <td><span class="badge badge-dispute">In dispute</span></td>
+                <td><a href="dispute.html">Open</a></td>
+              </tr>
+              <tr>
+                <td>Genshin primogems (3,280)</td>
+                <td class="role">Buyer</td>
+                <td>@paimon_ph</td>
+                <td>₱1,500</td>
+                <td><span class="badge badge-released">Confirm receipt</span></td>
+                <td><a href="transaction.html">Open</a></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+    </main>
+  </div>
+</body>
+</html>
