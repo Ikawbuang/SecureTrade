@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Report a problem – SecureTrade</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=Figtree:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+  <style>
+    /* Page-specific styles (style.css stays unchanged) */
+    .sidebar .brand { display: block; margin-bottom: 2rem; padding-left: .85rem; }
+    .sidebar .spacer { margin-top: 2rem; padding-top: 1rem; border-top: 1px solid var(--ink-3); }
+    .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+    .page-head { margin-bottom: 1.75rem; }
+    .page-head h1 { margin: 0; font-size: 1.9rem; }
+    .page-head p { margin: .25rem 0 0; color: var(--text-soft); }
+
+    .layout { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr); gap: 1.5rem; align-items: start; }
+    .stack > * + * { margin-top: 1.5rem; }
+
+    .trade-line { display: flex; justify-content: space-between; align-items: center; gap: 1rem; flex-wrap: wrap; padding: .9rem 1rem; background: var(--paper); border-radius: var(--radius-s); margin-bottom: 1.4rem; }
+    .trade-line strong { font-family: var(--font-display); }
+    .trade-line span { color: var(--text-soft); font-size: .9rem; }
+
+    fieldset.want { border: 0; padding: 0; margin: 0 0 1.1rem; }
+    fieldset.want legend { font-weight: 600; font-size: .9rem; margin-bottom: .5rem; padding: 0; }
+    fieldset.want label { display: flex; gap: .6rem; align-items: flex-start; padding: .7rem .85rem; border: 2px solid #d5d8ec; border-radius: var(--radius-s); margin-bottom: .5rem; cursor: pointer; }
+    fieldset.want label:has(input:checked) { border-color: var(--gold); background: #fff8e6; }
+    fieldset.want input { margin-top: .3rem; }
+    fieldset.want span { display: block; font-size: .85rem; color: var(--text-soft); }
+
+    .evidence input[type="file"] { width: 100%; padding: .7rem; border: 2px dashed #c3c7e3; border-radius: var(--radius-s); background: var(--paper); }
+    .files { list-style: none; margin: .75rem 0 0; padding: 0; font-size: .92rem; }
+    .files li { padding: .35rem 0; border-bottom: 1px solid #e6e8f5; }
+    .actions { display: flex; gap: .75rem; flex-wrap: wrap; margin-top: 1.25rem; }
+
+    .steps { margin: 0; padding-left: 1.2rem; color: var(--text-soft); font-size: .95rem; }
+    .steps li { margin-bottom: .6rem; }
+    .steps strong { color: var(--text); }
+
+    .done-box { text-align: left; }
+    .done-box .badge { margin-bottom: .75rem; }
+    .done-box[hidden], form[hidden] { display: none; }
+
+    @media (max-width: 1000px) { .layout { grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body>
+  <div class="app">
+
+    <nav class="sidebar" aria-label="Main">
+      <a class="brand" href="dashboard.html">Secure<span>Trade</span></a>
+      <a href="dashboard.html">Dashboard</a>
+      <a href="create-transaction.html">New trade</a>
+      <a href="transaction.html">My trades</a>
+      <a href="dispute.html" aria-current="page">Disputes</a>
+      <a href="history.html">History</a>
+      <div class="spacer">
+        <a href="login.html">Sign out</a>
+      </div>
+    </nav>
+
+    <main class="main">
+
+      <header class="page-head">
+        <h1>Report a problem</h1>
+        <p>Tell us what went wrong. Your payment stays in escrow while an admin reviews the trade.</p>
+      </header>
+
+      <div class="layout">
+
+        <section class="card" aria-labelledby="form-title">
+          <h2 id="form-title" class="sr-only">Dispute form</h2>
+
+          <div class="trade-line">
+            <div>
+              <strong>Genshin primogems (3,280)</strong><br>
+              <span>Trade #ST-1042 · Seller @paimon_ph · ₱1,500.00</span>
+            </div>
+            <a href="transaction.html">View trade</a>
+          </div>
+
+          <form id="dispute-form">
+            <div class="field">
+              <label for="reason">What is the problem?</label>
+              <select id="reason" required>
+                <option value="">Choose a reason</option>
+                <option>I did not receive the item</option>
+                <option>The item is different from the description</option>
+                <option>The item is missing parts or was changed after delivery</option>
+                <option>The seller stopped replying</option>
+                <option>Other</option>
+              </select>
+            </div>
+
+            <div class="field">
+              <label for="desc">What happened?</label>
+              <textarea id="desc" rows="5" required placeholder="Say what you expected, what you got, and when you noticed."></textarea>
+              <p class="hint">Include the times and any in-game names or IDs involved.</p>
+            </div>
+
+            <div class="field evidence">
+              <label for="proof">Screenshots or proof</label>
+              <input id="proof" type="file" accept="image/*" multiple>
+              <ul class="files" id="files"></ul>
+            </div>
+
+            <fieldset class="want">
+              <legend>What outcome do you want?</legend>
+              <label>
+                <input type="radio" name="outcome" value="refund" checked>
+                <div>Refund me <span>The full amount goes back to the buyer.</span></div>
+              </label>
+              <label>
+                <input type="radio" name="outcome" value="fix">
+                <div>Ask the seller to fix it <span>The seller gets a chance to correct the delivery first.</span></div>
+              </label>
+            </fieldset>
+
+            <div class="actions">
+              <button class="btn btn-danger" type="submit">Submit dispute</button>
+              <a class="btn btn-outline" href="transaction.html">Back to trade</a>
+            </div>
+          </form>
+
+          <div class="done-box" id="done" hidden>
+            <span class="badge badge-dispute">Dispute open</span>
+            <h2>We received your report</h2>
+            <p>Dispute #DP-218 was opened for trade #ST-1042. The seller was notified and the payment is frozen until an admin decides.</p>
+            <div class="actions">
+              <a class="btn btn-primary" href="dashboard.html">Back to dashboard</a>
+              <a class="btn btn-outline" href="transaction.html">View trade</a>
+            </div>
+          </div>
+        </section>
+
+        <aside class="card" aria-labelledby="next-title">
+          <h2 id="next-title">What happens next</h2>
+          <ol class="steps">
+            <li><strong>Payment is frozen.</strong> Automatic release stops while the dispute is open.</li>
+            <li><strong>The seller replies.</strong> They can add their own message and screenshots.</li>
+            <li><strong>An admin reviews both sides.</strong> They read the chat and the evidence.</li>
+            <li><strong>You get a decision.</strong> The money is refunded to you or released to the seller.</li>
+          </ol>
+        </aside>
+
+      </div>
+    </main>
+  </div>
+
+  <script>
+    // Evidence: list the chosen file names
+    document.getElementById('proof').addEventListener('change', e => {
+      const list = document.getElementById('files');
+      list.innerHTML = '';
+      for (const f of e.target.files) {
+        const li = document.createElement('li');
+        li.textContent = f.name;
+        list.appendChild(li);
+      }
+    });
+
+    // Submit: hide the form and show the confirmation (prototype only)
+    document.getElementById('dispute-form').addEventListener('submit', e => {
+      e.preventDefault();
+      e.target.hidden = true;
+      document.querySelector('.trade-line').hidden = true;
+      document.getElementById('done').hidden = false;
+    });
+  </script>
+</body>
+</html>
