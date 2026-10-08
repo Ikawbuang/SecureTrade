@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>New trade – SecureTrade</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=Figtree:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+  <style>
+    /* Page-specific styles (style.css stays unchanged) */
+    .sidebar .brand { display: block; margin-bottom: 2rem; padding-left: .85rem; }
+    .sidebar .spacer { margin-top: 2rem; padding-top: 1rem; border-top: 1px solid var(--ink-3); }
+
+    .page-head { margin-bottom: 1.75rem; }
+    .page-head h1 { margin: 0; font-size: 1.9rem; }
+    .page-head p { margin: .25rem 0 0; color: var(--text-soft); }
+
+    .layout { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr); gap: 1.5rem; align-items: start; }
+
+    /* Buyer / seller choice */
+    .role-pick { display: grid; grid-template-columns: 1fr 1fr; gap: .75rem; margin-bottom: 1.4rem; border: 0; padding: 0; }
+    .role-pick legend { font-weight: 600; font-size: .9rem; margin-bottom: .5rem; padding: 0; }
+    .role-pick label {
+      display: block;
+      padding: .9rem 1rem;
+      border: 2px solid #d5d8ec;
+      border-radius: var(--radius-m);
+      cursor: pointer;
+    }
+    .role-pick input { position: absolute; opacity: 0; }
+    .role-pick strong { display: block; font-family: var(--font-display); }
+    .role-pick span { font-size: .85rem; color: var(--text-soft); }
+    .role-pick label:has(input:checked) { border-color: var(--gold); background: #fff8e6; }
+    .role-pick label:has(input:focus-visible) { outline: 3px solid var(--gold); outline-offset: 2px; }
+
+    .row-2 { display: grid; grid-template-columns: 1fr 1fr; gap: .9rem; }
+    .actions { display: flex; gap: .75rem; flex-wrap: wrap; margin-top: .5rem; }
+
+    /* Fee preview */
+    .summary h2 { font-size: 1.2rem; }
+    .summary dl { margin: 0 0 1.25rem; }
+    .summary .line { display: flex; justify-content: space-between; padding: .55rem 0; border-bottom: 1px solid #e6e8f5; }
+    .summary dt { color: var(--text-soft); }
+    .summary dd { margin: 0; font-weight: 600; }
+    .summary .total dt { color: var(--text); font-weight: 600; }
+    .summary .total dd { font: 700 1.3rem var(--font-display); color: var(--gold-dark); }
+    .steps { margin: 0; padding-left: 1.2rem; color: var(--text-soft); font-size: .92rem; }
+    .steps li { margin-bottom: .45rem; }
+  </style>
+</head>
+<body>
+  <div class="app">
+
+    <nav class="sidebar" aria-label="Main">
+      <a class="brand" href="dashboard.html">Secure<span>Trade</span></a>
+      <a href="dashboard.html">Dashboard</a>
+      <a href="create-transaction.html" aria-current="page">New trade</a>
+      <a href="transaction.html">My trades</a>
+      <a href="dispute.html">Disputes</a>
+      <a href="history.html">History</a>
+      <div class="spacer">
+        <a href="login.html">Sign out</a>
+      </div>
+    </nav>
+
+    <main class="main">
+
+      <header class="page-head">
+        <h1>Start a new trade</h1>
+        <p>Fill in the deal. Your trade partner gets a request to accept it.</p>
+      </header>
+
+      <div class="layout">
+
+        <form class="card" action="transaction.html">
+          <fieldset class="role-pick">
+            <legend>I am the</legend>
+            <label>
+              <input type="radio" name="role" value="buyer" checked>
+              <strong>Buyer</strong>
+              <span>I will pay into escrow.</span>
+            </label>
+            <label>
+              <input type="radio" name="role" value="seller">
+              <strong>Seller</strong>
+              <span>I will hand over the item.</span>
+            </label>
+          </fieldset>
+
+          <div class="row-2">
+            <div class="field">
+              <label for="game">Game</label>
+              <select id="game" required>
+                <option value="">Choose a game</option>
+                <option>Mobile Legends</option>
+                <option>Valorant</option>
+                <option>Roblox</option>
+                <option>Genshin Impact</option>
+                <option>Other</option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="partner">Trade partner's username</label>
+              <input id="partner" type="text" placeholder="@username" required>
+            </div>
+          </div>
+
+          <div class="field">
+            <label for="item">Item name</label>
+            <input id="item" type="text" placeholder="Example: Mythic account, 120 skins" required>
+          </div>
+
+          <div class="field">
+            <label for="details">Item details</label>
+            <textarea id="details" rows="4" placeholder="Describe exactly what will be handed over, so both sides agree."></textarea>
+            <p class="hint">Clear details make disputes easier to settle.</p>
+          </div>
+
+          <div class="field">
+            <label for="price">Price (₱)</label>
+            <input id="price" type="number" min="1" step="1" placeholder="0" required>
+          </div>
+
+          <div class="actions">
+            <button class="btn btn-primary" type="submit">Send trade request</button>
+            <a class="btn btn-outline" href="dashboard.html">Cancel</a>
+          </div>
+        </form>
+
+        <aside class="card summary" aria-label="Trade summary">
+          <h2>Cost breakdown</h2>
+          <dl>
+            <div class="line"><dt>Item price</dt><dd id="s-price">₱0.00</dd></div>
+            <div class="line"><dt>Service fee (3%)</dt><dd id="s-fee">₱0.00</dd></div>
+            <div class="line total"><dt>Seller receives</dt><dd id="s-net">₱0.00</dd></div>
+          </dl>
+
+          <h3>What happens next</h3>
+          <ol class="steps">
+            <li>Your partner accepts the trade.</li>
+            <li>The buyer pays into escrow.</li>
+            <li>The seller hands over the item in-game.</li>
+            <li>The buyer confirms, or payment releases automatically 2 hours after delivery.</li>
+          </ol>
+        </aside>
+
+      </div>
+    </main>
+  </div>
+
+  <script>
+    // Live fee preview: 3% service fee is taken from the seller's payout
+    const price = document.getElementById('price');
+    const peso = n => '₱' + n.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+    function update() {
+      const p = parseFloat(price.value) || 0;
+      const fee = p * 0.03;
+      document.getElementById('s-price').textContent = peso(p);
+      document.getElementById('s-fee').textContent = peso(fee);
+      document.getElementById('s-net').textContent = peso(p - fee);
+    }
+    price.addEventListener('input', update);
+  </script>
+</body>
+</html>
