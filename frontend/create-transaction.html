@@ -48,6 +48,11 @@
     .summary .total dd { font: 700 1.3rem var(--font-display); color: var(--gold-dark); }
     .steps { margin: 0; padding-left: 1.2rem; color: var(--text-soft); font-size: .92rem; }
     .steps li { margin-bottom: .45rem; }
+
+    .sent[hidden], form[hidden] { display: none; }
+    .sent h2 { margin-top: .5rem; }
+    .sent p { color: var(--text-soft); }
+    .sent strong { color: var(--text); }
   </style>
 </head>
 <body>
@@ -74,7 +79,7 @@
 
       <div class="layout">
 
-        <form class="card" action="transaction.html">
+        <form class="card" id="trade-form" action="dashboard.html">
           <fieldset class="role-pick">
             <legend>I am the</legend>
             <label>
@@ -129,6 +134,17 @@
           </div>
         </form>
 
+        <section class="card sent" id="sent" hidden aria-live="polite">
+          <span class="badge badge-pending">Request sent</span>
+          <h2>Waiting for <span id="sent-partner">your partner</span> to accept</h2>
+          <p id="sent-text"></p>
+          <p>They will see this request on their dashboard. You will find the trade under Active trades once they accept.</p>
+          <div class="actions">
+            <a class="btn btn-primary" href="dashboard.html">Back to dashboard</a>
+            <a class="btn btn-outline" href="create-transaction.html">Start another trade</a>
+          </div>
+        </section>
+
         <aside class="card summary" aria-label="Trade summary">
           <h2>Cost breakdown</h2>
           <dl>
@@ -163,6 +179,21 @@
       document.getElementById('s-net').textContent = peso(p - fee);
     }
     price.addEventListener('input', update);
+
+    // Submit: send the request to the partner (prototype only, nothing is saved)
+    document.getElementById('trade-form').addEventListener('submit', e => {
+      e.preventDefault();
+      const role = document.querySelector('input[name="role"]:checked').value;
+      const partner = document.getElementById('partner').value.trim() || 'your partner';
+
+      document.getElementById('sent-partner').textContent = partner;
+      document.getElementById('sent-text').textContent = role === 'buyer'
+        ? 'You asked to buy from ' + partner + '. After they accept, you pay into escrow and they hand over the item.'
+        : 'You offered to sell to ' + partner + '. After they accept, they pay into escrow and you hand over the item.';
+
+      e.target.hidden = true;
+      document.getElementById('sent').hidden = false;
+    });
   </script>
 </body>
 </html>

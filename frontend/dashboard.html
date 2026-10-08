@@ -12,10 +12,23 @@
     /* Page-specific styles (kept here so style.css stays unchanged) */
     .sidebar .brand { display: block; margin-bottom: 2rem; padding-left: .85rem; }
     .sidebar .spacer { margin-top: 2rem; padding-top: 1rem; border-top: 1px solid var(--ink-3); }
+    .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 
     .page-head { display: flex; justify-content: space-between; align-items: center; gap: 1rem; flex-wrap: wrap; margin-bottom: 1.75rem; }
     .page-head h1 { margin: 0; font-size: 1.9rem; }
     .page-head p { margin: .25rem 0 0; color: var(--text-soft); }
+
+    /* Incoming trade requests */
+    .requests { margin-bottom: 1.5rem; border-left: 5px solid var(--gold); }
+    .requests .card-head { margin-bottom: .5rem; }
+    .request { display: flex; justify-content: space-between; align-items: center; gap: 1rem; flex-wrap: wrap; padding: 1rem 0; border-top: 1px solid #e6e8f5; }
+    .request:first-of-type { border-top: 0; }
+    .request p { margin: 0; }
+    .request .who { font-weight: 600; }
+    .request .what { color: var(--text-soft); font-size: .92rem; margin-top: .15rem; }
+    .request .btns { display: flex; gap: .5rem; }
+    .btn-small { padding: .5rem .9rem; font-size: .92rem; }
+    .no-requests { color: var(--text-soft); margin: .5rem 0 0; }
 
     /* The held-funds figure is the main thing on this page */
     .vault {
@@ -38,12 +51,18 @@
     .vault-side .num { font: 700 1.6rem var(--font-display); color: var(--white); }
     .vault-side .cap { color: var(--text-on-dark-soft); font-size: .9rem; }
 
-    .card-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; }
+    .card-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; gap: 1rem; flex-wrap: wrap; }
     .card-head h2 { margin: 0; }
     .table-wrap { overflow-x: auto; }
     td a { font-weight: 600; }
     .role { color: var(--text-soft); font-size: .9rem; }
-    .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+    /* Buying / Selling tabs */
+    .filter-tabs { display: inline-flex; background: #e4e6f6; border-radius: var(--radius-s); padding: 4px; }
+    .filter-tabs button { padding: .45rem .9rem; font: 600 .9rem var(--font-body); color: var(--text-soft); background: transparent; border: 0; border-radius: 4px; cursor: pointer; }
+    .filter-tabs button[aria-selected="true"] { background: var(--white); color: var(--text); }
+    .empty { color: var(--text-soft); padding: 1rem .5rem 0; }
+    [hidden] { display: none !important; }
   </style>
 </head>
 <body>
@@ -71,6 +90,37 @@
         <a class="btn btn-primary" href="create-transaction.html">Start a new trade</a>
       </header>
 
+      <!-- Requests from other users: they appear here whether the sender is a buyer or a seller -->
+      <section class="card requests" aria-labelledby="req-title" id="requests">
+        <div class="card-head">
+          <h2 id="req-title">Trade requests <span class="badge badge-held" id="req-badge">2 new</span></h2>
+        </div>
+
+        <div class="request" data-role="seller" data-partner="@sage_main" data-item="Valorant account (Gold)" data-amount="₱2,500">
+          <div>
+            <p class="who">@sage_main wants to buy from you</p>
+            <p class="what">Valorant account (Gold) · ₱2,500 · You would be the seller</p>
+          </div>
+          <div class="btns">
+            <button class="btn btn-primary btn-small" type="button" data-act="accept">Accept</button>
+            <button class="btn btn-outline btn-small" type="button" data-act="decline">Decline</button>
+          </div>
+        </div>
+
+        <div class="request" data-role="buyer" data-partner="@paimon_ph" data-item="Genshin primogems (1,980)" data-amount="₱900">
+          <div>
+            <p class="who">@paimon_ph wants to sell to you</p>
+            <p class="what">Genshin primogems (1,980) · ₱900 · You would be the buyer</p>
+          </div>
+          <div class="btns">
+            <button class="btn btn-primary btn-small" type="button" data-act="accept">Accept</button>
+            <button class="btn btn-outline btn-small" type="button" data-act="decline">Decline</button>
+          </div>
+        </div>
+
+        <p class="no-requests" id="no-requests" hidden>No new requests. When someone starts a trade with you, it will show up here.</p>
+      </section>
+
       <section class="vault" aria-label="Summary">
         <div>
           <p class="label">Held in escrow right now</p>
@@ -79,7 +129,7 @@
         </div>
         <div class="vault-side">
           <div>
-            <p class="num">3</p>
+            <p class="num" id="active-count">4</p>
             <p class="cap">Active trades</p>
           </div>
           <div>
@@ -96,7 +146,11 @@
       <section class="card" aria-labelledby="active-title">
         <div class="card-head">
           <h2 id="active-title">Active trades</h2>
-          <a href="history.html">See all history</a>
+          <div class="filter-tabs" role="tablist" aria-label="Filter trades">
+            <button type="button" role="tab" aria-selected="true" data-filter="all">All</button>
+            <button type="button" role="tab" aria-selected="false" data-filter="buyer">Buying</button>
+            <button type="button" role="tab" aria-selected="false" data-filter="seller">Selling</button>
+          </div>
         </div>
 
         <div class="table-wrap">
@@ -111,8 +165,8 @@
                 <th><span class="sr-only">Open</span></th>
               </tr>
             </thead>
-            <tbody>
-              <tr>
+            <tbody id="trade-rows">
+              <tr data-role="seller">
                 <td>Mobile Legends account (Mythic)</td>
                 <td class="role">Seller</td>
                 <td>@kuya_rico</td>
@@ -120,7 +174,7 @@
                 <td><span class="badge badge-held">Payment held</span></td>
                 <td><a href="transaction.html">Open</a></td>
               </tr>
-              <tr>
+              <tr data-role="buyer">
                 <td>Valorant skin bundle</td>
                 <td class="role">Buyer</td>
                 <td>@sage_main</td>
@@ -128,7 +182,7 @@
                 <td><span class="badge badge-pending">Waiting for seller</span></td>
                 <td><a href="transaction.html">Open</a></td>
               </tr>
-              <tr>
+              <tr data-role="seller">
                 <td>Roblox limited item</td>
                 <td class="role">Seller</td>
                 <td>@mika_plays</td>
@@ -136,7 +190,7 @@
                 <td><span class="badge badge-dispute">In dispute</span></td>
                 <td><a href="dispute.html">Open</a></td>
               </tr>
-              <tr>
+              <tr data-role="buyer">
                 <td>Genshin primogems (3,280)</td>
                 <td class="role">Buyer</td>
                 <td>@paimon_ph</td>
@@ -147,9 +201,80 @@
             </tbody>
           </table>
         </div>
+        <p class="empty" id="empty" hidden>No trades in this tab yet.</p>
       </section>
 
     </main>
   </div>
+
+  <script>
+    const body = document.getElementById('trade-rows');
+    const activeCount = document.getElementById('active-count');
+    const reqBadge = document.getElementById('req-badge');
+    const noRequests = document.getElementById('no-requests');
+    let filter = 'all';
+
+    // Buying / Selling / All tabs
+    function applyFilter() {
+      let shown = 0;
+      body.querySelectorAll('tr').forEach(row => {
+        row.hidden = !(filter === 'all' || row.dataset.role === filter);
+        if (!row.hidden) shown++;
+      });
+      document.getElementById('empty').hidden = shown > 0;
+    }
+    document.querySelectorAll('[data-filter]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        filter = btn.dataset.filter;
+        document.querySelectorAll('[data-filter]').forEach(b => b.setAttribute('aria-selected', b === btn));
+        applyFilter();
+      });
+    });
+
+    // Requests: accept moves the trade into Active trades, decline removes it
+    function updateRequests() {
+      const left = document.querySelectorAll('.request').length;
+      reqBadge.hidden = left === 0;
+      reqBadge.textContent = left + ' new';
+      noRequests.hidden = left > 0;
+    }
+
+    function addRow(d) {
+      const tr = document.createElement('tr');
+      tr.dataset.role = d.role;
+      const cells = [d.item, null, d.partner, d.amount, null, null];
+      cells.forEach((text, i) => {
+        const td = document.createElement('td');
+        if (i === 1) { td.className = 'role'; td.textContent = d.role === 'buyer' ? 'Buyer' : 'Seller'; }
+        else if (i === 4) {
+          const b = document.createElement('span');
+          b.className = 'badge badge-pending';
+          b.textContent = d.role === 'buyer' ? 'Waiting for your payment' : "Waiting for buyer's payment";
+          td.appendChild(b);
+        } else if (i === 5) {
+          const a = document.createElement('a');
+          a.href = 'transaction.html';
+          a.textContent = 'Open';
+          td.appendChild(a);
+        } else { td.textContent = text; }
+        tr.appendChild(td);
+      });
+      body.prepend(tr);
+    }
+
+    document.querySelectorAll('.request').forEach(req => {
+      req.querySelector('[data-act="accept"]').addEventListener('click', () => {
+        addRow(req.dataset);
+        activeCount.textContent = +activeCount.textContent + 1;
+        req.remove();
+        updateRequests();
+        applyFilter();
+      });
+      req.querySelector('[data-act="decline"]').addEventListener('click', () => {
+        req.remove();
+        updateRequests();
+      });
+    });
+  </script>
 </body>
 </html>
