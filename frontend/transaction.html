@@ -138,50 +138,75 @@
     </main>
   </div>
 
+  <script src="data.js"></script>
   <script>
-    // The same page serves both roles. Open it as transaction.html?role=seller for the seller view.
-    const role = new URLSearchParams(location.search).get('role') === 'seller' ? 'seller' : 'buyer';
+    ST.applyBrand();
 
-    const peso = n => '₱' + n.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    // One page for every trade: transaction.html?id=ST-1042
+    // If the id is not found (for example a trade just accepted), fall back to ?role=buyer or ?role=seller.
+    const params = new URLSearchParams(location.search);
+    let trade = ST.findTrade(params.get('id'));
+    if (!trade) {
+      const wanted = params.get('role') === 'seller' ? 'seller' : 'buyer';
+      trade = ST.trades.find(x => x.role === wanted && ['held', 'confirm'].includes(x.status)) || ST.trades[0];
+    }
+    const role = trade.role;
+    const peso = ST.peso;
 
-    const TRADES = {
-      buyer: {
-        title: 'Genshin primogems (3,280)',
-        subtitle: 'Trade #ST-1042 · You are the buyer',
-        badge: ['badge-held', 'Waiting for your confirmation'],
-        partner: '@paimon_ph', partnerLabel: 'Seller', game: 'Genshin Impact', price: 1500,
+    const price = trade.amount;
+    const fee = price * ST.feeRate;
+    const net = price - fee;
+    const P = trade.partner;
+
+    // What the tracker, notice and button say depends on my role and the trade status
+    function viewFor() {
+      if (role === 'seller') {
+        return {
+          badge: ['badge-held', 'Your turn: deliver the item'], partnerLabel: 'Buyer',
+          steps: [
+            ['done', 'Buyer paid', ST.pesoShort(price) + ' is held in escrow.'],
+            ['current', 'You deliver', 'Hand over the item in-game.'],
+            ['', 'Buyer checks', 'Buyer confirms receipt.'],
+            ['', 'You are paid', peso(net) + ' releases to you.']
+          ],
+          notice: 'The payment is safe in escrow. Hand over the item in-game, then mark it as delivered. Take screenshots as proof.',
+          primary: 'I delivered the item',
+          evidence: 'Add screenshots that show what you delivered. They protect you if the buyer opens a dispute.'
+        };
+      }
+      if (trade.status === 'waiting_seller') {
+        return {
+          badge: ['badge-pending', 'Waiting for seller'], partnerLabel: 'Seller',
+          steps: [
+            ['done', 'Paid', 'Your ' + ST.pesoShort(price) + ' is held in escrow.'],
+            ['current', 'Seller delivers', 'Waiting for ' + P + ' to hand over the item.'],
+            ['', 'Your check', 'Confirm you received it.'],
+            ['', 'Seller paid', 'Funds release to the seller.']
+          ],
+          notice: 'Your payment is safe in escrow. You can confirm once the seller marks the item as delivered.',
+          primary: null,
+          evidence: 'Add screenshots if anything looks wrong. They help if a dispute is opened.'
+        };
+      }
+      return {
+        badge: ['badge-held', 'Waiting for your confirmation'], partnerLabel: 'Seller',
         steps: [
-          ['done', 'Paid', 'Your ₱1,500 is held in escrow.'],
+          ['done', 'Paid', 'Your ' + ST.pesoShort(price) + ' is held in escrow.'],
           ['done', 'Delivered', 'Seller says the item was sent.'],
           ['current', 'Your check', 'Confirm you received it.'],
           ['', 'Seller paid', 'Funds release to the seller.']
         ],
-        notice: 'Check your game account first. If you do nothing, payment releases to the seller automatically in 1 hour 42 minutes.',
+        notice: 'Check your game account first. If you do nothing, payment releases to the seller automatically ' + ST.autoReleaseHours + ' hours after delivery.',
         primary: 'I received the item',
-        evidence: 'Add screenshots that show what was delivered. They help if a dispute is opened.',
-        chat: [['them', '2:14 PM', 'Sent the primogems to your UID. Please check.'], ['me', '2:16 PM', 'Checking now, thanks.']]
-      },
-      seller: {
-        title: 'Mobile Legends account (Mythic)',
-        subtitle: 'Trade #ST-1051 · You are the seller',
-        badge: ['badge-held', 'Your turn: deliver the item'],
-        partner: '@kuya_rico', partnerLabel: 'Buyer', game: 'Mobile Legends', price: 3000,
-        steps: [
-          ['done', 'Buyer paid', '₱3,000 is held in escrow.'],
-          ['current', 'You deliver', 'Hand over the item in-game.'],
-          ['', 'Buyer checks', 'Buyer confirms receipt.'],
-          ['', 'You are paid', '₱2,910.00 releases to you.']
-        ],
-        notice: 'The payment is safe in escrow. Hand over the account in-game, then mark it as delivered. Take screenshots as proof.',
-        primary: 'I delivered the item',
-        evidence: 'Add screenshots that show what you delivered. They protect you if the buyer opens a dispute.',
-        chat: [['them', '1:48 PM', 'I paid. Ready when you are.'], ['me', '1:51 PM', 'Sending the account details now.']]
-      }
-    };
+        evidence: 'Add screenshots that show what was delivered. They help if a dispute is opened.'
+      };
+    }
 
-    const t = TRADES[role];
-    const fee = t.price * 0.03;
-    const net = t.price - fee;
+    const t = Object.assign({
+      title: trade.item,
+      subtitle: 'Trade #' + trade.id + ' · You are the ' + role,
+      partner: P, game: trade.game, price: price, chat: trade.chat, started: trade.started
+    }, viewFor());
 
     // Header
     document.getElementById('title').textContent = t.title;
@@ -247,7 +272,7 @@
         badge.className = 'badge badge-pending';
         badge.textContent = 'Waiting for buyer';
         notice.className = 'notice';
-        notice.textContent = t.partner + ' has 2 hours to confirm. If they do not respond, ' + peso(net) + ' releases to you automatically.';
+        notice.textContent = t.partner + ' has ' + ST.autoReleaseHours + ' hours to confirm. If they do not respond, ' + peso(net) + ' releases to you automatically.';
         setActions(null);
       });
     }
@@ -257,9 +282,9 @@
       ['Game', t.game],
       [t.partnerLabel, t.partner],
       ['Price', peso(t.price)],
-      ['Service fee (3%)', peso(fee)],
+      ['Service fee (' + (ST.feeRate * 100) + '%)', peso(fee)],
       [role === 'seller' ? 'You receive' : 'Seller receives', peso(net)],
-      ['Started', 'Oct 8, 2026']
+      ['Started', t.started]
     ];
     const dl = document.getElementById('details');
     rows.forEach(r => {

@@ -84,7 +84,7 @@
 
       <header class="page-head">
         <div>
-          <h1>Hi, Juan</h1>
+          <h1>Hi, <span id="me-first"></span></h1>
           <p>Here is where your trades stand today.</p>
         </div>
         <a class="btn btn-primary" href="create-transaction.html">Start a new trade</a>
@@ -96,27 +96,7 @@
           <h2 id="req-title">Trade requests <span class="badge badge-held" id="req-badge">2 new</span></h2>
         </div>
 
-        <div class="request" data-role="seller" data-partner="@sage_main" data-item="Valorant account (Gold)" data-amount="₱2,500">
-          <div>
-            <p class="who">@sage_main wants to buy from you</p>
-            <p class="what">Valorant account (Gold) · ₱2,500 · You would be the seller</p>
-          </div>
-          <div class="btns">
-            <button class="btn btn-primary btn-small" type="button" data-act="accept">Accept</button>
-            <button class="btn btn-outline btn-small" type="button" data-act="decline">Decline</button>
-          </div>
-        </div>
-
-        <div class="request" data-role="buyer" data-partner="@paimon_ph" data-item="Genshin primogems (1,980)" data-amount="₱900">
-          <div>
-            <p class="who">@paimon_ph wants to sell to you</p>
-            <p class="what">Genshin primogems (1,980) · ₱900 · You would be the buyer</p>
-          </div>
-          <div class="btns">
-            <button class="btn btn-primary btn-small" type="button" data-act="accept">Accept</button>
-            <button class="btn btn-outline btn-small" type="button" data-act="decline">Decline</button>
-          </div>
-        </div>
+        <div id="request-list"></div>
 
         <p class="no-requests" id="no-requests" hidden>No new requests. When someone starts a trade with you, it will show up here.</p>
       </section>
@@ -124,20 +104,20 @@
       <section class="vault" aria-label="Summary">
         <div>
           <p class="label">Held in escrow right now</p>
-          <p class="amount">₱6,000</p>
+          <p class="amount" id="held-amount"></p>
           <p class="note">Released once each buyer confirms receipt.</p>
         </div>
         <div class="vault-side">
           <div>
-            <p class="num" id="active-count">4</p>
+            <p class="num" id="active-count"></p>
             <p class="cap">Active trades</p>
           </div>
           <div>
-            <p class="num">1</p>
+            <p class="num" id="open-disputes"></p>
             <p class="cap">Open dispute</p>
           </div>
           <div>
-            <p class="num">12</p>
+            <p class="num" id="completed-count"></p>
             <p class="cap">Completed</p>
           </div>
         </div>
@@ -165,40 +145,7 @@
                 <th><span class="sr-only">Open</span></th>
               </tr>
             </thead>
-            <tbody id="trade-rows">
-              <tr data-role="seller">
-                <td>Mobile Legends account (Mythic)</td>
-                <td class="role">Seller</td>
-                <td>@kuya_rico</td>
-                <td>₱3,000</td>
-                <td><span class="badge badge-held">Payment held</span></td>
-                <td><a href="transaction.html?role=seller">Open</a></td>
-              </tr>
-              <tr data-role="buyer">
-                <td>Valorant skin bundle</td>
-                <td class="role">Buyer</td>
-                <td>@sage_main</td>
-                <td>₱1,200</td>
-                <td><span class="badge badge-pending">Waiting for seller</span></td>
-                <td><a href="transaction.html">Open</a></td>
-              </tr>
-              <tr data-role="seller">
-                <td>Roblox limited item</td>
-                <td class="role">Seller</td>
-                <td>@mika_plays</td>
-                <td>₱300</td>
-                <td><span class="badge badge-dispute">In dispute</span></td>
-                <td><a href="dispute.html">Open</a></td>
-              </tr>
-              <tr data-role="buyer">
-                <td>Genshin primogems (3,280)</td>
-                <td class="role">Buyer</td>
-                <td>@paimon_ph</td>
-                <td>₱1,500</td>
-                <td><span class="badge badge-released">Confirm receipt</span></td>
-                <td><a href="transaction.html">Open</a></td>
-              </tr>
-            </tbody>
+            <tbody id="trade-rows"></tbody>
           </table>
         </div>
         <p class="empty" id="empty" hidden>No trades in this tab yet.</p>
@@ -207,74 +154,105 @@
     </main>
   </div>
 
+  <script src="data.js"></script>
   <script>
+    ST.applyBrand();
+    document.getElementById('me-first').textContent = ST.me.first;
+
+    const HELD = ['held', 'waiting_seller', 'confirm', 'dispute'];   // statuses where money is in escrow
     const body = document.getElementById('trade-rows');
-    const activeCount = document.getElementById('active-count');
+    const reqList = document.getElementById('request-list');
     const reqBadge = document.getElementById('req-badge');
     const noRequests = document.getElementById('no-requests');
     let filter = 'all';
+    let newId = 1;
 
-    // Buying / Selling / All tabs
-    function applyFilter() {
+    function el(tag, cls, text) {
+      const e = document.createElement(tag);
+      if (cls) e.className = cls;
+      if (text !== undefined) e.textContent = text;
+      return e;
+    }
+
+    function tradeLink(t) {
+      return t.status === 'dispute'
+        ? 'dispute.html?id=' + t.id
+        : 'transaction.html?id=' + t.id + '&role=' + t.role;
+    }
+
+    // Summary numbers + the trades table
+    function renderTrades() {
+      body.innerHTML = '';
       let shown = 0;
-      body.querySelectorAll('tr').forEach(row => {
-        row.hidden = !(filter === 'all' || row.dataset.role === filter);
-        if (!row.hidden) shown++;
+      ST.trades.forEach(t => {
+        if (filter !== 'all' && t.role !== filter) return;
+        shown++;
+        const tr = el('tr');
+        tr.appendChild(el('td', '', t.item));
+        tr.appendChild(el('td', 'role', t.role === 'buyer' ? 'Buyer' : 'Seller'));
+        tr.appendChild(el('td', '', t.partner));
+        tr.appendChild(el('td', '', ST.pesoShort(t.amount)));
+        const status = el('td'); status.appendChild(ST.badge(t.status)); tr.appendChild(status);
+        const open = el('td'); const a = el('a', '', 'Open'); a.href = tradeLink(t); open.appendChild(a); tr.appendChild(open);
+        body.appendChild(tr);
       });
       document.getElementById('empty').hidden = shown > 0;
-    }
-    document.querySelectorAll('[data-filter]').forEach(btn => {
-      btn.addEventListener('click', () => {
-        filter = btn.dataset.filter;
-        document.querySelectorAll('[data-filter]').forEach(b => b.setAttribute('aria-selected', b === btn));
-        applyFilter();
-      });
-    });
 
-    // Requests: accept moves the trade into Active trades, decline removes it
-    function updateRequests() {
-      const left = document.querySelectorAll('.request').length;
+      const held = ST.trades.filter(t => HELD.includes(t.status)).reduce((sum, t) => sum + t.amount, 0);
+      document.getElementById('held-amount').textContent = ST.pesoShort(held);
+      document.getElementById('active-count').textContent = ST.trades.length;
+      document.getElementById('open-disputes').textContent = ST.trades.filter(t => t.status === 'dispute').length;
+      document.getElementById('completed-count').textContent = ST.me.completedTrades;
+    }
+
+    // Incoming requests
+    function renderRequests() {
+      reqList.innerHTML = '';
+      ST.requests.forEach(r => {
+        const row = el('div', 'request');
+        const info = el('div');
+        info.appendChild(el('p', 'who', r.myRole === 'seller' ? r.from + ' wants to buy from you' : r.from + ' wants to sell to you'));
+        info.appendChild(el('p', 'what', r.item + ' · ' + ST.pesoShort(r.amount) + ' · You would be the ' + r.myRole));
+
+        const btns = el('div', 'btns');
+        const accept = el('button', 'btn btn-primary btn-small', 'Accept'); accept.type = 'button';
+        const decline = el('button', 'btn btn-outline btn-small', 'Decline'); decline.type = 'button';
+
+        accept.addEventListener('click', () => {
+          ST.trades.unshift({
+            id: 'ST-NEW' + newId++, item: r.item, game: r.game, role: r.myRole, partner: r.from, amount: r.amount,
+            status: r.myRole === 'buyer' ? 'await_pay' : 'await_buyer_pay', started: 'Today', chat: []
+          });
+          ST.requests = ST.requests.filter(x => x.id !== r.id);
+          renderRequests(); renderTrades();
+        });
+        decline.addEventListener('click', () => {
+          ST.requests = ST.requests.filter(x => x.id !== r.id);
+          renderRequests();
+        });
+
+        btns.append(accept, decline);
+        row.append(info, btns);
+        reqList.appendChild(row);
+      });
+
+      const left = ST.requests.length;
       reqBadge.hidden = left === 0;
       reqBadge.textContent = left + ' new';
       noRequests.hidden = left > 0;
     }
 
-    function addRow(d) {
-      const tr = document.createElement('tr');
-      tr.dataset.role = d.role;
-      const cells = [d.item, null, d.partner, d.amount, null, null];
-      cells.forEach((text, i) => {
-        const td = document.createElement('td');
-        if (i === 1) { td.className = 'role'; td.textContent = d.role === 'buyer' ? 'Buyer' : 'Seller'; }
-        else if (i === 4) {
-          const b = document.createElement('span');
-          b.className = 'badge badge-pending';
-          b.textContent = d.role === 'buyer' ? 'Waiting for your payment' : "Waiting for buyer's payment";
-          td.appendChild(b);
-        } else if (i === 5) {
-          const a = document.createElement('a');
-          a.href = d.role === 'seller' ? 'transaction.html?role=seller' : 'transaction.html';
-          a.textContent = 'Open';
-          td.appendChild(a);
-        } else { td.textContent = text; }
-        tr.appendChild(td);
-      });
-      body.prepend(tr);
-    }
-
-    document.querySelectorAll('.request').forEach(req => {
-      req.querySelector('[data-act="accept"]').addEventListener('click', () => {
-        addRow(req.dataset);
-        activeCount.textContent = +activeCount.textContent + 1;
-        req.remove();
-        updateRequests();
-        applyFilter();
-      });
-      req.querySelector('[data-act="decline"]').addEventListener('click', () => {
-        req.remove();
-        updateRequests();
+    // Buying / Selling / All tabs
+    document.querySelectorAll('[data-filter]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        filter = btn.dataset.filter;
+        document.querySelectorAll('[data-filter]').forEach(b => b.setAttribute('aria-selected', b === btn));
+        renderTrades();
       });
     });
+
+    renderRequests();
+    renderTrades();
   </script>
 </body>
 </html>

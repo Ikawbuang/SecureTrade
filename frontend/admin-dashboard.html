@@ -14,7 +14,6 @@
     .sidebar .role-tag { display: block; padding-left: .85rem; margin-bottom: 1.75rem; font-size: .85rem; color: var(--gold); font-weight: 600; }
     .sidebar .spacer { margin-top: 2rem; padding-top: 1rem; border-top: 1px solid var(--ink-3); }
     .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
-    html { scroll-behavior: smooth; }
 
     .page-head { margin-bottom: 1.5rem; }
     .page-head h1 { margin: 0; font-size: 1.9rem; }
@@ -84,19 +83,19 @@
 
       <div class="overview">
         <div class="stat urgent">
-          <p class="num" id="open-count">3</p>
+          <p class="num" id="open-count"></p>
           <p class="cap">Disputes waiting for you</p>
         </div>
         <div class="stat">
-          <p class="num">₱48,300</p>
+          <p class="num" id="held"></p>
           <p class="cap">Held in escrow</p>
         </div>
         <div class="stat">
-          <p class="num">214</p>
+          <p class="num" id="month"></p>
           <p class="cap">Trades this month</p>
         </div>
         <div class="stat">
-          <p class="num">₱9,870</p>
+          <p class="num" id="fees"></p>
           <p class="cap">Service fees earned</p>
         </div>
       </div>
@@ -120,23 +119,7 @@
                 <th><span class="sr-only">Review</span></th>
               </tr>
             </thead>
-            <tbody id="d-rows">
-              <tr data-id="DP-214" data-trade="Roblox limited item" data-buyer="@lara_g" data-seller="@mika_plays" data-amount="₱300" data-reason="I did not receive the item" data-story="Seller said it was sent at 8 PM but my inventory is empty. I checked twice." data-reply="Item was sent to the username given. Buyer may have given the wrong account." data-proof="buyer-inventory.png, chat-8pm.png">
-                <td>#DP-214</td><td>Roblox limited item</td><td>@lara_g</td><td>@mika_plays</td><td>₱300</td>
-                <td><span class="badge badge-dispute">Open</span></td>
-                <td><button class="link-btn" type="button">Review</button></td>
-              </tr>
-              <tr data-id="DP-216" data-trade="Mobile Legends account" data-buyer="@dan_ml" data-seller="@kuya_rico" data-amount="₱3,000" data-reason="Item is different from the description" data-story="Listing said Mythic rank. The account is Epic and skins are missing." data-reply="Account was Mythic last season. Rank reset happened after the season ended." data-proof="rank-screen.png, skins-list.png, listing-copy.png">
-                <td>#DP-216</td><td>Mobile Legends account</td><td>@dan_ml</td><td>@kuya_rico</td><td>₱3,000</td>
-                <td><span class="badge badge-dispute">Open</span></td>
-                <td><button class="link-btn" type="button">Review</button></td>
-              </tr>
-              <tr data-id="DP-218" data-trade="Genshin primogems (3,280)" data-buyer="@juan_dc" data-seller="@paimon_ph" data-amount="₱1,500" data-reason="I did not receive the item" data-story="Marked as sent but only 1,640 primogems arrived, not 3,280." data-reply="Sent the full amount in two top-ups. Second one may be delayed." data-proof="primogem-balance.png">
-                <td>#DP-218</td><td>Genshin primogems (3,280)</td><td>@juan_dc</td><td>@paimon_ph</td><td>₱1,500</td>
-                <td><span class="badge badge-dispute">Open</span></td>
-                <td><button class="link-btn" type="button">Review</button></td>
-              </tr>
-            </tbody>
+            <tbody id="d-rows"></tbody>
           </table>
         </div>
       </section>
@@ -152,13 +135,7 @@
             <thead>
               <tr><th>Trade</th><th>Item</th><th>Buyer</th><th>Seller</th><th>Amount</th><th>Status</th></tr>
             </thead>
-            <tbody>
-              <tr><td>#ST-1046</td><td>Valorant skin bundle</td><td>@sage_main</td><td>@jett_ph</td><td>₱1,200</td><td><span class="badge badge-pending">Waiting for seller</span></td></tr>
-              <tr><td>#ST-1045</td><td>Mobile Legends skin</td><td>@dan_ml</td><td>@kuya_rico</td><td>₱600</td><td><span class="badge badge-held">Payment held</span></td></tr>
-              <tr><td>#ST-1044</td><td>Roblox Robux (2,000)</td><td>@lara_g</td><td>@mika_plays</td><td>₱1,000</td><td><span class="badge badge-released">Completed</span></td></tr>
-              <tr><td>#ST-1043</td><td>Genshin account (AR 55)</td><td>@juan_dc</td><td>@paimon_ph</td><td>₱4,500</td><td><span class="badge badge-held">Payment held</span></td></tr>
-              <tr><td>#ST-1042</td><td>Genshin primogems (3,280)</td><td>@juan_dc</td><td>@paimon_ph</td><td>₱1,500</td><td><span class="badge badge-dispute">In dispute</span></td></tr>
-            </tbody>
+            <tbody id="t-rows"></tbody>
           </table>
         </div>
       </section>
@@ -174,12 +151,7 @@
             <thead>
               <tr><th>Username</th><th>Joined</th><th>Trades</th><th>Rating</th><th>Account</th></tr>
             </thead>
-            <tbody>
-              <tr><td>@lara_g</td><td>Oct 6, 2026</td><td>3</td><td>4.8</td><td><span class="badge badge-active">Active</span></td></tr>
-              <tr><td>@dan_ml</td><td>Oct 3, 2026</td><td>7</td><td>4.5</td><td><span class="badge badge-active">Active</span></td></tr>
-              <tr><td>@mika_plays</td><td>Sep 14, 2026</td><td>21</td><td>3.9</td><td><span class="badge badge-flag">Under review</span></td></tr>
-              <tr><td>@paimon_ph</td><td>Aug 30, 2026</td><td>34</td><td>4.9</td><td><span class="badge badge-active">Active</span></td></tr>
-            </tbody>
+            <tbody id="u-rows"></tbody>
           </table>
         </div>
       </section>
@@ -218,49 +190,129 @@
     </div>
   </dialog>
 
+  <script src="data.js"></script>
   <script>
-    const dlg = document.getElementById('review');
-    const rows = document.querySelectorAll('#d-rows tr');
-    const openCount = document.getElementById('open-count');
-    let current = null;
+    ST.applyBrand();
 
+    function el(tag, cls, text) {
+      const e = document.createElement(tag);
+      if (cls) e.className = cls;
+      if (text !== undefined) e.textContent = text;
+      return e;
+    }
+    function row(values) {
+      const tr = el('tr');
+      values.forEach(v => {
+        const td = el('td');
+        if (v instanceof Node) td.appendChild(v); else td.textContent = v;
+        tr.appendChild(td);
+      });
+      return tr;
+    }
     function setText(id, value) { document.getElementById(id).textContent = value; }
 
-    rows.forEach(row => {
-      row.querySelector('.link-btn').addEventListener('click', () => {
-        current = row;
-        const d = row.dataset;
-        setText('rv-title', 'Dispute #' + d.id);
-        setText('rv-sub', d.trade);
-        setText('rv-buyer', d.buyer);
-        setText('rv-seller', d.seller);
-        setText('rv-amount', d.amount);
-        setText('rv-reason', d.reason);
-        setText('rv-story', d.story);
-        setText('rv-reply', d.reply);
-        const list = document.getElementById('rv-proof');
-        list.innerHTML = '';
-        d.proof.split(',').forEach(name => {
-          const li = document.createElement('li');
-          li.textContent = name.trim();
-          list.appendChild(li);
-        });
-        dlg.showModal();
+    // Overview numbers
+    setText('held', ST.pesoShort(ST.admin.heldInEscrow));
+    setText('month', ST.admin.tradesThisMonth);
+    setText('fees', ST.pesoShort(ST.admin.feesEarned));
+
+    // Disputes (status starts as open)
+    const dRows = document.getElementById('d-rows');
+    const openCount = document.getElementById('open-count');
+    const dlg = document.getElementById('review');
+    let current = null;
+
+    ST.admin.disputes.forEach(d => { d.state = d.state || 'open'; });
+
+    function updateOpenCount() {
+      openCount.textContent = ST.admin.disputes.filter(d => d.state === 'open').length;
+    }
+
+    const STATES = {
+      open:     ['badge-dispute',  'Open'],
+      refunded: ['badge-pending',  'Refunded to buyer'],
+      paid:     ['badge-released', 'Paid to seller']
+    };
+
+    function stateBadge(d) {
+      const b = el('span', 'badge ' + STATES[d.state][0], STATES[d.state][1]);
+      return b;
+    }
+
+    function renderDisputes() {
+      dRows.innerHTML = '';
+      ST.admin.disputes.forEach(d => {
+        const btn = el('button', 'link-btn', 'Review');
+        btn.type = 'button';
+        btn.addEventListener('click', () => openReview(d));
+        dRows.appendChild(row(['#' + d.id, d.item, d.buyer, d.seller, ST.pesoShort(d.amount), stateBadge(d), btn]));
       });
+      updateOpenCount();
+    }
+
+    function openReview(d) {
+      current = d;
+      setText('rv-title', 'Dispute #' + d.id);
+      setText('rv-sub', d.item);
+      setText('rv-buyer', d.buyer);
+      setText('rv-seller', d.seller);
+      setText('rv-amount', ST.pesoShort(d.amount));
+      setText('rv-reason', d.reason);
+      setText('rv-story', d.story);
+      setText('rv-reply', d.reply);
+      const list = document.getElementById('rv-proof');
+      list.innerHTML = '';
+      d.proof.forEach(name => list.appendChild(el('li', '', name)));
+      dlg.showModal();
+    }
+
+    // Record the decision (prototype only, nothing is saved)
+    function decide(state) {
+      if (!current) return;
+      current.state = state;
+      dlg.close();
+      renderDisputes();
+    }
+    document.getElementById('refund').addEventListener('click', () => decide('refunded'));
+    document.getElementById('release').addEventListener('click', () => decide('paid'));
+    document.getElementById('rv-close').addEventListener('click', () => dlg.close());
+
+    // Recent transactions
+    const tRows = document.getElementById('t-rows');
+    ST.admin.recentTransactions.forEach(t => {
+      tRows.appendChild(row(['#' + t.id, t.item, t.buyer, t.seller, ST.pesoShort(t.amount), ST.badge(t.status)]));
     });
 
-    // Record the decision: update the row and the open count (prototype only)
-    function decide(text, cls) {
-      if (!current) return;
-      const badge = current.querySelector('.badge');
-      if (badge.textContent === 'Open') openCount.textContent = Math.max(0, +openCount.textContent - 1);
-      badge.className = 'badge ' + cls;
-      badge.textContent = text;
-      dlg.close();
+    // Users: newest sign-ups first
+    const uRows = document.getElementById('u-rows');
+    [...ST.users].sort((a, b) => b.joined.localeCompare(a.joined)).slice(0, 4).forEach(u => {
+      const acct = u.account === 'Active'
+        ? el('span', 'badge badge-active', 'Active')
+        : el('span', 'badge badge-flag', u.account);
+      uRows.appendChild(row([u.username, ST.fmtDate(u.joined), u.trades, u.rating, acct]));
+    });
+
+    renderDisputes();
+
+    // Sidebar: highlight the menu item for the section on screen
+    const menuLinks = [...document.querySelectorAll('.sidebar a[href^="#"]')];
+    function markMenu(id) {
+      menuLinks.forEach(a => {
+        if (a.getAttribute('href') === '#' + id) a.setAttribute('aria-current', 'page');
+        else a.removeAttribute('aria-current');
+      });
     }
-    document.getElementById('refund').addEventListener('click', () => decide('Refunded to buyer', 'badge-pending'));
-    document.getElementById('release').addEventListener('click', () => decide('Paid to seller', 'badge-released'));
-    document.getElementById('rv-close').addEventListener('click', () => dlg.close());
+    menuLinks.forEach(a => a.addEventListener('click', () => markMenu(a.getAttribute('href').slice(1))));
+
+    if ('IntersectionObserver' in window) {
+      const seen = new IntersectionObserver(entries => {
+        entries.forEach(e => { if (e.isIntersecting) markMenu(e.target.id); });
+      }, { rootMargin: '-20% 0px -65% 0px' });
+      menuLinks.forEach(a => {
+        const target = document.getElementById(a.getAttribute('href').slice(1));
+        if (target) seen.observe(target);
+      });
+    }
   </script>
 </body>
 </html>

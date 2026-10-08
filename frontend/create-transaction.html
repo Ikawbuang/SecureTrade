@@ -53,6 +53,31 @@
     .sent h2 { margin-top: .5rem; }
     .sent p { color: var(--text-soft); }
     .sent strong { color: var(--text); }
+
+    /* Right-hand column: cost breakdown, then partner finder */
+    .side > * + * { margin-top: 1.5rem; }
+    .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+    /* Partner finder (list) */
+    .finder h2 { font-size: 1.2rem; }
+    .seg { display: grid; grid-template-columns: repeat(3, 1fr); background: #e4e6f6; border-radius: var(--radius-s); padding: 4px; margin-bottom: .75rem; }
+    .seg button { padding: .5rem .9rem; font: 600 .92rem var(--font-body); color: var(--text-soft); background: transparent; border: 0; border-radius: 4px; cursor: pointer; }
+    .seg button[aria-pressed="true"] { background: var(--white); color: var(--text); }
+    .finder-search { width: 100%; padding: .65rem .85rem; margin-bottom: .75rem; font: 1rem var(--font-body); color: var(--text); background: var(--white); border: 2px solid #d5d8ec; border-radius: var(--radius-s); }
+    .finder-search:focus { outline: none; border-color: var(--gold); }
+    .people { list-style: none; margin: 0; padding: 0; max-height: 320px; overflow-y: auto; border-top: 1px solid #e6e8f5; }
+    .person { display: flex; justify-content: space-between; align-items: center; gap: .75rem; padding: .65rem .35rem; border-bottom: 1px solid #e6e8f5; }
+    .person.selected { background: #fff8e6; }
+    .person strong { display: block; font-family: var(--font-display); font-size: .98rem; word-break: break-all; }
+    .person small { display: block; color: var(--text-soft); font-size: .8rem; }
+    .person .btn { padding: .4rem .85rem; font-size: .9rem; flex-shrink: 0; }
+    .presence { display: inline-flex; align-items: center; gap: .35rem; font-size: .82rem; font-weight: 600; }
+    .presence::before { content: ""; width: 9px; height: 9px; border-radius: 50%; background: #aab0cf; }
+    .presence.online { color: #146b5a; }
+    .presence.online::before { background: var(--teal); }
+    .presence.offline { color: var(--text-soft); }
+    .no-people { color: var(--text-soft); margin: .75rem 0 0; }
+    .no-people[hidden] { display: none; }
   </style>
 </head>
 <body>
@@ -97,14 +122,7 @@
           <div class="row-2">
             <div class="field">
               <label for="game">Game</label>
-              <select id="game" required>
-                <option value="">Choose a game</option>
-                <option>Mobile Legends</option>
-                <option>Valorant</option>
-                <option>Roblox</option>
-                <option>Genshin Impact</option>
-                <option>Other</option>
-              </select>
+              <input id="game" type="text" placeholder="Type the game, e.g. Mobile Legends" required>
             </div>
             <div class="field">
               <label for="partner">Trade partner's username</label>
@@ -145,40 +163,119 @@
           </div>
         </section>
 
-        <aside class="card summary" aria-label="Trade summary">
-          <h2>Cost breakdown</h2>
-          <dl>
-            <div class="line"><dt>Item price</dt><dd id="s-price">₱0.00</dd></div>
-            <div class="line"><dt>Service fee (3%)</dt><dd id="s-fee">₱0.00</dd></div>
-            <div class="line total"><dt>Seller receives</dt><dd id="s-net">₱0.00</dd></div>
-          </dl>
+        <div class="side">
+          <aside class="card summary" aria-label="Trade summary">
+            <h2>Cost breakdown</h2>
+            <dl>
+              <div class="line"><dt>Item price</dt><dd id="s-price">₱0.00</dd></div>
+              <div class="line"><dt>Service fee (<span id="fee-pct"></span>)</dt><dd id="s-fee">₱0.00</dd></div>
+              <div class="line total"><dt>Seller receives</dt><dd id="s-net">₱0.00</dd></div>
+            </dl>
 
-          <h3>What happens next</h3>
-          <ol class="steps">
-            <li>Your partner accepts the trade.</li>
-            <li>The buyer pays into escrow.</li>
-            <li>The seller hands over the item in-game.</li>
-            <li>The buyer confirms, or payment releases automatically 2 hours after delivery.</li>
-          </ol>
-        </aside>
+            <h3>What happens next</h3>
+            <ol class="steps">
+              <li>Your partner accepts the trade.</li>
+              <li>The buyer pays into escrow.</li>
+              <li>The seller hands over the item in-game.</li>
+              <li>The buyer confirms, or payment releases automatically 2 hours after delivery.</li>
+            </ol>
+          </aside>
+
+          <section class="card finder" aria-labelledby="finder-title">
+            <h2 id="finder-title">Find a trade partner</h2>
+            <div class="seg" role="group" aria-label="Filter by status">
+              <button type="button" data-status="all" aria-pressed="true">All</button>
+              <button type="button" data-status="online" aria-pressed="false">Online</button>
+              <button type="button" data-status="offline" aria-pressed="false">Offline</button>
+            </div>
+            <label class="sr-only" for="people-search">Search users</label>
+            <input id="people-search" class="finder-search" type="search" placeholder="Search by username">
+            <ul class="people" id="people"></ul>
+            <p class="no-people" id="no-people" hidden>No users match your search.</p>
+            <p class="hint">Anyone can buy or sell. Offline users can accept your request when they come back.</p>
+          </section>
+        </div>
 
       </div>
     </main>
   </div>
 
+  <script src="data.js"></script>
   <script>
+    ST.applyBrand();
+    document.getElementById('fee-pct').textContent = (ST.feeRate * 100) + '%';
     // Live fee preview: 3% service fee is taken from the seller's payout
     const price = document.getElementById('price');
     const peso = n => '₱' + n.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
     function update() {
       const p = parseFloat(price.value) || 0;
-      const fee = p * 0.03;
+      const fee = p * ST.feeRate;
       document.getElementById('s-price').textContent = peso(p);
       document.getElementById('s-fee').textContent = peso(fee);
       document.getElementById('s-net').textContent = peso(p - fee);
     }
     price.addEventListener('input', update);
+
+    // Partner finder: sample users with online/offline status (prototype data)
+    const USERS = ST.users.map(u => ({ name: u.username, status: u.status, trades: u.trades, rating: u.rating, seen: u.lastSeen }));
+
+    const peopleBox = document.getElementById('people');
+    const peopleSearch = document.getElementById('people-search');
+    const noPeople = document.getElementById('no-people');
+    const partnerInput = document.getElementById('partner');
+    let statusFilter = 'all';
+
+    function renderPeople() {
+      const q = peopleSearch.value.trim().toLowerCase().replace(/^@/, '');
+      peopleBox.innerHTML = '';
+      let shown = 0;
+      USERS.forEach(u => {
+        if (statusFilter !== 'all' && u.status !== statusFilter) return;
+        if (!u.name.toLowerCase().includes(q)) return;
+        shown++;
+
+        const card = document.createElement('li');
+        card.className = 'person' + (partnerInput.value.trim() === u.name ? ' selected' : '');
+
+        const info = document.createElement('div');
+        const strong = document.createElement('strong');
+        strong.textContent = u.name;
+        const presence = document.createElement('span');
+        presence.className = 'presence ' + u.status;
+        presence.textContent = u.status === 'online' ? 'Online' : 'Offline';
+        const small = document.createElement('small');
+        small.textContent = u.status === 'online'
+          ? u.trades + ' trades · ' + u.rating + ' rating'
+          : 'Last seen ' + u.seen + ' · ' + u.trades + ' trades';
+        info.append(strong, presence, small);
+
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'btn btn-outline';
+        btn.textContent = card.classList.contains('selected') ? 'Selected' : 'Select';
+        btn.addEventListener('click', () => {
+          partnerInput.value = u.name;
+          renderPeople();
+          partnerInput.focus();
+        });
+
+        card.append(info, btn);
+        peopleBox.appendChild(card);
+      });
+      noPeople.hidden = shown > 0;
+    }
+
+    peopleSearch.addEventListener('input', renderPeople);
+    partnerInput.addEventListener('input', renderPeople);
+    document.querySelectorAll('.seg button').forEach(b => {
+      b.addEventListener('click', () => {
+        statusFilter = b.dataset.status;   // 'all', 'online' or 'offline'
+        document.querySelectorAll('.seg button').forEach(x => x.setAttribute('aria-pressed', x === b));
+        renderPeople();
+      });
+    });
+    renderPeople();
 
     // Submit: send the request to the partner (prototype only, nothing is saved)
     document.getElementById('trade-form').addEventListener('submit', e => {

@@ -96,53 +96,7 @@
                 <th><span class="sr-only">Receipt</span></th>
               </tr>
             </thead>
-            <tbody id="rows">
-              <tr data-status="completed" data-id="ST-1031" data-fee="90.00">
-                <td>Oct 5, 2026</td>
-                <td>Valorant account (Gold)</td>
-                <td class="role">Seller</td>
-                <td>@jett_ph</td>
-                <td>₱3,000</td>
-                <td><span class="badge badge-released">Completed</span></td>
-                <td><button class="link-btn" type="button">Receipt</button></td>
-              </tr>
-              <tr data-status="completed" data-id="ST-1024" data-fee="36.00">
-                <td>Sep 29, 2026</td>
-                <td>Mobile Legends skin</td>
-                <td class="role">Buyer</td>
-                <td>@kuya_rico</td>
-                <td>₱1,200</td>
-                <td><span class="badge badge-released">Completed</span></td>
-                <td><button class="link-btn" type="button">Receipt</button></td>
-              </tr>
-              <tr data-status="refunded" data-id="ST-1018" data-fee="0.00">
-                <td>Sep 21, 2026</td>
-                <td>Roblox Robux (1,000)</td>
-                <td class="role">Buyer</td>
-                <td>@mika_plays</td>
-                <td>₱500</td>
-                <td><span class="badge badge-dispute">Refunded</span></td>
-                <td>-</td>
-              </tr>
-              <tr data-status="completed" data-id="ST-1009" data-fee="45.00">
-                <td>Sep 12, 2026</td>
-                <td>Genshin primogems (1,980)</td>
-                <td class="role">Seller</td>
-                <td>@paimon_ph</td>
-                <td>₱1,500</td>
-                <td><span class="badge badge-released">Completed</span></td>
-                <td><button class="link-btn" type="button">Receipt</button></td>
-              </tr>
-              <tr data-status="cancelled" data-id="ST-1002" data-fee="0.00">
-                <td>Sep 3, 2026</td>
-                <td>Valorant skin bundle</td>
-                <td class="role">Buyer</td>
-                <td>@sage_main</td>
-                <td>₱800</td>
-                <td><span class="badge badge-pending">Cancelled</span></td>
-                <td>-</td>
-              </tr>
-            </tbody>
+            <tbody id="rows"></tbody>
           </table>
         </div>
         <p class="empty" id="empty" hidden>No trades match your search. Try a different word or status.</p>
@@ -162,9 +116,10 @@
         <div class="line"><dt>Trade</dt><dd id="r-id"></dd></div>
         <div class="line"><dt>Date</dt><dd id="r-date"></dd></div>
         <div class="line"><dt>Item</dt><dd id="r-item"></dd></div>
-        <div class="line"><dt>Partner</dt><dd id="r-partner"></dd></div>
+        <div class="line"><dt>Buyer</dt><dd id="r-buyer"></dd></div>
+        <div class="line"><dt>Seller</dt><dd id="r-seller"></dd></div>
         <div class="line"><dt>Item price</dt><dd id="r-price"></dd></div>
-        <div class="line"><dt>Service fee (3%)</dt><dd id="r-fee"></dd></div>
+        <div class="line"><dt>Service fee</dt><dd id="r-fee"></dd></div>
         <div class="line total"><dt>Seller received</dt><dd id="r-net"></dd></div>
       </dl>
       <div class="receipt-actions">
@@ -174,11 +129,53 @@
     </div>
   </dialog>
 
+  <script src="data.js"></script>
   <script>
-    const rows = [...document.querySelectorAll('#rows tr')];
+    ST.applyBrand();
+
+    const tbody = document.getElementById('rows');
     const search = document.getElementById('search');
     const status = document.getElementById('status');
     const empty = document.getElementById('empty');
+    const dlg = document.getElementById('receipt');
+
+    // Fee is only charged on completed trades
+    const feeOf = h => h.status === 'completed' ? h.amount * ST.feeRate : 0;
+
+    // Build the table from ST.history
+    const rows = ST.history.map(h => {
+      const tr = document.createElement('tr');
+      tr.dataset.status = h.status;
+
+      const cells = [h.date, h.item, null, h.partner, ST.pesoShort(h.amount)];
+      cells.forEach((text, i) => {
+        const td = document.createElement('td');
+        if (i === 2) { td.className = 'role'; td.textContent = h.role === 'buyer' ? 'Buyer' : 'Seller'; }
+        else td.textContent = text;
+        tr.appendChild(td);
+      });
+
+      const st = document.createElement('td');
+      st.appendChild(ST.badge(h.status));
+      tr.appendChild(st);
+
+      const last = document.createElement('td');
+      if (h.status === 'completed') {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'link-btn';
+        btn.textContent = 'Receipt';
+        btn.addEventListener('click', () => showReceipt(h));
+        last.appendChild(btn);
+      } else {
+        last.textContent = '-';
+      }
+      tr.appendChild(last);
+
+      tr.dataset.search = (h.item + ' ' + h.partner + ' ' + h.id).toLowerCase();
+      tbody.appendChild(tr);
+      return tr;
+    });
 
     // Filter by status and search text
     function filter() {
@@ -186,7 +183,7 @@
       let shown = 0;
       rows.forEach(row => {
         const okStatus = status.value === 'all' || row.dataset.status === status.value;
-        const okText = row.textContent.toLowerCase().includes(q);
+        const okText = row.dataset.search.includes(q);
         row.hidden = !(okStatus && okText);
         if (!row.hidden) shown++;
       });
@@ -196,26 +193,21 @@
     status.addEventListener('change', filter);
 
     // Receipt dialog
-    const dlg = document.getElementById('receipt');
-    const peso = n => '₱' + n.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-
-    rows.forEach(row => {
-      const btn = row.querySelector('.link-btn');
-      if (!btn) return;
-      btn.addEventListener('click', () => {
-        const c = row.cells;
-        const price = parseFloat(c[4].textContent.replace(/[^0-9.]/g, ''));
-        const fee = parseFloat(row.dataset.fee);
-        document.getElementById('r-id').textContent = '#' + row.dataset.id;
-        document.getElementById('r-date').textContent = c[0].textContent;
-        document.getElementById('r-item').textContent = c[1].textContent;
-        document.getElementById('r-partner').textContent = c[3].textContent;
-        document.getElementById('r-price').textContent = peso(price);
-        document.getElementById('r-fee').textContent = peso(fee);
-        document.getElementById('r-net').textContent = peso(price - fee);
-        dlg.showModal();
-      });
-    });
+    function showReceipt(h) {
+      const fee = feeOf(h);
+      document.getElementById('r-id').textContent = '#' + h.id;
+      document.getElementById('r-date').textContent = h.date;
+      document.getElementById('r-item').textContent = h.item;
+      // Work out who bought and who sold from my role in the trade
+      const buyer  = h.role === 'buyer'  ? ST.me.username + ' (you)' : h.partner;
+      const seller = h.role === 'seller' ? ST.me.username + ' (you)' : h.partner;
+      document.getElementById('r-buyer').textContent = buyer;
+      document.getElementById('r-seller').textContent = seller;
+      document.getElementById('r-price').textContent = ST.peso(h.amount);
+      document.getElementById('r-fee').textContent = ST.peso(fee);
+      document.getElementById('r-net').textContent = ST.peso(h.amount - fee);
+      dlg.showModal();
+    }
 
     document.getElementById('r-close').addEventListener('click', () => dlg.close());
     document.getElementById('r-print').addEventListener('click', () => window.print());

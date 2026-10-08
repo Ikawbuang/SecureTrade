@@ -134,7 +134,16 @@ th { font-size: .85rem; color: var(--text-soft); font-weight: 600; }
 
 /* ---------- App shell (dashboard pages will reuse this) ---------- */
 .app { display: grid; grid-template-columns: 240px 1fr; min-height: 100vh; }
-.sidebar { background: var(--ink); color: var(--text-on-dark); padding: 1.5rem 1rem; }
+.sidebar {
+  background: var(--ink);
+  color: var(--text-on-dark);
+  padding: 1.5rem 1rem;
+  position: sticky;       /* stays in view while the page scrolls */
+  top: 0;
+  height: 100vh;
+  align-self: start;      /* needed so sticky works inside the grid */
+  overflow-y: auto;       /* the menu can scroll on very short screens */
+}
 .sidebar a {
   display: block;
   padding: .65rem .85rem;
@@ -243,7 +252,7 @@ th { font-size: .85rem; color: var(--text-soft); font-weight: 600; }
   .auth-story { padding: 1.75rem 1.5rem; gap: 1.5rem; }
   .flow { display: none; }            /* keep mobile login short */
   .app { grid-template-columns: 1fr; }
-  .sidebar { padding: 1rem; }
+  .sidebar { padding: 1rem; position: static; height: auto; }
 }
 @media (max-width: 480px) {
   .row-2 { grid-template-columns: 1fr; }

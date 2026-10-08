@@ -77,9 +77,11 @@
 
           <div class="trade-line">
             <div>
-              <strong>Genshin primogems (3,280)</strong><br>
-              <span>Trade #ST-1042 · Seller @paimon_ph · ₱1,500.00</span>
+              <strong id="tl-item"></strong><br>
+              <span id="tl-meta"></span>
             </div>
+            <a id="tl-link" href="transaction.html">View trade</a>
+          </div>
             <a href="transaction.html">View trade</a>
           </div>
 
@@ -129,10 +131,10 @@
           <div class="done-box" id="done" hidden>
             <span class="badge badge-dispute">Dispute open</span>
             <h2>We received your report</h2>
-            <p>Dispute #DP-218 was opened for trade #ST-1042. The seller was notified and the payment is frozen until an admin decides.</p>
+            <p id="done-text"></p>
             <div class="actions">
               <a class="btn btn-primary" href="dashboard.html">Back to dashboard</a>
-              <a class="btn btn-outline" href="transaction.html">View trade</a>
+              <a class="btn btn-outline" id="done-link" href="transaction.html">View trade</a>
             </div>
           </div>
         </section>
@@ -151,7 +153,23 @@
     </main>
   </div>
 
+  <script src="data.js"></script>
   <script>
+    ST.applyBrand();
+
+    // Which trade is this dispute about? (dispute.html?id=ST-1042)
+    const params = new URLSearchParams(location.search);
+    const trade = ST.findTrade(params.get('id')) || ST.findTrade('ST-1042');
+    const other = trade.role === 'buyer' ? 'Seller' : 'Buyer';
+    const disputeRec = ST.admin.disputes.find(d => d.tradeId === trade.id);
+    const disputeId = disputeRec ? disputeRec.id : 'DP-NEW';
+
+    document.getElementById('tl-item').textContent = trade.item;
+    document.getElementById('tl-meta').textContent =
+      'Trade #' + trade.id + ' · ' + other + ' ' + trade.partner + ' · ' + ST.peso(trade.amount);
+    const tradeUrl = 'transaction.html?id=' + trade.id + '&role=' + trade.role;
+    document.getElementById('tl-link').href = tradeUrl;
+    document.getElementById('done-link').href = tradeUrl;
     // Evidence: list the chosen file names
     document.getElementById('proof').addEventListener('change', e => {
       const list = document.getElementById('files');
@@ -168,6 +186,8 @@
       e.preventDefault();
       e.target.hidden = true;
       document.querySelector('.trade-line').hidden = true;
+      document.getElementById('done-text').textContent =
+        'Dispute #' + disputeId + ' was opened for trade #' + trade.id + '. ' + trade.partner + ' was notified and the payment is frozen until an admin decides.';
       document.getElementById('done').hidden = false;
     });
   </script>
