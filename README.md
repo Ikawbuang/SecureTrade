@@ -97,13 +97,13 @@ Low-fidelity wireframes were made first, then the high-fidelity pages were coded
 
 | Screen | File | Wireframe | Screenshot |
 |---|---|---|---|
-| Sign in / Create account | `login.html` | <img src="docs/wireframes/01-login.png" width="320"> | <img src="docs/screenshots/01-login.png" width="320"> |
-| Dashboard | `dashboard.html` | <img src="docs/wireframes/02-dashboard.png" width="320"> | <img src="docs/screenshots/02-dashboard.png" width="320"> |
-| New trade | `create-transaction.html` | <img src="docs/wireframes/03-new-trade.png" width="320"> | <img src="docs/screenshots/03-new-trade.png" width="320"> |
-| Trade details | `transaction.html` | <img src="docs/wireframes/04-trade-details.png" width="320"> | <img src="docs/screenshots/04-trade-details.png" width="320"> |
-| Report a problem | `dispute.html` | <img src="docs/wireframes/05-dispute.png" width="320"> | <img src="docs/screenshots/05-dispute.png" width="320"> |
-| History and receipt | `history.html` | <img src="docs/wireframes/06-history.png" width="320"> | <img src="docs/screenshots/06-history.png" width="320"> |
-| Admin | `admin-dashboard.html` | <img src="docs/wireframes/07-admin.png" width="320"> | <img src="docs/screenshots/07-admin.png" width="320"> |
+| Sign in / Create account | `login.html` | <img src=".//frontend/wireframes/01-login.png" width="320" alt="Login Screenshot"> | <img src=".//frontend/screenshots/01-login.png" width="320"> |
+| Dashboard | `dashboard.html` | <img src=".//frontend/wireframes/02-dashboard.png" width="320"> | <img src=".//frontend/screenshots/02-dashboard.png" width="320"> |
+| New trade | `create-transaction.html` | <img src=".//frontend/wireframes/03-new-trade.png" width="320"> | <img src=".//frontend/screenshots/03-new-trade.png" width="320"> |
+| Trade details | `transaction.html` | <img src=".//frontend/wireframes/04-trade-details.png" width="320"> | <img src=".//frontend/screenshots/04-trade-details.png" width="320"> |
+| Report a problem | `dispute.html` | <img src=".//frontend/wireframes/05-dispute.png" width="320"> | <img src=".//frontend/screenshots/image.png" width="320"> |
+| History and receipt | `history.html` | <img src=".//frontend/wireframes/06-history.png" width="320"> | <img src=".//frontend/screenshots/06-history.png" width="320"> |
+| Admin | `admin-dashboard.html` | <img src=".//frontend/wireframes/07-admin.png" width="320"> | <img src=".//frontend/screenshots/07-admin.png" width="320"> |
 
 **Design choices**
 
@@ -143,9 +143,9 @@ SecureTrade/
 ```
 
 ## Team Alt-F4
-Leader: Almario, Jessen
-Member: 
-    1. Anding, Jahn Patrick
-    2. Angel, Waren
-    3. Mantalaba, Erica
-    4. Yusores, Rudolf
+Leader: Almario, Jessen<br>
+Member:<br>
+    1. Anding, Jahn Patrick<br>
+    2. Angel, Waren<br>
+    3. Mantalaba, Erica<br>
+    4. Yusores, Rudolf<br>
