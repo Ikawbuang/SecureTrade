@@ -21,6 +21,7 @@ SecureTrade is an escrow platform for gamers who buy and sell in-game items, acc
 | Git and GitHub | Version control and hosting |
 | Digital wireframes | Low-fidelity layouts of the seven screens (`docs/wireframes/`) |
 
+<!--
 ## How to open it
 
 1. Download or clone this repository.
@@ -30,7 +31,7 @@ SecureTrade is an escrow platform for gamers who buy and sell in-game items, acc
 Keep `data.js` and `style.css` in the same folder as the pages. An internet connection is only needed for the Google Fonts.
 
 ## Design Thinking summary
-
+-->
 ### 1. Empathize
 
 A Google Forms survey was shared with gamers in Cebu. **26 responses** were collected on October 9–10, 2026.
@@ -143,8 +144,8 @@ SecureTrade/
 ```
 
 ## Team Alt-F4
-Leader: Almario, Jessen<br>
-Member:<br>
+<b>Leader:</b> Almario, Jessen<br>
+<b>Member:</b><br>
     1. Anding, Jahn Patrick<br>
     2. Angel, Waren<br>
     3. Mantalaba, Erica<br>
