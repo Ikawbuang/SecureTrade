@@ -70,6 +70,8 @@
             <input id="login-password" type="password" placeholder="Enter your password" required>
           </div>
 
+          <p class="form-error" id="login-error" role="alert" hidden></p>
+
           <button class="btn btn-primary btn-block" type="submit">Sign in</button>
           <p class="auth-switch">New here? <a href="#" data-switch="register">Create an account</a></p>
         </form>
@@ -102,6 +104,8 @@
             </div>
           </div>
 
+          <p class="form-error" id="reg-error" role="alert" hidden></p>
+          
           <label class="check">
             <input type="checkbox" required>
             <span>I agree to the terms, including the <span id="fee-terms"></span> service fee on completed trades.</span>
@@ -142,6 +146,83 @@
 
     document.querySelectorAll('[data-switch]').forEach(link => {
       link.addEventListener('click', e => { e.preventDefault(); show(link.dataset.switch); });
+    });
+
+    // ---- Connect to the backend API ----
+    const API = 'http://localhost:3000/api';
+
+    function showError(id, msg) {
+      const el = document.getElementById(id);
+      el.textContent = msg;
+      el.hidden = !msg;
+    }
+
+    async function callApi(path, body) {
+      const res = await fetch(API + path, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.message || 'Something went wrong. Please try again.');
+      return data;
+    }
+
+    function friendly(err) {
+      return err instanceof TypeError
+        ? 'Cannot reach the server. Is the backend running?'
+        : err.message;
+    }
+
+    function saveSession(data) {
+      localStorage.setItem('st_token', data.token);
+      localStorage.setItem('st_user', JSON.stringify(data.user));
+    }
+
+    // Sign in
+    document.getElementById('form-login').addEventListener('submit', async e => {
+      e.preventDefault();
+      showError('login-error', '');
+      const btn = e.target.querySelector('button[type="submit"]');
+      btn.disabled = true;
+      try {
+        const data = await callApi('/login', {
+          email: document.getElementById('login-email').value,
+          password: document.getElementById('login-password').value
+        });
+        saveSession(data);
+        window.location.href = 'dashboard.html';
+      } catch (err) {
+        showError('login-error', friendly(err));
+        btn.disabled = false;
+      }
+    });
+
+    // Create account, then sign in right away
+    document.getElementById('form-register').addEventListener('submit', async e => {
+      e.preventDefault();
+      showError('reg-error', '');
+      const password = document.getElementById('reg-password').value;
+      if (password !== document.getElementById('reg-confirm').value) {
+        showError('reg-error', 'Passwords do not match.');
+        return;
+      }
+      const btn = e.target.querySelector('button[type="submit"]');
+      btn.disabled = true;
+      try {
+        const email = document.getElementById('reg-email').value;
+        await callApi('/register', {
+          full_name: document.getElementById('reg-name').value,
+          email,
+          password
+        });
+        const data = await callApi('/login', { email, password });
+        saveSession(data);
+        window.location.href = 'dashboard.html';
+      } catch (err) {
+        showError('reg-error', friendly(err));
+        btn.disabled = false;
+      }
     });
   </script>
 </body>
