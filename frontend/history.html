@@ -10,6 +10,7 @@
   <link rel="stylesheet" href="style.css">
   <style>
     /* Page-specific styles (style.css stays unchanged) */
+    [hidden] { display: none !important; }
     .sidebar .brand { display: block; margin-bottom: 2rem; padding-left: .85rem; }
     .sidebar .spacer { margin-top: 2rem; padding-top: 1rem; border-top: 1px solid var(--ink-3); }
     .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
@@ -29,8 +30,12 @@
     .table-wrap { overflow-x: auto; }
     .role { color: var(--text-soft); font-size: .9rem; }
     .link-btn { background: none; border: 0; padding: 0; font: 600 1rem var(--font-body); color: var(--gold-dark); text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
+    td a { font-weight: 600; }
+    .partner-cell { display: inline-flex; align-items: center; gap: .2rem; }
+    .row-actions { display: flex; gap: .9rem; flex-wrap: wrap; align-items: center; white-space: nowrap; }
+    .rated { color: var(--text-soft); font-size: .9rem; white-space: nowrap; }
+    .dispute-tag { display: block; margin-top: .3rem; font-size: .78rem; font-weight: 600; color: #9c2a22; }
     .empty { padding: 1.5rem .5rem; color: var(--text-soft); }
-    .empty[hidden] { display: none; }
 
     /* Receipt dialog */
     dialog.receipt { border: 0; border-radius: var(--radius-l); padding: 0; width: min(92vw, 420px); }
@@ -41,11 +46,32 @@
     .receipt-body { padding: 1.25rem 1.5rem 1.5rem; }
     .receipt-body .line { display: flex; justify-content: space-between; gap: 1rem; padding: .5rem 0; border-bottom: 1px dashed #d5d8ec; }
     .receipt-body dt { color: var(--text-soft); }
-    .receipt-body dd { margin: 0; font-weight: 600; text-align: right; }
+    .receipt-body dd { margin: 0; font-weight: 600; text-align: right; word-break: break-word; }
     .receipt-body .total dd { font: 700 1.2rem var(--font-display); color: var(--gold-dark); }
     .receipt-body dl { margin: 0 0 1.25rem; }
     .receipt-actions { display: flex; gap: .75rem; }
     .receipt-actions .btn { flex: 1; }
+
+    /* Rating dialog */
+    dialog.rate { border: 0; border-radius: var(--radius-l); padding: 0; width: min(92vw, 420px); }
+    dialog.rate::backdrop { background: rgba(23, 26, 51, .6); }
+    .rate-body { padding: 1.5rem; }
+    .rate-body h2 { margin: 0 0 .25rem; font-size: 1.3rem; word-break: break-all; }
+    .rate-body .hint { margin: 0 0 1rem; }
+    .stars { display: flex; gap: .35rem; margin-bottom: 1rem; }
+    .stars button { background: none; border: 0; padding: 0 .1rem; font-size: 2.2rem; line-height: 1; color: #c9cde6; cursor: pointer; }
+    .stars button.on { color: var(--gold); }
+    .stars button:focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; border-radius: 4px; }
+    .rate-body textarea { width: 100%; padding: .65rem .85rem; font: 1rem var(--font-body); border: 2px solid #d5d8ec; border-radius: var(--radius-s); margin: .35rem 0 1rem; }
+    .rate-body textarea:focus { outline: none; border-color: var(--gold); }
+
+    /* Printing: only the receipt */
+    @media print {
+      .app { display: none !important; }
+      dialog.receipt { position: static; width: 100%; box-shadow: none; }
+      dialog.receipt::backdrop { display: none; }
+      .receipt-actions { display: none; }
+    }
   </style>
 </head>
 <body>
@@ -54,12 +80,11 @@
     <nav class="sidebar" aria-label="Main">
       <a class="brand" href="dashboard.html">Secure<span>Trade</span></a>
       <a href="dashboard.html">Dashboard</a>
-      <a href="create-transaction.html">New trade</a>
-      <a href="transaction.html">My trades</a>
       <a href="dispute.html">Disputes</a>
       <a href="history.html" aria-current="page">History</a>
+      <a href="profile.html">My profile</a>
       <div class="spacer">
-        <a href="login.html">Sign out</a>
+        <a href="login.html" id="signout">Sign out</a>
       </div>
     </nav>
 
@@ -67,18 +92,26 @@
 
       <header class="page-head">
         <h1>Trade history</h1>
-        <p>Every trade you have made, with a receipt for each completed one.</p>
+        <p>Every trade you have finished, with a receipt for each completed one. You can rate the other person after a completed trade, and press the star to save them as a favorite.</p>
       </header>
+
+      <p class="form-error" id="page-error" role="alert" hidden></p>
 
       <div class="filters">
         <label class="sr-only" for="search">Search trades</label>
-        <input id="search" type="search" placeholder="Search by item or username">
+        <input id="search" type="search" placeholder="Search by item, username, or receipt number">
         <label class="sr-only" for="status">Filter by status</label>
         <select id="status">
           <option value="all">All statuses</option>
           <option value="completed">Completed</option>
           <option value="refunded">Refunded</option>
           <option value="cancelled">Cancelled</option>
+        </select>
+        <label class="sr-only" for="role">Filter by role</label>
+        <select id="role">
+          <option value="all">Buying and selling</option>
+          <option value="buyer">Buying</option>
+          <option value="seller">Selling</option>
         </select>
       </div>
 
@@ -93,13 +126,13 @@
                 <th>Partner</th>
                 <th>Amount</th>
                 <th>Status</th>
-                <th><span class="sr-only">Receipt</span></th>
+                <th><span class="sr-only">Actions</span></th>
               </tr>
             </thead>
             <tbody id="rows"></tbody>
           </table>
         </div>
-        <p class="empty" id="empty" hidden>No trades match your search. Try a different word or status.</p>
+        <p class="empty" id="empty" hidden></p>
       </section>
 
     </main>
@@ -113,11 +146,14 @@
     </div>
     <div class="receipt-body">
       <dl>
+        <div class="line"><dt>Receipt</dt><dd id="r-number"></dd></div>
         <div class="line"><dt>Trade</dt><dd id="r-id"></dd></div>
         <div class="line"><dt>Date</dt><dd id="r-date"></dd></div>
         <div class="line"><dt>Item</dt><dd id="r-item"></dd></div>
         <div class="line"><dt>Buyer</dt><dd id="r-buyer"></dd></div>
         <div class="line"><dt>Seller</dt><dd id="r-seller"></dd></div>
+        <div class="line"><dt>Buyer paid with</dt><dd id="r-paid"></dd></div>
+        <div class="line"><dt>Seller paid out to</dt><dd id="r-payout"></dd></div>
         <div class="line"><dt>Item price</dt><dd id="r-price"></dd></div>
         <div class="line"><dt>Service fee</dt><dd id="r-fee"></dd></div>
         <div class="line total"><dt>Seller received</dt><dd id="r-net"></dd></div>
@@ -129,88 +165,206 @@
     </div>
   </dialog>
 
+  <!-- Rating -->
+  <dialog class="rate" id="rate" aria-labelledby="rate-title">
+    <form class="rate-body" id="rate-form">
+      <h2 id="rate-title">Rate</h2>
+      <p class="hint" id="rate-sub"></p>
+
+      <div class="stars" id="stars" role="radiogroup" aria-label="Your rating"></div>
+
+      <label for="rate-feedback">Feedback (optional)</label>
+      <textarea id="rate-feedback" rows="3" maxlength="500" placeholder="How was the trade?"></textarea>
+
+      <p class="form-error" id="rate-error" role="alert" hidden></p>
+
+      <div class="receipt-actions">
+        <button class="btn btn-outline" type="button" id="rate-cancel">Cancel</button>
+        <button class="btn btn-primary" type="submit" id="rate-save">Save rating</button>
+      </div>
+      <p class="hint" style="margin:.75rem 0 0">You can rate a trade once, and it cannot be changed.</p>
+    </form>
+  </dialog>
+
   <script src="data.js"></script>
+  <script src="api.js"></script>
+  <script src="nav-badge.js"></script>
   <script>
     ST.applyBrand();
 
-    const tbody = document.getElementById('rows');
-    const search = document.getElementById('search');
-    const status = document.getElementById('status');
-    const empty = document.getElementById('empty');
-    const dlg = document.getElementById('receipt');
+    // Must be signed in to use this page
+    if (!getToken()) window.location.href = 'login.html';
+    document.getElementById('signout').addEventListener('click', e => { e.preventDefault(); logout(); });
 
-    // Fee is only charged on completed trades
-    const feeOf = h => h.status === 'completed' ? h.amount * ST.feeRate : 0;
+    const $ = id => document.getElementById(id);
+    const methodNames = { gcash: 'GCash', maya: 'Maya', card: 'Card' };
 
-    // Build the table from ST.history
-    const rows = ST.history.map(h => {
-      const tr = document.createElement('tr');
-      tr.dataset.status = h.status;
+    let history = [];
 
-      const cells = [h.date, h.item, null, h.partner, ST.pesoShort(h.amount)];
-      cells.forEach((text, i) => {
-        const td = document.createElement('td');
-        if (i === 2) { td.className = 'role'; td.textContent = h.role === 'buyer' ? 'Buyer' : 'Seller'; }
-        else td.textContent = text;
-        tr.appendChild(td);
+    function fmtDate(iso) {
+      return new Date(iso).toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' });
+    }
+
+    // ---------- The table ----------
+    function matches(h) {
+      const q = $('search').value.trim().toLowerCase().replace(/^@/, '');
+      const text = (h.item_description + ' ' + h.partner_username + ' ' + (h.receipt_number || '') + ' ' + h.transaction_id).toLowerCase();
+      return (
+        ($('status').value === 'all' || h.status === $('status').value) &&
+        ($('role').value === 'all' || h.my_role === $('role').value) &&
+        text.includes(q)
+      );
+    }
+
+    function render() {
+      const body = $('rows');
+      body.innerHTML = '';
+      const shown = history.filter(matches);
+
+      shown.forEach(h => {
+        const tr = el('tr');
+        tr.appendChild(el('td', '', fmtDate(h.date)));
+        tr.appendChild(el('td', '', h.item_description));
+        tr.appendChild(el('td', 'role', h.my_role === 'buyer' ? 'Buyer' : 'Seller'));
+
+        // The partner, with a star to save them as a favorite
+        const partner = el('td');
+        const cell = el('span', 'partner-cell');
+        cell.append('@' + h.partner_username, makeStar(h.partner_username, h.partner_is_favorite));
+        partner.appendChild(cell);
+        tr.appendChild(partner);
+
+        tr.appendChild(el('td', '', ST.pesoShort(h.amount)));
+
+        // Status badge, and a small tag if the trade went through a dispute
+        const status = el('td');
+        status.appendChild(ST.badge(h.status));
+        if (h.had_dispute) status.appendChild(el('span', 'dispute-tag', 'Had a dispute'));
+        tr.appendChild(status);
+
+        const actions = el('td');
+        const box = el('div', 'row-actions');
+
+        const details = el('a', '', h.had_dispute ? 'View dispute' : 'Details');
+        details.href = (h.had_dispute ? 'dispute.html?id=' : 'transaction.html?id=') + h.transaction_id;
+        box.appendChild(details);
+
+        if (h.status === 'completed') {
+          const receipt = el('button', 'link-btn', 'Receipt');
+          receipt.type = 'button';
+          receipt.addEventListener('click', () => showReceipt(h));
+          box.appendChild(receipt);
+
+          if (h.my_score) {
+            box.appendChild(el('span', 'rated', 'Rated ★ ' + h.my_score));
+          } else {
+            const rate = el('button', 'link-btn', 'Rate');
+            rate.type = 'button';
+            rate.addEventListener('click', () => openRate(h));
+            box.appendChild(rate);
+          }
+        }
+
+        actions.appendChild(box);
+        tr.appendChild(actions);
+        body.appendChild(tr);
       });
 
-      const st = document.createElement('td');
-      st.appendChild(ST.badge(h.status));
-      tr.appendChild(st);
+      const empty = $('empty');
+      empty.hidden = shown.length > 0;
+      empty.textContent = history.length === 0
+        ? 'No finished trades yet. Completed, refunded, and cancelled trades will show up here.'
+        : 'No trades match your search. Try a different word or status.';
+    }
 
-      const last = document.createElement('td');
-      if (h.status === 'completed') {
-        const btn = document.createElement('button');
-        btn.type = 'button';
-        btn.className = 'link-btn';
-        btn.textContent = 'Receipt';
-        btn.addEventListener('click', () => showReceipt(h));
-        last.appendChild(btn);
-      } else {
-        last.textContent = '-';
+    $('search').addEventListener('input', render);
+    $('status').addEventListener('change', render);
+    $('role').addEventListener('change', render);
+
+    async function load() {
+      try {
+        history = await apiFetch('/history');
+        setMessage('page-error', '');
+        render();
+      } catch (err) {
+        setMessage('page-error', err instanceof TypeError ? 'Cannot reach the server. Is the backend running?' : err.message);
       }
-      tr.appendChild(last);
+    }
 
-      tr.dataset.search = (h.item + ' ' + h.partner + ' ' + h.id).toLowerCase();
-      tbody.appendChild(tr);
-      return tr;
+    // ---------- Receipt ----------
+    function showReceipt(h) {
+      const fee = h.service_fee;
+      $('r-number').textContent = h.receipt_number || '–';
+      $('r-id').textContent = '#' + h.transaction_id;
+      $('r-date').textContent = fmtDate(h.date);
+      $('r-item').textContent = h.item_description;
+      $('r-buyer').textContent = '@' + h.buyer_username + (h.my_role === 'buyer' ? ' (you)' : '');
+      $('r-seller').textContent = '@' + h.seller_username + (h.my_role === 'seller' ? ' (you)' : '');
+      $('r-paid').textContent = h.payment_method
+        ? (methodNames[h.payment_method] || h.payment_method) + (h.payer_masked ? ' ' + h.payer_masked : '')
+        : '–';
+      $('r-payout').textContent = h.payout_method
+        ? (methodNames[h.payout_method] || h.payout_method) + (h.payout_masked ? ' ' + h.payout_masked : '')
+        : '–';
+      $('r-price').textContent = ST.peso(h.amount);
+      $('r-fee').textContent = ST.peso(fee);
+      $('r-net').textContent = ST.peso(h.amount - fee);
+      $('receipt').showModal();
+    }
+    $('r-close').addEventListener('click', () => $('receipt').close());
+    $('r-print').addEventListener('click', () => window.print());
+
+    // ---------- Rating ----------
+    let rating = 0;
+    let rateTrade = null;
+    const starsBox = $('stars');
+
+    function drawStars() {
+      starsBox.innerHTML = '';
+      for (let i = 1; i <= 5; i++) {
+        const b = el('button', i <= rating ? 'on' : '', '★');
+        b.type = 'button';
+        b.setAttribute('role', 'radio');
+        b.setAttribute('aria-checked', i === rating);
+        b.setAttribute('aria-label', i + (i === 1 ? ' star' : ' stars'));
+        b.addEventListener('click', () => { rating = i; drawStars(); });
+        starsBox.appendChild(b);
+      }
+    }
+
+    function openRate(h) {
+      rateTrade = h;
+      rating = 0;
+      drawStars();
+      $('rate-title').textContent = 'Rate @' + h.partner_username;
+      $('rate-sub').textContent = 'Trade #' + h.transaction_id + ' · ' + h.item_description;
+      $('rate-feedback').value = '';
+      setMessage('rate-error', '');
+      $('rate-save').disabled = false;
+      $('rate').showModal();
+    }
+
+    $('rate-cancel').addEventListener('click', () => $('rate').close());
+
+    $('rate-form').addEventListener('submit', async e => {
+      e.preventDefault();
+      setMessage('rate-error', '');
+      if (!rating) { setMessage('rate-error', 'Choose 1 to 5 stars.'); return; }
+      $('rate-save').disabled = true;
+      try {
+        await apiFetch('/transactions/' + rateTrade.transaction_id + '/rating', {
+          method: 'POST',
+          body: JSON.stringify({ score: rating, feedback: $('rate-feedback').value })
+        });
+        $('rate').close();
+        await load();
+      } catch (err) {
+        setMessage('rate-error', err instanceof TypeError ? 'Cannot reach the server. Is the backend running?' : err.message);
+        $('rate-save').disabled = false;
+      }
     });
 
-    // Filter by status and search text
-    function filter() {
-      const q = search.value.trim().toLowerCase();
-      let shown = 0;
-      rows.forEach(row => {
-        const okStatus = status.value === 'all' || row.dataset.status === status.value;
-        const okText = row.dataset.search.includes(q);
-        row.hidden = !(okStatus && okText);
-        if (!row.hidden) shown++;
-      });
-      empty.hidden = shown > 0;
-    }
-    search.addEventListener('input', filter);
-    status.addEventListener('change', filter);
-
-    // Receipt dialog
-    function showReceipt(h) {
-      const fee = feeOf(h);
-      document.getElementById('r-id').textContent = '#' + h.id;
-      document.getElementById('r-date').textContent = h.date;
-      document.getElementById('r-item').textContent = h.item;
-      // Work out who bought and who sold from my role in the trade
-      const buyer  = h.role === 'buyer'  ? ST.me.username + ' (you)' : h.partner;
-      const seller = h.role === 'seller' ? ST.me.username + ' (you)' : h.partner;
-      document.getElementById('r-buyer').textContent = buyer;
-      document.getElementById('r-seller').textContent = seller;
-      document.getElementById('r-price').textContent = ST.peso(h.amount);
-      document.getElementById('r-fee').textContent = ST.peso(fee);
-      document.getElementById('r-net').textContent = ST.peso(h.amount - fee);
-      dlg.showModal();
-    }
-
-    document.getElementById('r-close').addEventListener('click', () => dlg.close());
-    document.getElementById('r-print').addEventListener('click', () => window.print());
+    load();
   </script>
 </body>
 </html>

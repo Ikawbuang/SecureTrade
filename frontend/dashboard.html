@@ -10,46 +10,80 @@
   <link rel="stylesheet" href="style.css">
   <style>
     /* Page-specific styles (kept here so style.css stays unchanged) */
+    [hidden] { display: none !important; }
     .sidebar .brand { display: block; margin-bottom: 2rem; padding-left: .85rem; }
     .sidebar .spacer { margin-top: 2rem; padding-top: 1rem; border-top: 1px solid var(--ink-3); }
     .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 
-    .page-head { display: flex; justify-content: space-between; align-items: center; gap: 1rem; flex-wrap: wrap; margin-bottom: 1.75rem; }
+    .page-head { display: flex; justify-content: space-between; align-items: center; gap: 1rem; flex-wrap: wrap; margin-bottom: 1.25rem; }
     .page-head h1 { margin: 0; font-size: 1.9rem; }
     .page-head p { margin: .25rem 0 0; color: var(--text-soft); }
 
-    /* Incoming trade requests */
-    .requests { margin-bottom: 1.5rem; border-left: 5px solid var(--gold); }
-    .requests .card-head { margin-bottom: .5rem; }
-    .request { display: flex; justify-content: space-between; align-items: center; gap: 1rem; flex-wrap: wrap; padding: 1rem 0; border-top: 1px solid #e6e8f5; }
+    /* Incoming trade requests: at the very top, one line each, only shown when there is one */
+    .requests { border-left: 5px solid var(--gold); margin-bottom: 1.25rem; }
+    .requests .card-head { margin-bottom: .25rem; }
+    .request { display: flex; align-items: center; gap: 1rem; flex-wrap: wrap; padding: .7rem 0; border-top: 1px solid #e6e8f5; }
     .request:first-of-type { border-top: 0; }
-    .request p { margin: 0; }
-    .request .who { font-weight: 600; }
-    .request .what { color: var(--text-soft); font-size: .92rem; margin-top: .15rem; }
-    .request .btns { display: flex; gap: .5rem; }
+    .request .line { flex: 1 1 0; min-width: 0; margin: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .request .line strong { font-weight: 700; }
+    .request .line .rest { color: var(--text-soft); font-size: .92rem; }
+    .request .btns { display: flex; gap: .5rem; flex-shrink: 0; }
+    .request .form-error { flex-basis: 100%; margin: 0; }
+    .request .form-error a { font-weight: 700; }
     .btn-small { padding: .5rem .9rem; font-size: .92rem; }
-    .no-requests { color: var(--text-soft); margin: .5rem 0 0; }
+    @media (max-width: 640px) {
+      .request .line { flex-basis: 100%; white-space: normal; overflow: visible; }
+    }
+
+    /* Verification banner */
+    .banner { display: flex; justify-content: space-between; align-items: center; gap: 1rem; flex-wrap: wrap; margin-bottom: 1.25rem; padding: .9rem 1.1rem; border-radius: var(--radius-m); border-left: 5px solid var(--gold); background: #fff8e6; }
+    .banner.bad { border-color: #d9534f; background: #fdecea; }
+    .banner p { margin: 0; font-size: .95rem; }
+    .banner strong { display: block; }
+
+    /* Reminder to rate a finished trade */
+    .remind { margin-bottom: 1.25rem; padding: .9rem 1.1rem; border-radius: var(--radius-m); border-left: 5px solid var(--teal); background: #e3f7f2; }
+    .remind-row { display: flex; justify-content: space-between; align-items: center; gap: 1rem; flex-wrap: wrap; padding: .35rem 0; }
+    .remind-row + .remind-row { border-top: 1px solid #c8ebe3; }
+    .remind-row p { margin: 0; font-size: .95rem; }
+    .remind-row small { color: var(--text-soft); }
+    .remind-btns { display: flex; gap: .5rem; flex-wrap: wrap; }
+
+    /* My profile summary */
+    .me-card { display: flex; align-items: center; gap: 1.25rem; flex-wrap: wrap; margin-bottom: 1.5rem; }
+    .me-card .who { flex: 1; min-width: 220px; }
+    .me-card h2 { margin: 0; font-size: 1.35rem; word-break: break-all; }
+    .me-card .full { margin: .15rem 0 0; font-weight: 600; }
+    .me-card .small { margin: .15rem 0 0; color: var(--text-soft); font-size: .88rem; word-break: break-all; }
+    .me-stats { display: flex; gap: 1.5rem; flex-wrap: wrap; }
+    .me-stats div p { margin: 0; }
+    .me-stats .num { font: 700 1.3rem var(--font-display); }
+    .me-stats .cap { color: var(--text-soft); font-size: .8rem; }
+
+    /* Two columns: my trades on the left, the people on the right */
+    .dash-grid { display: grid; grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr); gap: 1.5rem; align-items: start; }
+    .col > * + * { margin-top: 1.5rem; }
+    @media (max-width: 1100px) { .dash-grid { grid-template-columns: 1fr; } }
 
     /* The held-funds figure is the main thing on this page */
     .vault {
       background: var(--ink);
       color: var(--text-on-dark);
       border-radius: var(--radius-l);
-      padding: 1.75rem 2rem;
+      padding: 1.5rem 1.75rem;
       display: flex;
       justify-content: space-between;
       align-items: center;
       gap: 1.5rem;
       flex-wrap: wrap;
-      margin-bottom: 1.5rem;
     }
     .vault .label { color: var(--text-on-dark-soft); margin: 0 0 .25rem; }
-    .vault .amount { font: 700 2.75rem var(--font-display); color: var(--gold); margin: 0; line-height: 1; }
+    .vault .amount { font: 700 2.4rem var(--font-display); color: var(--gold); margin: 0; line-height: 1; }
     .vault .note { color: var(--text-on-dark-soft); margin: .5rem 0 0; font-size: .92rem; }
-    .vault-side { display: flex; gap: 2rem; }
+    .vault-side { display: flex; gap: 1.5rem; }
     .vault-side div p { margin: 0; }
-    .vault-side .num { font: 700 1.6rem var(--font-display); color: var(--white); }
-    .vault-side .cap { color: var(--text-on-dark-soft); font-size: .9rem; }
+    .vault-side .num { font: 700 1.5rem var(--font-display); color: var(--white); }
+    .vault-side .cap { color: var(--text-on-dark-soft); font-size: .88rem; }
 
     .card-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; gap: 1rem; flex-wrap: wrap; }
     .card-head h2 { margin: 0; }
@@ -62,7 +96,59 @@
     .filter-tabs button { padding: .45rem .9rem; font: 600 .9rem var(--font-body); color: var(--text-soft); background: transparent; border: 0; border-radius: 4px; cursor: pointer; }
     .filter-tabs button[aria-selected="true"] { background: var(--white); color: var(--text); }
     .empty { color: var(--text-soft); padding: 1rem .5rem 0; }
-    [hidden] { display: none !important; }
+
+    /* Find a trade partner */
+    .finder h2 { font-size: 1.2rem; margin-bottom: .75rem; }
+    .seg { display: grid; grid-template-columns: repeat(5, 1fr); background: #e4e6f6; border-radius: var(--radius-s); padding: 4px; margin-bottom: .75rem; }
+    .seg button { padding: .45rem .2rem; font: 600 .82rem var(--font-body); color: var(--text-soft); background: transparent; border: 0; border-radius: 4px; cursor: pointer; }
+    .seg button[aria-pressed="true"] { background: var(--white); color: var(--text); }
+    .finder-search { width: 100%; padding: .65rem .85rem; margin-bottom: .75rem; font: 1rem var(--font-body); color: var(--text); background: var(--white); border: 2px solid #d5d8ec; border-radius: var(--radius-s); }
+    .finder-search:focus { outline: none; border-color: var(--gold); }
+    .people { list-style: none; margin: 0; padding: 0; border-top: 1px solid #e6e8f5; }
+    .person { display: flex; justify-content: space-between; align-items: center; gap: .6rem; padding: .7rem .25rem; border-bottom: 1px solid #e6e8f5; flex-wrap: wrap; }
+    .person .lead { display: flex; align-items: center; gap: .7rem; min-width: 0; flex: 1; }
+    .person strong { display: inline; font-family: var(--font-display); font-size: .98rem; word-break: break-all; }
+    .person small { display: block; color: var(--text-soft); font-size: .8rem; }
+    .person .acts { display: flex; align-items: center; gap: .35rem; flex-shrink: 0; }
+    .person .btn { padding: .38rem .75rem; font-size: .88rem; }
+    .btn.dim { opacity: .6; }
+    .presence { display: inline-flex; align-items: center; gap: .35rem; font-size: .8rem; font-weight: 600; margin-left: .35rem; }
+    .presence::before { content: ""; width: 9px; height: 9px; border-radius: 50%; background: #aab0cf; }
+    .presence.online { color: #146b5a; }
+    .presence.online::before { background: var(--teal); }
+    .presence.offline { color: var(--text-soft); }
+    .no-people { color: var(--text-soft); margin: .75rem 0 0; }
+    .more-wrap { margin-top: .75rem; text-align: center; }
+
+    /* Dialogs: profile card, the trade form, and the "cannot trade yet" notice */
+    dialog { border: 0; border-radius: var(--radius-m); padding: 0; width: calc(100% - 2rem); max-width: 480px; max-height: 92vh; }
+    dialog::backdrop { background: rgba(10, 14, 40, .55); }
+    .dlg { padding: 1.5rem; }
+    .dlg h2 { margin: 0; font-size: 1.35rem; word-break: break-word; }
+    .dlg-top { display: flex; align-items: center; gap: 1rem; margin-bottom: .5rem; }
+    .dlg-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: .6rem; margin: 1rem 0; }
+    .dlg-stats div { background: #f3f4fb; border-radius: var(--radius-s); padding: .6rem .75rem; }
+    .dlg-stats dt { color: var(--text-soft); font-size: .78rem; }
+    .dlg-stats dd { margin: .15rem 0 0; font: 700 1.05rem var(--font-display); }
+    .dlg h3 { font-size: 1rem; margin: 1rem 0 .4rem; }
+    .reviews { list-style: none; margin: 0 0 .5rem; padding: 0; }
+    .reviews li { padding: .5rem 0; border-bottom: 1px solid #e6e8f5; font-size: .92rem; }
+    .reviews .by { color: var(--text-soft); }
+    .note-box textarea { width: 100%; padding: .55rem .75rem; font: .95rem var(--font-body); border: 2px solid #d5d8ec; border-radius: var(--radius-s); }
+    .note-box textarea:focus { outline: none; border-color: var(--gold); }
+    .dlg-actions { display: flex; gap: .6rem; flex-wrap: wrap; align-items: center; margin-top: 1.1rem; }
+    .form-ok { margin: .6rem 0 0; padding: .55rem .8rem; border-radius: 8px; background: #e3f7f2; color: #146b5a; font-size: .88rem; }
+
+    .role-pick { display: grid; grid-template-columns: 1fr 1fr; gap: .6rem; margin: 1rem 0; border: 0; padding: 0; }
+    .role-pick legend { font-weight: 600; font-size: .9rem; margin-bottom: .4rem; padding: 0; }
+    .role-pick label { display: block; padding: .7rem .85rem; border: 2px solid #d5d8ec; border-radius: var(--radius-m); cursor: pointer; }
+    .role-pick input { position: absolute; opacity: 0; }
+    .role-pick strong { display: block; font-family: var(--font-display); }
+    .role-pick span { font-size: .8rem; color: var(--text-soft); }
+    .role-pick label:has(input:checked) { border-color: var(--gold); background: #fff8e6; }
+    .row-2 { display: grid; grid-template-columns: 1fr 1fr; gap: .8rem; }
+    .fee-line { display: flex; justify-content: space-between; font-size: .9rem; padding: .3rem 0; border-bottom: 1px solid #e6e8f5; }
+    .fee-line.total { font-weight: 700; border-bottom: 0; }
   </style>
 </head>
 <body>
@@ -71,12 +157,11 @@
     <nav class="sidebar" aria-label="Main">
       <a class="brand" href="dashboard.html">Secure<span>Trade</span></a>
       <a href="dashboard.html" aria-current="page">Dashboard</a>
-      <a href="create-transaction.html">New trade</a>
-      <a href="transaction.html">My trades</a>
       <a href="dispute.html">Disputes</a>
       <a href="history.html">History</a>
+      <a href="profile.html">My profile</a>
       <div class="spacer">
-        <a href="login.html">Sign out</a>
+        <a href="login.html" id="signout">Sign out</a>
       </div>
     </nav>
 
@@ -87,104 +172,648 @@
           <h1>Hi, <span id="me-first"></span></h1>
           <p>Here is where your trades stand today.</p>
         </div>
-        <a class="btn btn-primary" href="create-transaction.html">Start a new trade</a>
+        <a class="btn btn-outline" id="admin-link" href="admin-dashboard.html" hidden>Admin panel</a>
       </header>
 
-      <!-- Requests from other users: they appear here whether the sender is a buyer or a seller -->
-      <section class="card requests" aria-labelledby="req-title" id="requests">
-        <div class="card-head">
-          <h2 id="req-title">Trade requests <span class="badge badge-held" id="req-badge">2 new</span></h2>
-        </div>
+      <p class="form-error" id="page-error" role="alert" hidden></p>
 
+      <!-- Trade requests: right at the top, one line each, hidden when there are none -->
+      <section class="card requests" aria-labelledby="req-title" id="requests" hidden>
+        <div class="card-head">
+          <h2 id="req-title">Trade requests <span class="badge badge-held" id="req-badge"></span></h2>
+        </div>
         <div id="request-list"></div>
-
-        <p class="no-requests" id="no-requests" hidden>No new requests. When someone starts a trade with you, it will show up here.</p>
       </section>
 
-      <section class="vault" aria-label="Summary">
-        <div>
-          <p class="label">Held in escrow right now</p>
-          <p class="amount" id="held-amount"></p>
-          <p class="note">Released once each buyer confirms receipt.</p>
+      <!-- Verification banner -->
+      <div class="banner" id="verify-banner" hidden>
+        <p id="verify-text"></p>
+        <a class="btn btn-primary btn-small" href="profile.html" id="verify-link">Verify now</a>
+      </div>
+
+      <!-- Finished trades that were not rated yet -->
+      <section class="remind" id="rate-remind" aria-label="Rate your recent trades" hidden></section>
+
+      <!-- My profile -->
+      <section class="card me-card" aria-label="My profile">
+        <span id="me-avatar"></span>
+        <div class="who">
+          <h2 id="me-username">@username</h2>
+          <p class="full" id="me-full"></p>
+          <p class="small" id="me-email"></p>
+          <p class="small" id="me-joined"></p>
         </div>
-        <div class="vault-side">
-          <div>
-            <p class="num" id="active-count"></p>
-            <p class="cap">Active trades</p>
-          </div>
-          <div>
-            <p class="num" id="open-disputes"></p>
-            <p class="cap">Open dispute</p>
-          </div>
-          <div>
-            <p class="num" id="completed-count"></p>
-            <p class="cap">Completed</p>
-          </div>
+        <div class="me-stats">
+          <div><p class="num" id="me-completed">0</p><p class="cap">Completed trades</p></div>
+          <div><p class="num" id="me-rating">–</p><p class="cap">Rating</p></div>
+          <div><p class="num" id="me-active">0</p><p class="cap">On process</p></div>
         </div>
+        <a class="btn btn-outline" href="profile.html">Edit profile</a>
       </section>
 
-      <section class="card" aria-labelledby="active-title">
-        <div class="card-head">
-          <h2 id="active-title">Active trades</h2>
-          <div class="filter-tabs" role="tablist" aria-label="Filter trades">
-            <button type="button" role="tab" aria-selected="true" data-filter="all">All</button>
-            <button type="button" role="tab" aria-selected="false" data-filter="buyer">Buying</button>
-            <button type="button" role="tab" aria-selected="false" data-filter="seller">Selling</button>
-          </div>
+      <div class="dash-grid">
+
+        <!-- Left: my trades -->
+        <div class="col">
+
+          <section class="vault" aria-label="Summary">
+            <div>
+              <p class="label">Held in escrow right now</p>
+              <p class="amount" id="held-amount">₱0</p>
+              <p class="note">Released once each buyer confirms receipt.</p>
+            </div>
+            <div class="vault-side">
+              <div><p class="num" id="active-count">0</p><p class="cap">Active trades</p></div>
+              <div><p class="num" id="open-disputes">0</p><p class="cap">Open dispute</p></div>
+              <div><p class="num" id="completed-count">0</p><p class="cap">Completed</p></div>
+            </div>
+          </section>
+
+          <section class="card" aria-labelledby="active-title">
+            <div class="card-head">
+              <h2 id="active-title">Active trades</h2>
+              <div class="filter-tabs" role="tablist" aria-label="Filter trades">
+                <button type="button" role="tab" aria-selected="true" data-filter="all">All</button>
+                <button type="button" role="tab" aria-selected="false" data-filter="buyer">Buying</button>
+                <button type="button" role="tab" aria-selected="false" data-filter="seller">Selling</button>
+              </div>
+            </div>
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Item</th>
+                    <th>You are the</th>
+                    <th>Trade partner</th>
+                    <th>Amount</th>
+                    <th>Status</th>
+                    <th><span class="sr-only">Open</span></th>
+                  </tr>
+                </thead>
+                <tbody id="trade-rows"></tbody>
+              </table>
+            </div>
+            <p class="empty" id="empty" hidden>No trades in this tab yet.</p>
+          </section>
+
         </div>
 
-        <div class="table-wrap">
-          <table>
-            <thead>
-              <tr>
-                <th>Item</th>
-                <th>You are the</th>
-                <th>Trade partner</th>
-                <th>Amount</th>
-                <th>Status</th>
-                <th><span class="sr-only">Open</span></th>
-              </tr>
-            </thead>
-            <tbody id="trade-rows"></tbody>
-          </table>
-        </div>
-        <p class="empty" id="empty" hidden>No trades in this tab yet.</p>
-      </section>
+        <!-- Right: find a trade partner -->
+        <aside class="col">
+          <section class="card finder" aria-labelledby="finder-title">
+            <h2 id="finder-title">Find a trade partner</h2>
+            <div class="seg" role="group" aria-label="Filter people">
+              <button type="button" data-status="all" aria-pressed="true">All</button>
+              <button type="button" data-status="recent" aria-pressed="false">Recent</button>
+              <button type="button" data-status="online" aria-pressed="false">Online</button>
+              <button type="button" data-status="offline" aria-pressed="false">Offline</button>
+              <button type="button" data-status="favorites" aria-pressed="false">★ Favs</button>
+            </div>
+            <label class="sr-only" for="people-search">Search users</label>
+            <input id="people-search" class="finder-search" type="search" placeholder="Search by username">
+            <ul class="people" id="people"></ul>
+            <p class="no-people" id="no-people" hidden></p>
+            <div class="more-wrap"><button class="btn btn-outline btn-small" type="button" id="more" hidden>Show more</button></div>
+            <p class="hint" style="margin-top:.75rem">Check a profile first, then press Trade to send a request. Both people must be verified.</p>
+          </section>
+        </aside>
 
+      </div>
     </main>
   </div>
 
+  <!-- Profile card -->
+  <dialog id="profile-dialog" aria-labelledby="pd-name">
+    <div class="dlg">
+      <div class="dlg-top">
+        <span id="pd-avatar"></span>
+        <div>
+          <h2 id="pd-name"></h2>
+          <p id="pd-status" style="margin:.3rem 0 0"></p>
+          <p class="hint" id="pd-joined" style="margin:.2rem 0 0"></p>
+        </div>
+      </div>
+
+      <dl class="dlg-stats">
+        <div><dt>Completed trades</dt><dd id="pd-trades">0</dd></div>
+        <div><dt>Rating</dt><dd id="pd-rating">–</dd></div>
+        <div><dt>With you</dt><dd id="pd-together">0</dd></div>
+      </dl>
+
+      <div class="note-box" id="pd-note-box" hidden>
+        <h3>Your private note <span class="hint">(only you can see it)</span></h3>
+        <textarea id="pd-note" rows="2" maxlength="200" placeholder="Example: fast delivery, trusted"></textarea>
+        <div class="dlg-actions" style="margin-top:.5rem">
+          <button class="btn btn-outline btn-small" type="button" id="pd-note-save">Save note</button>
+        </div>
+        <p class="form-ok" id="pd-note-ok" role="status" hidden>Note saved.</p>
+      </div>
+
+      <h3>Recent reviews</h3>
+      <ul class="reviews" id="pd-reviews"></ul>
+      <p class="hint" id="pd-no-reviews" hidden>No reviews yet.</p>
+
+      <div class="dlg-actions">
+        <span id="pd-star"></span>
+        <button class="btn btn-primary" type="button" id="pd-trade">Trade with this user</button>
+        <button class="btn btn-outline" type="button" id="pd-close">Close</button>
+      </div>
+    </div>
+  </dialog>
+
+  <!-- Cannot trade yet: you are not verified, or the other person is not -->
+  <dialog id="block-dialog" aria-labelledby="bk-title">
+    <div class="dlg">
+      <h2 id="bk-title"></h2>
+      <p id="bk-text" style="margin:.75rem 0 0; color:var(--text-soft)"></p>
+      <p class="form-ok" id="bk-ok" role="status" hidden></p>
+      <div class="dlg-actions">
+        <a class="btn btn-primary" id="bk-verify" href="profile.html" hidden>Verify now</a>
+        <button class="btn btn-outline" type="button" id="bk-close">Close</button>
+      </div>
+    </div>
+  </dialog>
+
+  <!-- Trade form -->
+  <dialog id="trade-dialog" aria-labelledby="tf-title">
+    <form class="dlg" id="trade-form">
+      <div class="dlg-top">
+        <span id="tf-avatar"></span>
+        <div>
+          <h2 id="tf-title">Start a trade</h2>
+          <p class="hint" id="tf-sub" style="margin:.2rem 0 0"></p>
+        </div>
+      </div>
+
+      <fieldset class="role-pick">
+        <legend>I am the</legend>
+        <label><input type="radio" name="role" value="buyer" checked><strong>Buyer</strong><span>I will pay into escrow.</span></label>
+        <label><input type="radio" name="role" value="seller"><strong>Seller</strong><span>I will hand over the item.</span></label>
+      </fieldset>
+
+      <div class="row-2">
+        <div class="field">
+          <label for="tf-game">Game</label>
+          <input id="tf-game" type="text" placeholder="e.g. Mobile Legends" required>
+        </div>
+        <div class="field">
+          <label for="tf-price">Price (₱)</label>
+          <input id="tf-price" type="number" min="1" step="1" placeholder="0" required>
+        </div>
+      </div>
+      <div class="field">
+        <label for="tf-item">Item name</label>
+        <input id="tf-item" type="text" placeholder="Example: Mythic account, 120 skins" required>
+      </div>
+      <div class="field">
+        <label for="tf-details">Item details</label>
+        <textarea id="tf-details" rows="3" placeholder="Describe exactly what will be handed over, so both sides agree."></textarea>
+      </div>
+
+      <div class="fee-line"><span>Item price</span><span id="tf-s-price">₱0.00</span></div>
+      <div class="fee-line"><span>Service fee (<span id="tf-fee-pct"></span>)</span><span id="tf-s-fee">₱0.00</span></div>
+      <div class="fee-line total"><span>Seller receives</span><span id="tf-s-net">₱0.00</span></div>
+
+      <p class="form-error" id="tf-error" role="alert" hidden></p>
+
+      <div class="dlg-actions">
+        <button class="btn btn-primary" type="submit" id="tf-send">Send trade request</button>
+        <button class="btn btn-outline" type="button" id="tf-cancel">Cancel</button>
+      </div>
+    </form>
+  </dialog>
+
   <script src="data.js"></script>
+  <script src="api.js"></script>
+  <script src="nav-badge.js"></script>
   <script>
     ST.applyBrand();
-    document.getElementById('me-first').textContent = ST.me.first;
 
-    const HELD = ['held', 'waiting_seller', 'confirm', 'dispute'];   // statuses where money is in escrow
-    const body = document.getElementById('trade-rows');
-    const reqList = document.getElementById('request-list');
-    const reqBadge = document.getElementById('req-badge');
-    const noRequests = document.getElementById('no-requests');
+    // Must be signed in to use this page
+    if (!getToken()) window.location.href = 'login.html';
+    document.getElementById('signout').addEventListener('click', e => { e.preventDefault(); logout(); });
+
+    const $ = id => document.getElementById(id);
+    const me = getUser() || {};
+    $('me-first').textContent = me.username || (me.full_name || '').split(' ')[0] || 'there';
+    if (me.role === 'admin') $('admin-link').hidden = false;
+
+    let meVerified = !!me.verified || me.role === 'admin';
+
+    // A message at the top of the page. It scrolls up so it is always seen.
+    function showPageError(msg) {
+      $('page-error').textContent = msg;
+      $('page-error').hidden = !msg;
+      if (msg) window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    function presenceTag(online) {
+      return el('span', 'presence ' + (online ? 'online' : 'offline'), online ? 'Online' : 'Offline');
+    }
+    function lastSeenText(iso) {
+      if (!iso) return 'Not seen online yet';
+      const minutes = Math.floor((Date.now() - new Date(iso).getTime()) / 60000);
+      if (minutes < 1) return 'Last seen just now';
+      if (minutes < 60) return 'Last seen ' + minutes + ' min ago';
+      const hours = Math.floor(minutes / 60);
+      if (hours < 24) return 'Last seen ' + hours + ' hr ago';
+      const days = Math.floor(hours / 24);
+      return 'Last seen ' + days + (days === 1 ? ' day ago' : ' days ago');
+    }
+
+    // The game, item and details are saved together as: "Game – Item. Details"
+    function splitDescription(desc) {
+      const text = String(desc || '');
+      const i = text.indexOf(' – ');
+      if (i < 0) return { game: '', title: text };
+      const game = text.slice(0, i);
+      const rest = text.slice(i + 3);
+      const j = rest.indexOf('. ');
+      return { game, title: j < 0 ? rest : rest.slice(0, j) };
+    }
+
+    // ---------- My profile and the verification banner ----------
+    async function loadMe() {
+      try {
+        const p = await apiFetch('/profile');
+        meVerified = p.verified;
+        saveUser({ username: p.username, email: p.email, avatar_file: p.avatar_file, verified: p.verified, full_name: p.full_name });
+
+        $('me-first').textContent = p.username;
+        $('me-avatar').replaceChildren(makeAvatar(p.username, p.avatar_file, 72));
+        $('me-username').replaceChildren('@' + p.username);
+        if (p.verified) $('me-username').appendChild(verifiedBadge());
+        $('me-full').textContent = p.full_name;
+        $('me-email').textContent = p.email;
+        $('me-joined').textContent = 'Member since ' + new Date(p.created_at).toLocaleDateString('en-PH', { month: 'long', year: 'numeric' });
+        $('me-completed').textContent = p.completed_trades;
+        $('me-rating').textContent = p.avg_rating === null ? '–' : '★ ' + p.avg_rating.toFixed(1);
+        $('me-active').textContent = p.active_trades;
+
+        const banner = $('verify-banner');
+        banner.className = 'banner';
+        if (p.verified) {
+          banner.hidden = true;
+        } else {
+          const v = await apiFetch('/verification');
+          banner.hidden = false;
+
+          // People who pressed Trade on me while I was not verified
+          const names = (v.attempts || []).map(a => '@' + a.username);
+          const tried = names.length
+            ? ' ' + names.join(', ') + ' tried to trade with you. Verify to receive trade requests.'
+            : '';
+
+          if (v.pending) {
+            $('verify-text').replaceChildren(el('strong', '', 'Your verification is being reviewed'), 'You can start or accept trades once an admin approves it.' + tried);
+            $('verify-link').textContent = 'View status';
+          } else if (v.rejected) {
+            banner.classList.add('bad');
+            $('verify-text').replaceChildren(el('strong', '', 'Your verification was rejected'), (v.rejected.reject_reason || '') + ' Send a new request.' + tried);
+            $('verify-link').textContent = 'Try again';
+          } else {
+            $('verify-text').replaceChildren(el('strong', '', 'Verify your identity to start or accept trades'), 'It takes a few minutes: an ID and a selfie holding it.' + tried);
+            $('verify-link').textContent = 'Verify now';
+          }
+        }
+        renderPeople();
+      } catch (err) { /* connection problems show in the main error line */ }
+    }
+
+    // ---------- Reminder: finished trades I have not rated yet (last 7 days) ----------
+    // "Rate later" is saved in the database, so the reminder does not come back on any device.
+    // The trade can still be rated from History or from the trade page.
+    async function loadRateReminders() {
+      try {
+        const list = await apiFetch('/history');
+        const week = 7 * 24 * 60 * 60 * 1000;
+        const todo = list
+          .filter(h => h.status === 'completed' && !h.my_score && !h.rate_later && (Date.now() - new Date(h.date).getTime()) < week)
+          .slice(0, 3);
+
+        const box = $('rate-remind');
+        box.innerHTML = '';
+        todo.forEach(h => {
+          const row = el('div', 'remind-row');
+          const text = el('p');
+          text.append('Rate your recent trade with @' + h.partner_username + ' ');
+          text.appendChild(el('small', '', '(' + h.item_description + ')'));
+
+          const btns = el('div', 'remind-btns');
+          const now = el('a', 'btn btn-primary btn-small', 'Rate now');
+          now.href = 'transaction.html?id=' + h.transaction_id;
+
+          const later = el('button', 'btn btn-outline btn-small', 'Rate later');
+          later.type = 'button';
+          later.addEventListener('click', async () => {
+            later.disabled = true;
+            try {
+              await apiFetch('/transactions/' + h.transaction_id + '/rate-later', { method: 'POST', body: JSON.stringify({}) });
+              row.remove();
+              if (!box.querySelector('.remind-row')) box.hidden = true;
+            } catch (err) {
+              later.disabled = false;
+              showPageError(netError(err));
+            }
+          });
+
+          btns.append(now, later);
+          row.append(text, btns);
+          box.appendChild(row);
+        });
+        box.hidden = todo.length === 0;
+      } catch (err) { /* the reminder is optional */ }
+    }
+
+    // ---------- "You cannot trade yet" notice ----------
+    const bkDialog = $('block-dialog');
+
+    async function showBlock(kind, user) {
+      $('bk-ok').hidden = true;
+      if (kind === 'me') {
+        $('bk-title').textContent = 'Verify your identity first';
+        $('bk-text').textContent = 'You can start or accept trades only after an admin verifies your identity. It takes a few minutes: an ID and a selfie holding it. Both people in a trade must be verified.';
+        $('bk-verify').hidden = false;
+      } else {
+        $('bk-title').textContent = '@' + user.username + ' is not verified yet';
+        $('bk-text').textContent = 'Both people must be verified before they can trade. Ask @' + user.username + ' to verify their identity in My profile, then try again.';
+        $('bk-verify').hidden = true;
+      }
+      bkDialog.showModal();
+
+      // Tell the other person that someone wanted to trade with them
+      if (kind === 'them') {
+        try {
+          await apiFetch('/trade-attempts', { method: 'POST', body: JSON.stringify({ username: user.username }) });
+          $('bk-ok').textContent = 'We told @' + user.username + ' that you wanted to trade, so they know to verify.';
+          $('bk-ok').hidden = false;
+        } catch (err) { /* the notice above is enough */ }
+      }
+    }
+    $('bk-close').addEventListener('click', () => bkDialog.close());
+    bkDialog.addEventListener('click', e => { if (e.target === bkDialog) bkDialog.close(); });
+
+    // The Trade buttons are always clickable. If something is missing, say what.
+    function tryTrade(user) {
+      if (!meVerified) { showBlock('me', user); return; }
+      if (!user.verified) { showBlock('them', user); return; }
+      openTradeForm(user);
+    }
+
+    // ---------- Find a trade partner ----------
+    const finder = { status: 'all', limit: 20, users: [], hasMore: false };
+
+    function renderPeople() {
+      const box = $('people');
+      box.innerHTML = '';
+      finder.users.forEach(u => {
+        const li = el('li', 'person');
+
+        const info = el('div');
+        info.appendChild(el('strong', '', '@' + u.username));
+        info.appendChild(u.verified ? verifiedBadge() : notVerifiedTag());
+        info.appendChild(presenceTag(u.online));
+        let line = u.online ? 'Active now' : lastSeenText(u.last_seen);
+        if (u.is_favorite && u.note) line = '“' + u.note + '”';
+        else if (u.trades_together > 0) line += ' · ' + u.trades_together + (u.trades_together === 1 ? ' trade with you' : ' trades with you');
+        info.appendChild(el('small', '', line));
+
+        const lead = el('div', 'lead');
+        lead.append(makeAvatar(u.username, u.avatar_file, 42), info);
+
+        const acts = el('div', 'acts');
+        acts.appendChild(makeStar(u.username, u.is_favorite, () => { if (finder.status === 'favorites') loadPeople(); }));
+
+        const view = el('button', 'btn btn-outline', 'Profile');
+        view.type = 'button';
+        view.addEventListener('click', () => openProfile(u.username));
+        acts.appendChild(view);
+
+        const blocked = !meVerified || !u.verified;
+        const trade = el('button', 'btn btn-primary' + (blocked ? ' dim' : ''), 'Trade');
+        trade.type = 'button';
+        trade.title = !meVerified ? 'Verify your identity first' : (!u.verified ? 'This user is not verified yet. Click to see why.' : '');
+        trade.addEventListener('click', () => tryTrade(u));
+        acts.appendChild(trade);
+
+        li.append(lead, acts);
+        box.appendChild(li);
+      });
+
+      const none = $('no-people');
+      none.hidden = finder.users.length > 0;
+      if (finder.users.length === 0) {
+        none.textContent = finder.status === 'favorites'
+          ? 'No favorites yet. Press the star beside a user to add them.'
+          : (finder.status === 'recent' ? 'You have not traded with anyone yet.' : 'No users match your search.');
+      }
+      $('more').hidden = !finder.hasMore;
+    }
+
+    async function loadPeople() {
+      try {
+        const q = '?status=' + finder.status + '&limit=' + finder.limit + '&search=' + encodeURIComponent($('people-search').value.trim());
+        const data = await apiFetch('/users' + q);
+        finder.users = data.users;
+        finder.hasMore = data.has_more;
+      } catch (err) {
+        finder.users = [];
+        finder.hasMore = false;
+        $('no-people').textContent = 'Could not load users: ' + netError(err);
+        $('no-people').hidden = false;
+        $('people').innerHTML = '';
+        return;
+      }
+      renderPeople();
+    }
+
+    document.querySelectorAll('.seg button').forEach(b => {
+      b.addEventListener('click', () => {
+        finder.status = b.dataset.status;
+        finder.limit = 20;
+        document.querySelectorAll('.seg button').forEach(x => x.setAttribute('aria-pressed', x === b));
+        loadPeople();
+      });
+    });
+    let searchTimer;
+    $('people-search').addEventListener('input', () => {
+      clearTimeout(searchTimer);
+      finder.limit = 20;
+      searchTimer = setTimeout(loadPeople, 250);
+    });
+    $('more').addEventListener('click', () => { finder.limit += 20; loadPeople(); });
+
+    // ---------- Profile card ----------
+    const pdDialog = $('profile-dialog');
+    let pdUser = null;
+
+    async function openProfile(username) {
+      try {
+        const p = await apiFetch('/users/' + encodeURIComponent(username));
+        pdUser = p;
+
+        $('pd-avatar').replaceChildren(makeAvatar(p.username, p.avatar_file, 64));
+        $('pd-name').replaceChildren('@' + p.username);
+        $('pd-name').appendChild(p.verified ? verifiedBadge() : notVerifiedTag());
+
+        const status = $('pd-status');
+        status.replaceChildren(presenceTag(p.online));
+        if (!p.online) status.append(' · ' + lastSeenText(p.last_seen));
+
+        $('pd-joined').textContent = 'Member since ' + new Date(p.joined).toLocaleDateString('en-PH', { month: 'long', year: 'numeric' });
+        $('pd-trades').textContent = p.completed_trades;
+        $('pd-rating').textContent = p.avg_rating === null ? '–' : '★ ' + p.avg_rating.toFixed(1) + ' (' + p.rating_count + ')';
+        $('pd-together').textContent = p.trades_together;
+
+        // The star, and the private note (only when this person is a favorite)
+        $('pd-star').replaceChildren(makeStar(p.username, p.is_favorite, fav => {
+          $('pd-note-box').hidden = !fav;
+          if (!fav) $('pd-note').value = '';
+          loadPeople();
+        }));
+        $('pd-note-box').hidden = !p.is_favorite;
+        $('pd-note').value = p.note || '';
+        $('pd-note-ok').hidden = true;
+
+        const list = $('pd-reviews');
+        list.innerHTML = '';
+        p.reviews.forEach(r => {
+          const li = el('li');
+          li.appendChild(el('strong', '', '★ ' + r.score));
+          li.appendChild(el('span', 'by', ' from @' + r.from_username));
+          if (r.feedback) li.appendChild(el('div', '', r.feedback));
+          list.appendChild(li);
+        });
+        $('pd-no-reviews').hidden = p.reviews.length > 0;
+
+        // Always clickable: if something is missing, the notice says what
+        const trade = $('pd-trade');
+        const blocked = !(meVerified && p.verified);
+        trade.classList.toggle('dim', blocked);
+        trade.title = !meVerified ? 'Verify your identity first' : (!p.verified ? 'This user is not verified yet. Click to see why.' : '');
+
+        pdDialog.showModal();
+      } catch (err) {
+        showPageError('Could not load the profile: ' + netError(err));
+      }
+    }
+
+    $('pd-note-save').addEventListener('click', async () => {
+      $('pd-note-ok').hidden = true;
+      try {
+        await apiFetch('/favorites/' + encodeURIComponent(pdUser.username), { method: 'PUT', body: JSON.stringify({ note: $('pd-note').value }) });
+        $('pd-note-ok').hidden = false;
+        loadPeople();
+      } catch (err) { showPageError(netError(err)); }
+    });
+    $('pd-close').addEventListener('click', () => pdDialog.close());
+    pdDialog.addEventListener('click', e => { if (e.target === pdDialog) pdDialog.close(); });
+    $('pd-trade').addEventListener('click', () => {
+      pdDialog.close();
+      tryTrade(pdUser);
+    });
+
+    // ---------- Trade form (a popup, so no separate page is needed) ----------
+    const tfDialog = $('trade-dialog');
+    let tfPartner = null;
+    $('tf-fee-pct').textContent = (ST.feeRate * 100) + '%';
+
+    function updateFee() {
+      const p = parseFloat($('tf-price').value) || 0;
+      const fee = p * ST.feeRate;
+      const money = n => '₱' + n.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+      $('tf-s-price').textContent = money(p);
+      $('tf-s-fee').textContent = money(fee);
+      $('tf-s-net').textContent = money(p - fee);
+    }
+    $('tf-price').addEventListener('input', updateFee);
+
+    function openTradeForm(user) {
+      if (!meVerified) { showBlock('me', user); return; }
+      if (!user.verified) { showBlock('them', user); return; }
+      tfPartner = user;
+      $('trade-form').reset();
+      $('tf-avatar').replaceChildren(makeAvatar(user.username, user.avatar_file, 52));
+      $('tf-title').replaceChildren('Trade with @' + user.username);
+      $('tf-sub').textContent = 'Your request goes to their dashboard. After they accept, you continue on the trade page.';
+      $('tf-error').hidden = true;
+      $('tf-send').disabled = false;
+      updateFee();
+      tfDialog.showModal();
+    }
+    $('tf-cancel').addEventListener('click', () => tfDialog.close());
+
+    $('trade-form').addEventListener('submit', async e => {
+      e.preventDefault();
+      $('tf-error').hidden = true;
+      const role = document.querySelector('input[name="role"]:checked').value;
+      const game = $('tf-game').value.trim();
+      const item = $('tf-item').value.trim();
+      const details = $('tf-details').value.trim();
+      const description = game + ' – ' + item + (details ? '. ' + details : '');
+
+      $('tf-send').disabled = true;
+      try {
+        const trade = await apiFetch('/transactions', {
+          method: 'POST',
+          body: JSON.stringify({
+            partner_username: tfPartner.username,
+            my_role: role,
+            item_description: description,
+            amount: parseFloat($('tf-price').value)
+          })
+        });
+        // Go straight to the trade page: the process starts there
+        window.location.href = 'transaction.html?id=' + trade.transaction_id;
+      } catch (err) {
+        $('tf-error').textContent = netError(err);
+        $('tf-error').hidden = false;
+        $('tf-send').disabled = false;
+      }
+    });
+
+    // ---------- My trades and requests ----------
+    const body = $('trade-rows');
+    const reqList = $('request-list');
+    const reqBadge = $('req-badge');
+
+    let trades = [];      // all my trades, from the database
+    let requests = [];    // requests other users sent me
     let filter = 'all';
-    let newId = 1;
 
-    function el(tag, cls, text) {
-      const e = document.createElement(tag);
-      if (cls) e.className = cls;
-      if (text !== undefined) e.textContent = text;
-      return e;
+    const HELD = ['paid', 'delivered', 'disputed'];             // money is in escrow
+    const ACTIVE = ['pending', 'accepted', 'paid', 'delivered', 'disputed'];
+
+    // Turn a database status into the badge shown on the page
+    function badgeFor(t) {
+      if (t.status === 'pending') {
+        return el('span', 'badge badge-pending', 'Waiting for partner');
+      }
+      const keys = {
+        accepted:  t.role === 'buyer' ? 'await_pay' : 'await_buyer_pay',
+        paid:      t.role === 'buyer' ? 'waiting_seller' : 'held',
+        delivered: t.role === 'buyer' ? 'confirm' : 'held',
+        disputed:  'dispute',
+        completed: 'completed',
+        refunded:  'refunded',
+        cancelled: 'cancelled'
+      };
+      return ST.badge(keys[t.status] || t.status);
     }
 
     function tradeLink(t) {
-      return t.status === 'dispute'
+      return t.status === 'disputed'
         ? 'dispute.html?id=' + t.id
-        : 'transaction.html?id=' + t.id + '&role=' + t.role;
+        : 'transaction.html?id=' + t.id;
     }
 
     // Summary numbers + the trades table
     function renderTrades() {
       body.innerHTML = '';
+      const active = trades.filter(t => ACTIVE.includes(t.status));
       let shown = 0;
-      ST.trades.forEach(t => {
+
+      active.forEach(t => {
         if (filter !== 'all' && t.role !== filter) return;
         shown++;
         const tr = el('tr');
@@ -192,54 +821,105 @@
         tr.appendChild(el('td', 'role', t.role === 'buyer' ? 'Buyer' : 'Seller'));
         tr.appendChild(el('td', '', t.partner));
         tr.appendChild(el('td', '', ST.pesoShort(t.amount)));
-        const status = el('td'); status.appendChild(ST.badge(t.status)); tr.appendChild(status);
+        const status = el('td'); status.appendChild(badgeFor(t)); tr.appendChild(status);
         const open = el('td'); const a = el('a', '', 'Open'); a.href = tradeLink(t); open.appendChild(a); tr.appendChild(open);
         body.appendChild(tr);
       });
-      document.getElementById('empty').hidden = shown > 0;
+      $('empty').hidden = shown > 0;
 
-      const held = ST.trades.filter(t => HELD.includes(t.status)).reduce((sum, t) => sum + t.amount, 0);
-      document.getElementById('held-amount').textContent = ST.pesoShort(held);
-      document.getElementById('active-count').textContent = ST.trades.length;
-      document.getElementById('open-disputes').textContent = ST.trades.filter(t => t.status === 'dispute').length;
-      document.getElementById('completed-count').textContent = ST.me.completedTrades;
+      const held = trades.filter(t => HELD.includes(t.status)).reduce((sum, t) => sum + t.amount, 0);
+      $('held-amount').textContent = ST.pesoShort(held);
+      $('active-count').textContent = active.length;
+      $('open-disputes').textContent = trades.filter(t => t.status === 'disputed').length;
+      $('completed-count').textContent = trades.filter(t => t.status === 'completed').length;
     }
 
-    // Incoming requests
+    // Incoming requests. Accept goes straight to the trade page; Decline just removes the request.
+    // A problem is shown right beside the request, with a link to verify when that is the reason.
+    async function answer(id, action, buttons, errLine) {
+      buttons.forEach(b => b.disabled = true);
+      showPageError('');
+      errLine.hidden = true;
+      try {
+        await apiFetch('/transactions/' + id + '/respond', { method: 'POST', body: JSON.stringify({ action }) });
+        if (action === 'accept') { window.location.href = 'transaction.html?id=' + id; return; }
+        await load();
+      } catch (err) {
+        errLine.textContent = netError(err);
+        if (/verify/i.test(err.message)) {
+          const link = el('a', '', 'Verify now');
+          link.href = 'profile.html';
+          errLine.append(' ', link);
+        }
+        errLine.hidden = false;
+        buttons.forEach(b => b.disabled = false);
+      }
+    }
+
     function renderRequests() {
       reqList.innerHTML = '';
-      ST.requests.forEach(r => {
+      requests.forEach(r => {
         const row = el('div', 'request');
-        const info = el('div');
-        info.appendChild(el('p', 'who', r.myRole === 'seller' ? r.from + ' wants to buy from you' : r.from + ' wants to sell to you'));
-        info.appendChild(el('p', 'what', r.item + ' · ' + ST.pesoShort(r.amount) + ' · You would be the ' + r.myRole));
+
+        // One line: "@juan wants to buy from you | Game | Item name | ₱amount | You would be the seller"
+        const who = r.my_role === 'seller'
+          ? '@' + r.from_username + ' wants to buy from you'
+          : '@' + r.from_username + ' wants to sell to you';
+        const parts = splitDescription(r.item_description);
+        const rest = [parts.game, parts.title].filter(Boolean).join(' | ')
+          + ' | ' + ST.pesoShort(Number(r.amount)) + ' | You would be the ' + r.my_role;
+
+        const line = el('p', 'line');
+        line.append(el('strong', '', who), el('span', 'rest', ' | ' + rest));
+        line.title = who + ' | ' + rest;   // the full text on hover, when the line is cut short
+
+        const errLine = el('p', 'form-error');
+        errLine.hidden = true;
 
         const btns = el('div', 'btns');
         const accept = el('button', 'btn btn-primary btn-small', 'Accept'); accept.type = 'button';
         const decline = el('button', 'btn btn-outline btn-small', 'Decline'); decline.type = 'button';
-
-        accept.addEventListener('click', () => {
-          ST.trades.unshift({
-            id: 'ST-NEW' + newId++, item: r.item, game: r.game, role: r.myRole, partner: r.from, amount: r.amount,
-            status: r.myRole === 'buyer' ? 'await_pay' : 'await_buyer_pay', started: 'Today', chat: []
-          });
-          ST.requests = ST.requests.filter(x => x.id !== r.id);
-          renderRequests(); renderTrades();
-        });
-        decline.addEventListener('click', () => {
-          ST.requests = ST.requests.filter(x => x.id !== r.id);
-          renderRequests();
-        });
-
+        accept.addEventListener('click', () => answer(r.transaction_id, 'accept', [accept, decline], errLine));
+        decline.addEventListener('click', () => answer(r.transaction_id, 'decline', [accept, decline], errLine));
         btns.append(accept, decline);
-        row.append(info, btns);
+
+        row.append(line, btns, errLine);
         reqList.appendChild(row);
       });
 
-      const left = ST.requests.length;
-      reqBadge.hidden = left === 0;
-      reqBadge.textContent = left + ' new';
-      noRequests.hidden = left > 0;
+      // No requests: the whole card is hidden
+      $('requests').hidden = requests.length === 0;
+      reqBadge.textContent = requests.length + ' new';
+      if (window.setNavRequestCount) window.setNavRequestCount(requests.length);
+    }
+
+    // Load everything from the backend
+    async function load() {
+      try {
+        const [t, r] = await Promise.all([apiFetch('/transactions'), apiFetch('/requests')]);
+        const myId = String((getUser() || {}).user_id);
+        trades = t.map(x => {
+          const iAmBuyer = String(x.buyer_id) === myId;
+          return {
+            id: x.transaction_id,
+            item: x.item_description,
+            role: iAmBuyer ? 'buyer' : 'seller',
+            partner: '@' + (iAmBuyer ? x.seller_username : x.buyer_username),
+            amount: Number(x.amount),
+            status: x.status
+          };
+        });
+        // Requests that other users sent me appear in the box at the top, not in the table
+        const incoming = new Set(r.map(x => x.transaction_id));
+        trades = trades.filter(x => !incoming.has(x.id));
+        requests = r;
+        showPageError('');
+      } catch (err) {
+        showPageError(netError(err));
+        return;
+      }
+      renderRequests();
+      renderTrades();
     }
 
     // Buying / Selling / All tabs
@@ -251,8 +931,14 @@
       });
     });
 
-    renderRequests();
-    renderTrades();
+    loadMe();
+    load();
+    loadPeople();
+    loadRateReminders();
+    setInterval(load, 30000);              // new requests (a request being answered keeps its own error line)
+    setInterval(loadPeople, 30000);        // online / offline
+    setInterval(loadMe, 60000);            // verification result and "someone tried to trade with you"
+    setInterval(loadRateReminders, 60000); // trades waiting for a rating
   </script>
 </body>
 </html>

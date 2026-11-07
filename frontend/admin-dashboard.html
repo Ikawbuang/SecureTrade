@@ -10,16 +10,17 @@
   <link rel="stylesheet" href="style.css">
   <style>
     /* Page-specific styles (style.css stays unchanged) */
+    [hidden] { display: none !important; }
     .sidebar .brand { display: block; margin-bottom: .25rem; padding-left: .85rem; }
     .sidebar .role-tag { display: block; padding-left: .85rem; margin-bottom: 1.75rem; font-size: .85rem; color: var(--gold); font-weight: 600; }
     .sidebar .spacer { margin-top: 2rem; padding-top: 1rem; border-top: 1px solid var(--ink-3); }
+    .sidebar .count { margin-left: .4rem; padding: .05rem .45rem; border-radius: 999px; background: var(--gold); color: var(--ink); font-size: .75rem; font-weight: 700; }
     .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 
     .page-head { margin-bottom: 1.5rem; }
     .page-head h1 { margin: 0; font-size: 1.9rem; }
     .page-head p { margin: .25rem 0 0; color: var(--text-soft); }
 
-    /* Overview numbers: the open disputes figure leads, because it needs action */
     .overview { display: grid; grid-template-columns: 1.3fr 1fr 1fr 1fr; gap: 1rem; margin-bottom: 1.75rem; }
     .stat { background: var(--white); border: 1px solid #e0e3f2; border-radius: var(--radius-m); padding: 1.1rem 1.25rem; }
     .stat p { margin: 0; }
@@ -30,33 +31,119 @@
     .stat.urgent .cap { color: var(--text-on-dark-soft); }
 
     section.block { margin-bottom: 1.75rem; scroll-margin-top: 1rem; }
-    .card-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; }
+    .card-head { display: flex; justify-content: space-between; align-items: center; gap: 1rem; flex-wrap: wrap; margin-bottom: 1rem; }
     .card-head h2 { margin: 0; }
     .card-head span { color: var(--text-soft); font-size: .9rem; }
     .table-wrap { overflow-x: auto; }
+    .empty { color: var(--text-soft); margin: .75rem 0 0; }
     .link-btn { background: none; border: 0; padding: 0; font: 600 1rem var(--font-body); color: var(--gold-dark); text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
     .badge-active { background: #d6f4ee; color: #146b5a; }
     .badge-flag { background: #fbdcd9; color: #9c2a22; }
 
-    /* Dispute review dialog */
-    dialog.review { border: 0; border-radius: var(--radius-l); padding: 0; width: min(94vw, 560px); max-height: 90vh; }
+    .filters { display: flex; gap: .6rem; flex-wrap: wrap; margin-bottom: 1rem; }
+    .filters input, .filters select {
+      padding: .55rem .8rem; font: .95rem var(--font-body); color: var(--text);
+      background: var(--white); border: 2px solid #d5d8ec; border-radius: var(--radius-s);
+    }
+    .filters input { flex: 1; min-width: 180px; }
+    .filters input:focus, .filters select:focus { outline: none; border-color: var(--gold); }
+
+    .group-tabs { display: inline-flex; flex-wrap: wrap; background: #e4e6f6; border-radius: var(--radius-s); padding: 4px; margin-bottom: 1rem; }
+    .group-tabs button { padding: .5rem .95rem; font: 600 .92rem var(--font-body); color: var(--text-soft); background: transparent; border: 0; border-radius: 4px; cursor: pointer; }
+    .group-tabs button[aria-selected="true"] { background: var(--white); color: var(--text); }
+    .group-tabs b { margin-left: .35rem; padding: .05rem .45rem; border-radius: 999px; background: #d5d8ec; font-size: .8rem; }
+    .group-tabs button[aria-selected="true"] b { background: var(--gold); color: var(--ink); }
+    .reply-tag { display: block; margin-top: .3rem; font-size: .78rem; font-weight: 600; }
+    .reply-tag.ok { color: #146b5a; }
+    .reply-tag.none { color: #9c2a22; }
+
+    .dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; background: #aab0cf; margin-right: .4rem; }
+    .dot.on { background: var(--teal); }
+    .sub { display: block; color: var(--text-soft); font-size: .8rem; }
+    .who-cell { display: flex; align-items: center; gap: .6rem; }
+
+    dialog.review { border: 0; border-radius: var(--radius-l); padding: 0; width: min(94vw, 660px); max-height: 92vh; }
+    dialog.review.wide { width: min(96vw, 1040px); }
     dialog.review::backdrop { background: rgba(23, 26, 51, .6); }
     .review-head { background: var(--ink); color: var(--text-on-dark); padding: 1.25rem 1.5rem; }
-    .review-head h2 { color: var(--white); margin: 0 0 .25rem; font-size: 1.25rem; }
-    .review-head p { margin: 0; color: var(--text-on-dark-soft); font-size: .9rem; }
+    .review-head.head-row { display: flex; align-items: center; gap: 1rem; }
+    .review-head h2 { color: var(--white); margin: 0 0 .25rem; font-size: 1.25rem; word-break: break-word; }
+    .review-head p { margin: 0; color: var(--text-on-dark-soft); font-size: .9rem; word-break: break-word; }
     .review-body { padding: 1.25rem 1.5rem 1.5rem; }
-    .review-body h3 { margin: 1rem 0 .35rem; font-size: 1rem; }
+    .review-body h3 { margin: 1.1rem 0 .35rem; font-size: 1rem; }
     .review-body h3:first-child { margin-top: 0; }
-    .review-body p { margin: 0; color: var(--text-soft); font-size: .95rem; }
-    .review-body ul { margin: 0; padding-left: 1.1rem; color: var(--text-soft); font-size: .95rem; }
+    .review-body p { margin: 0; color: var(--text-soft); font-size: .95rem; white-space: pre-wrap; word-break: break-word; }
     .meta { display: grid; grid-template-columns: 1fr 1fr; gap: .5rem 1rem; margin-bottom: 1rem; font-size: .92rem; }
     .meta dt { color: var(--text-soft); }
-    .meta dd { margin: 0; font-weight: 600; }
-    .decide { display: flex; gap: .6rem; flex-wrap: wrap; margin-top: 1.5rem; }
-    .decide .btn { flex: 1; min-width: 150px; }
+    .meta dd { margin: 0; font-weight: 600; word-break: break-word; }
+    .readonly { margin: 0 0 1rem; padding: .7rem .9rem; background: #eef0fa; border-radius: var(--radius-s); font-size: .88rem; color: var(--text-soft); }
+
+    .summary { display: grid; grid-template-columns: repeat(4, 1fr); gap: .6rem; margin: 0 0 1.1rem; }
+    .fact { background: #f3f4fb; border-radius: var(--radius-s); padding: .6rem .8rem; }
+    .fact dt { font-size: .78rem; color: var(--text-soft); }
+    .fact dd { margin: .1rem 0 0; font-weight: 600; font-size: .92rem; word-break: break-word; }
+    .cols { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+    .party { border: 1px solid #e0e3f2; border-radius: var(--radius-m); padding: 1rem 1.1rem; min-width: 0; }
+    .party-top { display: flex; align-items: center; gap: .7rem; margin-bottom: .35rem; }
+    .party h3 { margin: 0 !important; font-size: 1.05rem; word-break: break-word; }
+    .party .rep { color: var(--text-soft); font-size: .86rem; margin: 0 0 .5rem; }
+    .party .line { font-size: .9rem; margin: .25rem 0; color: var(--text); }
+    .party .stmt-title { margin: .9rem 0 .25rem; font-weight: 600; font-size: .92rem; }
+    .party .stmt { margin: 0; font-size: .95rem; color: var(--text-soft); }
+    .party .ev-title { margin: .9rem 0 0; font-weight: 600; font-size: .92rem; }
+
+    .tl { max-height: 340px; overflow-y: auto; border: 1px solid #e6e8f5; border-radius: var(--radius-s); padding: .25rem .75rem; margin: 0; list-style: none; }
+    .tl li { display: grid; grid-template-columns: 118px 1fr; gap: .75rem; padding: .55rem 0; border-bottom: 1px solid #f0f1f8; font-size: .92rem; }
+    .tl li:last-child { border-bottom: 0; }
+    .tl .when { display: block; margin-top: .25rem; color: var(--text-soft); font-size: .78rem; }
+    .tl .text { word-break: break-word; white-space: pre-wrap; }
+    .kind { display: inline-block; font-size: .7rem; font-weight: 700; letter-spacing: .03em; text-transform: uppercase; padding: .12rem .45rem; border-radius: 4px; }
+    .kind-trade { background: #e4e6f6; color: var(--ink); }
+    .kind-chat { background: #fff1cc; color: #7a5a00; }
+    .kind-dispute { background: #fbdcd9; color: #9c2a22; }
+
+    .thumbs { display: flex; flex-wrap: wrap; gap: .6rem; margin: .5rem 0 0; padding: 0; list-style: none; }
+    .thumbs button { display: block; width: 96px; height: 96px; padding: 0; border: 2px solid #d5d8ec; border-radius: var(--radius-s); background: #eceef9; overflow: hidden; cursor: pointer; font-size: .8rem; }
+    .thumbs button:hover { border-color: var(--gold); }
+    .thumbs img { width: 100%; height: 100%; object-fit: cover; display: block; }
+
+    .chatlog, .timeline, .mini-list { max-height: 200px; overflow-y: auto; border: 1px solid #e6e8f5; border-radius: var(--radius-s); padding: .35rem .75rem; margin: 0; list-style: none; }
+    .chatlog li, .timeline li, .mini-list li { padding: .4rem 0; border-bottom: 1px solid #f0f1f8; font-size: .92rem; }
+    .chatlog li:last-child, .timeline li:last-child, .mini-list li:last-child { border-bottom: 0; }
+    .chatlog b { font-weight: 600; }
+    .chatlog small, .timeline small, .mini-list small { color: var(--text-soft); margin-left: .35rem; }
+    .timeline small { display: block; margin: 0; }
+
+    .decision { margin-top: 1.4rem; padding-top: 1.1rem; border-top: 1px solid #e6e8f5; }
+    .decision textarea { width: 100%; padding: .65rem .85rem; font: 1rem var(--font-body); border: 2px solid #d5d8ec; border-radius: var(--radius-s); }
+    .decision textarea:focus { outline: none; border-color: var(--gold); }
+    .decide { display: flex; gap: .6rem; flex-wrap: wrap; margin-top: 1rem; }
+    .decide .btn { flex: 1; min-width: 140px; }
+    .note-ok { margin: 0; padding: .85rem 1rem; background: #e3f7f2; border-left: 4px solid var(--teal); border-radius: var(--radius-s); color: var(--text); }
+    .warn { margin: .75rem 0 0; padding: .7rem .9rem; background: #fff8e6; border-left: 4px solid var(--gold); border-radius: var(--radius-s); font-size: .9rem; }
+
+    /* Verification review */
+    .vpics { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem; }
+    .vpic { border: 1px solid #e0e3f2; border-radius: var(--radius-m); padding: .75rem; min-width: 0; }
+    .vpic h3 { margin: 0 0 .5rem !important; font-size: .95rem; }
+    .vpic img { display: block; width: 100%; max-height: 340px; object-fit: contain; background: #eceef9; border-radius: var(--radius-s); cursor: zoom-in; }
+    .vpic .missing { color: var(--text-soft); padding: 2rem 0; text-align: center; font-size: .9rem; }
+    .vcode { text-align: center; padding: .8rem; border-radius: var(--radius-m); background: var(--ink); color: var(--gold); margin-bottom: 1rem; }
+    .vcode .num { font: 700 2rem var(--font-display); letter-spacing: .4rem; }
+    .vcode small { display: block; color: var(--text-on-dark-soft); }
+    .match { display: inline-block; padding: .08rem .5rem; border-radius: 999px; font-size: .75rem; font-weight: 700; margin-left: .4rem; }
+    .match.same { background: #d6f4ee; color: #146b5a; }
+    .match.diff { background: #fdecc8; color: #8a5a00; }
+    .checklist { margin: 0 0 1rem; padding-left: 1.2rem; color: var(--text-soft); font-size: .9rem; }
+    .checklist li { margin-bottom: .25rem; }
 
     @media (max-width: 1000px) { .overview { grid-template-columns: 1fr 1fr; } }
-    @media (max-width: 520px) { .overview { grid-template-columns: 1fr; } .meta { grid-template-columns: 1fr; } }
+    @media (max-width: 800px) { .summary { grid-template-columns: 1fr 1fr; } .cols, .vpics { grid-template-columns: 1fr; } }
+    @media (max-width: 520px) {
+      .overview, .summary { grid-template-columns: 1fr; }
+      .meta { grid-template-columns: 1fr; }
+      .tl li { grid-template-columns: 1fr; gap: .2rem; }
+    }
   </style>
 </head>
 <body>
@@ -66,140 +153,360 @@
       <a class="brand" href="admin-dashboard.html">Secure<span>Trade</span></a>
       <span class="role-tag">Admin</span>
       <a href="#overview" aria-current="page">Overview</a>
+      <a href="#verifications">Verifications <span class="count" id="nav-verif-count" hidden></span></a>
       <a href="#disputes">Disputes</a>
       <a href="#transactions">Transactions</a>
       <a href="#users">Users</a>
       <div class="spacer">
-        <a href="login.html">Sign out</a>
+        <a href="dashboard.html">My dashboard</a>
+        <a href="login.html" id="signout">Sign out</a>
       </div>
     </nav>
 
     <main class="main">
 
-      <header class="page-head" id="overview">
-        <h1>Admin overview</h1>
-        <p>Review disputes first. Everything else is here for reference.</p>
-      </header>
+      <p class="form-error" id="page-error" role="alert" hidden></p>
 
-      <div class="overview">
-        <div class="stat urgent">
-          <p class="num" id="open-count"></p>
-          <p class="cap">Disputes waiting for you</p>
+      <div id="content">
+
+        <header class="page-head" id="overview">
+          <h1>Admin overview</h1>
+          <p>Review verifications and disputes first. Everything else is here for you to watch. Only disputes are decided by an admin.</p>
+        </header>
+
+        <div class="overview">
+          <div class="stat urgent">
+            <p class="num" id="open-count">0</p>
+            <p class="cap">Disputes waiting for you</p>
+          </div>
+          <div class="stat">
+            <p class="num" id="held">₱0</p>
+            <p class="cap">Held in escrow</p>
+          </div>
+          <div class="stat">
+            <p class="num" id="month">0</p>
+            <p class="cap">Trades this month</p>
+          </div>
+          <div class="stat">
+            <p class="num" id="fees">₱0</p>
+            <p class="cap">Service fees earned</p>
+          </div>
         </div>
-        <div class="stat">
-          <p class="num" id="held"></p>
-          <p class="cap">Held in escrow</p>
-        </div>
-        <div class="stat">
-          <p class="num" id="month"></p>
-          <p class="cap">Trades this month</p>
-        </div>
-        <div class="stat">
-          <p class="num" id="fees"></p>
-          <p class="cap">Service fees earned</p>
-        </div>
+
+        <!-- Verification requests -->
+        <section class="card block" id="verifications" aria-labelledby="v-title">
+          <div class="card-head">
+            <h2 id="v-title">Verification requests</h2>
+            <span>Oldest first. The pictures are deleted after you decide.</span>
+          </div>
+          <div class="filters">
+            <label class="sr-only" for="v-status">Show</label>
+            <select id="v-status">
+              <option value="pending">Waiting for review</option>
+              <option value="all">All requests</option>
+            </select>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr><th>User</th><th>Name at sign-up</th><th>Name on ID</th><th>ID</th><th>Sent</th><th>Status</th><th><span class="sr-only">Review</span></th></tr>
+              </thead>
+              <tbody id="v-rows"></tbody>
+            </table>
+          </div>
+          <p class="empty" id="v-empty" hidden>No requests here.</p>
+        </section>
+
+        <!-- Disputes -->
+        <section class="card block" id="disputes" aria-labelledby="d-title">
+          <div class="card-head">
+            <h2 id="d-title">Disputes</h2>
+            <span>The ones waiting longest come first</span>
+          </div>
+
+          <div class="group-tabs" role="tablist" aria-label="Dispute groups">
+            <button type="button" role="tab" aria-selected="true" data-dtab="needs">Needs decision <b id="c-needs">0</b></button>
+            <button type="button" role="tab" aria-selected="false" data-dtab="noreply">No reply yet <b id="c-noreply">0</b></button>
+            <button type="button" role="tab" aria-selected="false" data-dtab="resolved">Resolved <b id="c-resolved">0</b></button>
+          </div>
+
+          <div class="filters">
+            <label class="sr-only" for="d-search">Search disputes</label>
+            <input id="d-search" type="search" placeholder="Search by dispute number, item, or username">
+          </div>
+
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Dispute</th><th>Item</th><th>Buyer</th><th>Seller</th><th>Amount</th><th>Status</th><th>Waiting</th>
+                  <th><span class="sr-only">Review</span></th>
+                </tr>
+              </thead>
+              <tbody id="d-rows"></tbody>
+            </table>
+          </div>
+          <p class="empty" id="d-empty" hidden>No disputes here.</p>
+        </section>
+
+        <!-- Transactions -->
+        <section class="card block" id="transactions" aria-labelledby="t-title">
+          <div class="card-head">
+            <h2 id="t-title">Transactions</h2>
+            <span>You can watch every trade, but only the buyer and seller move it forward</span>
+          </div>
+          <div class="filters">
+            <label class="sr-only" for="t-search">Search trades</label>
+            <input id="t-search" type="search" placeholder="Search by item, username, or trade number">
+            <label class="sr-only" for="t-status">Filter by status</label>
+            <select id="t-status">
+              <option value="process">On process</option>
+              <option value="all">All trades</option>
+              <option value="pending">Waiting for partner</option>
+              <option value="accepted">Waiting for payment</option>
+              <option value="paid">Payment held</option>
+              <option value="delivered">Delivered</option>
+              <option value="disputed">In dispute</option>
+              <option value="completed">Completed</option>
+              <option value="refunded">Refunded</option>
+              <option value="cancelled">Cancelled</option>
+            </select>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr><th>Trade</th><th>Item</th><th>Buyer</th><th>Seller</th><th>Amount</th><th>Status</th><th>Started</th><th><span class="sr-only">Open</span></th></tr>
+              </thead>
+              <tbody id="t-rows"></tbody>
+            </table>
+          </div>
+          <p class="empty" id="t-empty" hidden>No trades match.</p>
+        </section>
+
+        <!-- Users -->
+        <section class="card block" id="users" aria-labelledby="u-title">
+          <div class="card-head">
+            <h2 id="u-title">Users</h2>
+            <span>Newest first</span>
+          </div>
+          <div class="filters">
+            <label class="sr-only" for="u-search">Search users</label>
+            <input id="u-search" type="search" placeholder="Search by username, name, or email">
+            <label class="sr-only" for="u-status">Filter users</label>
+            <select id="u-status">
+              <option value="all">All users</option>
+              <option value="online">Online now</option>
+              <option value="active">Active accounts</option>
+              <option value="suspended">Suspended</option>
+              <option value="banned">Banned</option>
+            </select>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr><th>User</th><th>Email</th><th>Joined</th><th>Account</th><th>Trades</th><th>Rating</th><th><span class="sr-only">Open</span></th></tr>
+              </thead>
+              <tbody id="u-rows"></tbody>
+            </table>
+          </div>
+          <p class="empty" id="u-empty" hidden>No users match.</p>
+        </section>
+
       </div>
-
-      <!-- Disputes -->
-      <section class="card block" id="disputes" aria-labelledby="d-title">
-        <div class="card-head">
-          <h2 id="d-title">Disputes</h2>
-          <span>Oldest first</span>
-        </div>
-        <div class="table-wrap">
-          <table>
-            <thead>
-              <tr>
-                <th>Dispute</th>
-                <th>Trade</th>
-                <th>Buyer</th>
-                <th>Seller</th>
-                <th>Amount</th>
-                <th>Status</th>
-                <th><span class="sr-only">Review</span></th>
-              </tr>
-            </thead>
-            <tbody id="d-rows"></tbody>
-          </table>
-        </div>
-      </section>
-
-      <!-- Transactions -->
-      <section class="card block" id="transactions" aria-labelledby="t-title">
-        <div class="card-head">
-          <h2 id="t-title">Recent transactions</h2>
-          <span>Latest 5</span>
-        </div>
-        <div class="table-wrap">
-          <table>
-            <thead>
-              <tr><th>Trade</th><th>Item</th><th>Buyer</th><th>Seller</th><th>Amount</th><th>Status</th></tr>
-            </thead>
-            <tbody id="t-rows"></tbody>
-          </table>
-        </div>
-      </section>
-
-      <!-- Users -->
-      <section class="card block" id="users" aria-labelledby="u-title">
-        <div class="card-head">
-          <h2 id="u-title">Users</h2>
-          <span>Most recent sign-ups</span>
-        </div>
-        <div class="table-wrap">
-          <table>
-            <thead>
-              <tr><th>Username</th><th>Joined</th><th>Trades</th><th>Rating</th><th>Account</th></tr>
-            </thead>
-            <tbody id="u-rows"></tbody>
-          </table>
-        </div>
-      </section>
-
     </main>
   </div>
 
+  <!-- Verification review -->
+  <dialog class="review wide" id="verif-dialog" aria-labelledby="vd-title">
+    <div class="review-head head-row">
+      <span id="vd-avatar"></span>
+      <div>
+        <h2 id="vd-title">Verification</h2>
+        <p id="vd-sub"></p>
+      </div>
+    </div>
+    <div class="review-body">
+      <ul class="checklist">
+        <li>The selfie shows the same person as the ID, holding the ID next to their face.</li>
+        <li>The paper in the selfie shows exactly this code.</li>
+        <li>The name on the ID is the name they typed, and nothing on the ID looks edited (fonts, edges, lighting).</li>
+      </ul>
+
+      <div class="vcode"><div class="num" id="vd-code"></div><small>The code this person was given</small></div>
+
+      <dl class="meta">
+        <div><dt>Name typed (from the ID)</dt><dd id="vd-typed"></dd></div>
+        <div><dt>Name at sign-up</dt><dd id="vd-signup"></dd></div>
+        <div><dt>Kind of ID</dt><dd id="vd-idtype"></dd></div>
+        <div><dt>Sent</dt><dd id="vd-sent"></dd></div>
+      </dl>
+
+      <div class="vpics">
+        <div class="vpic"><h3>ID</h3><div id="vd-id"></div></div>
+        <div class="vpic"><h3>Selfie with the ID and code</h3><div id="vd-selfie"></div></div>
+      </div>
+
+      <div class="decision" id="vd-decision">
+        <label for="vd-reason"><b>Reason</b> (needed only when you reject)</label>
+        <textarea id="vd-reason" rows="2" maxlength="300" placeholder="Example: the code on the paper does not match."></textarea>
+        <p class="warn">Approving replaces the full name with the name typed above, and the pictures are deleted.</p>
+        <p class="form-error" id="vd-error" role="alert" hidden></p>
+        <div class="decide">
+          <button class="btn btn-primary" type="button" id="vd-approve">Approve</button>
+          <button class="btn btn-danger" type="button" id="vd-reject">Reject</button>
+          <button class="btn btn-outline" type="button" id="vd-close">Close</button>
+        </div>
+      </div>
+
+      <div id="vd-decided" hidden>
+        <p class="note-ok" id="vd-decided-text"></p>
+        <div class="decide"><button class="btn btn-outline" type="button" id="vd-close2">Close</button></div>
+      </div>
+    </div>
+  </dialog>
+
   <!-- Dispute review -->
-  <dialog class="review" id="review" aria-labelledby="rv-title">
+  <dialog class="review wide" id="review" aria-labelledby="rv-title">
     <div class="review-head">
       <h2 id="rv-title">Dispute</h2>
       <p id="rv-sub"></p>
     </div>
     <div class="review-body">
+
+      <dl class="summary" id="rv-summary"></dl>
+
+      <div class="cols">
+        <section class="party" id="rv-buyer-card" aria-label="Buyer"></section>
+        <section class="party" id="rv-seller-card" aria-label="Seller"></section>
+      </div>
+
+      <h3>What happened, in order</h3>
+      <ul class="tl" id="rv-timeline"></ul>
+      <p class="hint" id="rv-timeline-none" hidden>Nothing was recorded for this trade yet.</p>
+
+      <div class="decision" id="decision">
+        <label for="rv-note"><b>Your note</b> (both people will see it)</label>
+        <textarea id="rv-note" rows="3" maxlength="1000" placeholder="Explain your decision in a sentence or two."></textarea>
+        <p class="hint" id="rv-release-hint" hidden></p>
+        <p class="form-error" id="rv-error" role="alert" hidden></p>
+        <div class="decide">
+          <button class="btn btn-primary" type="button" id="refund">Refund the buyer</button>
+          <button class="btn btn-outline" type="button" id="release">Pay the seller</button>
+          <button class="btn btn-outline" type="button" id="rv-close">Close</button>
+        </div>
+      </div>
+
+      <div id="decided" hidden>
+        <h3>Decision</h3>
+        <p class="note-ok" id="rv-resolution"></p>
+        <div class="decide">
+          <button class="btn btn-outline" type="button" id="rv-close2">Close</button>
+        </div>
+      </div>
+    </div>
+  </dialog>
+
+  <!-- One trade (read-only) -->
+  <dialog class="review" id="trade-dialog" aria-labelledby="td-title">
+    <div class="review-head">
+      <h2 id="td-title">Trade</h2>
+      <p id="td-sub"></p>
+    </div>
+    <div class="review-body">
+      <p class="readonly">You are watching this trade. Only the buyer and the seller can pay, deliver, or confirm. Disputes are the only thing an admin decides.</p>
+
       <dl class="meta">
-        <div><dt>Buyer</dt><dd id="rv-buyer"></dd></div>
-        <div><dt>Seller</dt><dd id="rv-seller"></dd></div>
-        <div><dt>Amount held</dt><dd id="rv-amount"></dd></div>
-        <div><dt>Reason</dt><dd id="rv-reason"></dd></div>
+        <div><dt>Buyer</dt><dd id="td-buyer"></dd></div>
+        <div><dt>Seller</dt><dd id="td-seller"></dd></div>
+        <div><dt>Amount</dt><dd id="td-amount"></dd></div>
+        <div><dt>Status</dt><dd id="td-status"></dd></div>
+        <div><dt>Buyer paid with</dt><dd id="td-paid"></dd></div>
+        <div><dt>Seller payout account</dt><dd id="td-payout"></dd></div>
+        <div><dt>Started</dt><dd id="td-started"></dd></div>
+        <div><dt>Receipt</dt><dd id="td-receipt"></dd></div>
       </dl>
 
-      <h3>Buyer's report</h3>
-      <p id="rv-story"></p>
+      <div id="td-dispute" hidden>
+        <p class="warn">This trade has a dispute. <button type="button" class="link-btn" id="td-dispute-btn">Open the dispute</button></p>
+      </div>
 
-      <h3>Seller's reply</h3>
-      <p id="rv-reply"></p>
+      <h3>What happened</h3>
+      <ul class="timeline" id="td-timeline"></ul>
+      <p class="hint" id="td-timeline-none" hidden>Nothing was recorded for this trade yet.</p>
 
-      <h3>Evidence uploaded</h3>
-      <ul id="rv-proof"></ul>
+      <h3>Trade chat</h3>
+      <ul class="chatlog" id="td-chat"></ul>
+      <p class="hint" id="td-chat-none" hidden>No messages in this trade.</p>
 
       <div class="decide">
-        <button class="btn btn-primary" type="button" id="refund">Refund the buyer</button>
-        <button class="btn btn-outline" type="button" id="release">Pay the seller</button>
-        <button class="btn btn-outline" type="button" id="rv-close">Close</button>
+        <button class="btn btn-outline" type="button" id="td-close">Close</button>
+      </div>
+    </div>
+  </dialog>
+
+  <!-- One user -->
+  <dialog class="review" id="user-dialog" aria-labelledby="ud-title">
+    <div class="review-head head-row">
+      <span id="ud-avatar"></span>
+      <div>
+        <h2 id="ud-title">User</h2>
+        <p id="ud-sub"></p>
+      </div>
+    </div>
+    <div class="review-body">
+      <dl class="meta">
+        <div><dt>Role</dt><dd id="ud-role"></dd></div>
+        <div><dt>Account</dt><dd id="ud-status"></dd></div>
+        <div><dt>Identity</dt><dd id="ud-verified"></dd></div>
+        <div><dt>Joined</dt><dd id="ud-joined"></dd></div>
+        <div><dt>Last seen</dt><dd id="ud-seen"></dd></div>
+        <div><dt>Completed trades</dt><dd id="ud-completed"></dd></div>
+        <div><dt>Trades on process</dt><dd id="ud-active"></dd></div>
+        <div><dt>Disputes</dt><dd id="ud-disputes"></dd></div>
+        <div><dt>Cancelled after payment (as seller)</dt><dd id="ud-cancels"></dd></div>
+        <div><dt>Rating</dt><dd id="ud-rating"></dd></div>
+      </dl>
+
+      <div class="decision" id="ud-control" hidden>
+        <label for="ud-note"><b>Note</b> (needed to suspend or ban)</label>
+        <textarea id="ud-note" rows="2" maxlength="500" placeholder="Why are you changing this account?"></textarea>
+        <p class="warn" id="ud-warn" hidden></p>
+        <p class="form-error" id="ud-error" role="alert" hidden></p>
+        <div class="decide">
+          <button class="btn btn-outline" type="button" id="ud-suspend">Suspend</button>
+          <button class="btn btn-danger" type="button" id="ud-ban">Ban</button>
+          <button class="btn btn-primary" type="button" id="ud-activate">Reactivate</button>
+        </div>
+      </div>
+      <p class="readonly" id="ud-locked" hidden>Admin accounts cannot be suspended or banned.</p>
+
+      <h3>Trades</h3>
+      <ul class="mini-list" id="ud-trades"></ul>
+      <p class="hint" id="ud-trades-none" hidden>No trades yet.</p>
+
+      <h3>What this user did</h3>
+      <ul class="timeline" id="ud-activity"></ul>
+      <p class="hint" id="ud-activity-none" hidden>Nothing was recorded yet. New activity is recorded from now on.</p>
+
+      <div class="decide">
+        <button class="btn btn-outline" type="button" id="ud-close">Close</button>
       </div>
     </div>
   </dialog>
 
   <script src="data.js"></script>
+  <script src="api.js"></script>
   <script>
     ST.applyBrand();
 
-    function el(tag, cls, text) {
-      const e = document.createElement(tag);
-      if (cls) e.className = cls;
-      if (text !== undefined) e.textContent = text;
-      return e;
-    }
+    // Must be signed in to use this page
+    if (!getToken()) window.location.href = 'login.html';
+    document.getElementById('signout').addEventListener('click', e => { e.preventDefault(); logout(); });
+
+    const $ = id => document.getElementById(id);
+    const peso = n => ST.pesoShort(Number(n));
+    const methodNames = { gcash: 'GCash', maya: 'Maya', card: 'Card' };
+
     function row(values) {
       const tr = el('tr');
       values.forEach(v => {
@@ -209,90 +516,793 @@
       });
       return tr;
     }
-    function setText(id, value) { document.getElementById(id).textContent = value; }
-
-    // Overview numbers
-    setText('held', ST.pesoShort(ST.admin.heldInEscrow));
-    setText('month', ST.admin.tradesThisMonth);
-    setText('fees', ST.pesoShort(ST.admin.feesEarned));
-
-    // Disputes (status starts as open)
-    const dRows = document.getElementById('d-rows');
-    const openCount = document.getElementById('open-count');
-    const dlg = document.getElementById('review');
-    let current = null;
-
-    ST.admin.disputes.forEach(d => { d.state = d.state || 'open'; });
-
-    function updateOpenCount() {
-      openCount.textContent = ST.admin.disputes.filter(d => d.state === 'open').length;
+    function setText(id, value) { $(id).textContent = value; }
+    function fmtDate(iso) {
+      return new Date(iso).toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' });
+    }
+    // "5 min", "3 hr", "2 days"
+    function duration(ms) {
+      const minutes = Math.floor(ms / 60000);
+      if (minutes < 1) return 'less than a minute';
+      if (minutes < 60) return minutes + ' min';
+      const hours = Math.floor(minutes / 60);
+      if (hours < 24) return hours + ' hr';
+      const days = Math.floor(hours / 24);
+      return days + (days === 1 ? ' day' : ' days');
+    }
+    function seenText(u) {
+      if (u.online) return 'Online now';
+      if (!u.last_seen) return 'Never';
+      return duration(Date.now() - new Date(u.last_seen).getTime()) + ' ago';
+    }
+    function anyDialogOpen() {
+      return $('review').open || $('trade-dialog').open || $('user-dialog').open || $('verif-dialog').open;
     }
 
-    const STATES = {
-      open:     ['badge-dispute',  'Open'],
-      refunded: ['badge-pending',  'Refunded to buyer'],
-      paid:     ['badge-released', 'Paid to seller']
+    // ---------- Labels ----------
+    const TRADE_STATUS = {
+      pending:   ['badge-pending',  'Waiting for partner'],
+      accepted:  ['badge-pending',  'Waiting for payment'],
+      paid:      ['badge-held',     'Payment held'],
+      delivered: ['badge-held',     'Delivered'],
+      disputed:  ['badge-dispute',  'In dispute'],
+      completed: ['badge-released', 'Completed'],
+      refunded:  ['badge-dispute',  'Refunded'],
+      cancelled: ['badge-pending',  'Cancelled']
+    };
+    function tradeBadge(status) {
+      const s = TRADE_STATUS[status] || ['badge-pending', status];
+      return el('span', 'badge ' + s[0], s[1]);
+    }
+    function disputeBadge(d) {
+      if (d.dispute_status === 'resolved') {
+        return d.trade_status === 'refunded'
+          ? el('span', 'badge badge-pending', 'Refunded to buyer')
+          : el('span', 'badge badge-released', 'Paid to seller');
+      }
+      return d.dispute_status === 'under_review'
+        ? el('span', 'badge badge-held', 'Under review')
+        : el('span', 'badge badge-dispute', 'Open');
+    }
+    function accountBadge(status) {
+      return status === 'active'
+        ? el('span', 'badge badge-active', 'Active')
+        : el('span', 'badge badge-flag', status === 'banned' ? 'Banned' : 'Suspended');
+    }
+    function verifBadge(status) {
+      if (status === 'approved') return el('span', 'badge badge-released', 'Approved');
+      if (status === 'rejected') return el('span', 'badge badge-flag', 'Rejected');
+      return el('span', 'badge badge-held', 'Waiting');
+    }
+
+    const OUTCOME_LABELS = {
+      refund: 'Refund the buyer',
+      release: 'Release the payment to the seller',
+      fix: 'Ask the other person to fix it'
     };
 
-    function stateBadge(d) {
-      const b = el('span', 'badge ' + STATES[d.state][0], STATES[d.state][1]);
-      return b;
+    // What a line in the activity log means
+    function describe(a) {
+      const detail = a.detail ? a.detail : '';
+      switch (a.action) {
+        case 'trade_created':          return 'created the trade request' + (detail ? ' (' + detail + ')' : '');
+        case 'trade_accepted':         return 'accepted the request';
+        case 'trade_declined':         return 'declined the request';
+        case 'trade_cancelled':        return detail ? detail : 'cancelled the trade';
+        case 'seller_cancelled':       return 'cancelled after payment, so the buyer was refunded' + (detail ? ': ' + detail : '');
+        case 'paid':                   return 'paid into escrow' + (detail ? ' ' + detail : '');
+        case 'delivered':              return 'marked the item as delivered' + (detail ? ' (' + detail + ')' : '');
+        case 'confirmed':              return 'confirmed receipt, so the payment was released';
+        case 'dispute_opened':         return 'opened a dispute' + (detail ? ': ' + detail : '');
+        case 'dispute_reply':          return 'replied to the dispute';
+        case 'rated':                  return 'rated the other person ' + detail;
+        case 'username_changed':       return 'changed the username ' + detail;
+        case 'email_changed':          return 'changed the email address';
+        case 'avatar_changed':         return 'changed the profile photo';
+        case 'verification_submitted': return 'sent an ID for verification' + (detail ? ' (' + detail + ')' : '');
+        case 'verification_approved':  return 'was verified ' + detail;
+        case 'verification_rejected':  return 'verification rejected ' + detail;
+        case 'account_active':         return 'account reactivated ' + detail;
+        case 'account_suspended':      return 'account suspended ' + detail;
+        case 'account_banned':         return 'account banned ' + detail;
+        default:                       return a.action + (detail ? ': ' + detail : '');
+      }
     }
+    function activityText(a, showWho) {
+      const who = a.username ? '@' + a.username : 'System';
+      if (a.action === 'auto_released') return 'The payment was released automatically';
+      if (a.action === 'request_expired') return 'The request expired: ' + (a.detail || 'nobody answered');
+      if (a.action === 'dispute_resolved') return (showWho ? who + ' decided: ' : 'Admin decided: ') + (a.detail || '');
+      const text = describe(a);
+      return showWho ? who + ' ' + text : text.charAt(0).toUpperCase() + text.slice(1);
+    }
+
+    function showError(err) {
+      if (/admins only/i.test(err.message)) {
+        $('content').hidden = true;
+        $('page-error').innerHTML = '';
+        $('page-error').append('This page is for admins only. ');
+        const back = el('a', '', 'Back to your dashboard');
+        back.href = 'dashboard.html';
+        $('page-error').appendChild(back);
+        $('page-error').hidden = false;
+      } else {
+        setMessage('page-error', netError(err));
+      }
+    }
+
+    // ---------- Load the page ----------
+    let current = null;       // the dispute open in the review window
+    let allDisputes = [];
+    let disputeTab = 'needs';
+    const blobUrls = [];
+
+    function renderOverview(o) {
+      setText('open-count', o.open_disputes);
+      setText('held', peso(o.held));
+      setText('month', o.trades_month);
+      setText('fees', peso(o.fees));
+      const nav = $('nav-verif-count');
+      nav.hidden = !o.pending_verifications;
+      nav.textContent = o.pending_verifications;
+    }
+
+    // ---------- Verification requests ----------
+    function renderVerifications(list) {
+      const body = $('v-rows');
+      body.innerHTML = '';
+      list.forEach(v => {
+        const name = el('div', 'who-cell');
+        name.append(makeAvatar(v.username, v.avatar_file, 32), '@' + v.username);
+
+        const btn = el('button', 'link-btn', v.status === 'pending' ? 'Review' : 'View');
+        btn.type = 'button';
+        btn.addEventListener('click', () => openVerification(v.verification_id));
+
+        const status = el('span');
+        status.appendChild(verifBadge(v.status));
+
+        body.appendChild(row([
+          name, v.full_name, v.typed_name, v.id_type, fmtTime(v.submitted_at), status, btn
+        ]));
+      });
+      $('v-empty').hidden = list.length > 0;
+    }
+
+    async function loadVerifications() {
+      renderVerifications(await apiFetch('/admin/verifications?status=' + encodeURIComponent($('v-status').value)));
+    }
+
+    // ---------- The dispute list: tabs, search, waiting time ----------
+    const isOpen = d => d.dispute_status !== 'resolved';
 
     function renderDisputes() {
+      const needs = allDisputes.filter(isOpen);
+      const noReply = needs.filter(d => !d.has_reply);
+      const resolved = allDisputes.filter(d => !isOpen(d));
+      setText('c-needs', needs.length);
+      setText('c-noreply', noReply.length);
+      setText('c-resolved', resolved.length);
+
+      let list = disputeTab === 'needs' ? needs : (disputeTab === 'noreply' ? noReply : resolved);
+      const q = $('d-search').value.trim().toLowerCase().replace(/^@/, '').replace(/^#/, '');
+      if (q) {
+        list = list.filter(d => (
+          String(d.dispute_id) === q ||
+          String(d.transaction_id) === q ||
+          [d.item_description, d.buyer_username, d.seller_username].join(' ').toLowerCase().includes(q)
+        ));
+      }
+      // Waiting longest first; resolved ones newest first
+      list = [...list].sort((a, b) => disputeTab === 'resolved'
+        ? new Date(b.opened_at) - new Date(a.opened_at)
+        : new Date(a.opened_at) - new Date(b.opened_at));
+
+      const dRows = $('d-rows');
       dRows.innerHTML = '';
-      ST.admin.disputes.forEach(d => {
+      list.forEach(d => {
         const btn = el('button', 'link-btn', 'Review');
         btn.type = 'button';
-        btn.addEventListener('click', () => openReview(d));
-        dRows.appendChild(row(['#' + d.id, d.item, d.buyer, d.seller, ST.pesoShort(d.amount), stateBadge(d), btn]));
+        btn.addEventListener('click', () => openReview(d.dispute_id));
+
+        const status = el('div');
+        status.appendChild(disputeBadge(d));
+        if (isOpen(d)) {
+          status.appendChild(el('span', 'reply-tag ' + (d.has_reply ? 'ok' : 'none'), d.has_reply ? 'Reply received' : 'No reply yet'));
+        }
+
+        const waiting = isOpen(d) ? duration(Date.now() - new Date(d.opened_at).getTime()) : '–';
+        dRows.appendChild(row([
+          '#' + d.dispute_id, d.item_description, '@' + d.buyer_username, '@' + d.seller_username,
+          peso(d.amount), status, waiting, btn
+        ]));
       });
-      updateOpenCount();
+      $('d-empty').hidden = list.length > 0;
     }
 
-    function openReview(d) {
-      current = d;
-      setText('rv-title', 'Dispute #' + d.id);
-      setText('rv-sub', d.item);
-      setText('rv-buyer', d.buyer);
-      setText('rv-seller', d.seller);
-      setText('rv-amount', ST.pesoShort(d.amount));
-      setText('rv-reason', d.reason);
-      setText('rv-story', d.story);
-      setText('rv-reply', d.reply);
-      const list = document.getElementById('rv-proof');
+    document.querySelectorAll('[data-dtab]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        disputeTab = btn.dataset.dtab;
+        document.querySelectorAll('[data-dtab]').forEach(b => b.setAttribute('aria-selected', b === btn));
+        renderDisputes();
+      });
+    });
+    $('d-search').addEventListener('input', renderDisputes);
+
+    function renderTrades(list) {
+      const body = $('t-rows');
+      body.innerHTML = '';
+      list.forEach(t => {
+        const btn = el('button', 'link-btn', 'Open');
+        btn.type = 'button';
+        btn.addEventListener('click', () => openTrade(t.transaction_id));
+        const status = el('span');
+        status.appendChild(tradeBadge(t.status));
+        body.appendChild(row([
+          '#' + t.transaction_id, t.item_description, '@' + t.buyer_username, '@' + t.seller_username,
+          peso(t.amount), status, fmtDate(t.created_at), btn
+        ]));
+      });
+      $('t-empty').hidden = list.length > 0;
+    }
+
+    function renderUsers(list) {
+      const body = $('u-rows');
+      body.innerHTML = '';
+      list.forEach(u => {
+        const text = el('span');
+        text.appendChild(el('span', 'dot' + (u.online ? ' on' : '')));
+        text.append('@' + u.username);
+        text.appendChild(u.verified ? verifiedBadge() : notVerifiedTag());
+        text.appendChild(el('span', 'sub', u.full_name + (u.role === 'admin' ? ' · admin' : '')));
+
+        const name = el('div', 'who-cell');
+        name.append(makeAvatar(u.username, u.avatar_file, 32), text);
+
+        const btn = el('button', 'link-btn', 'Open');
+        btn.type = 'button';
+        btn.addEventListener('click', () => openUser(u.user_id));
+
+        body.appendChild(row([
+          name, u.email, fmtDate(u.created_at), accountBadge(u.account_status),
+          u.completed_trades + ' done, ' + u.active_trades + ' on process',
+          u.rating === null ? '–' : '★ ' + u.rating, btn
+        ]));
+      });
+      $('u-empty').hidden = list.length > 0;
+    }
+
+    async function loadTrades() {
+      const q = '?status=' + encodeURIComponent($('t-status').value) + '&search=' + encodeURIComponent($('t-search').value.trim());
+      renderTrades(await apiFetch('/admin/transactions' + q));
+    }
+    async function loadUsers() {
+      const q = '?status=' + encodeURIComponent($('u-status').value) + '&search=' + encodeURIComponent($('u-search').value.trim());
+      renderUsers(await apiFetch('/admin/users' + q));
+    }
+
+    async function load() {
+      try {
+        const [overview, disputes] = await Promise.all([apiFetch('/admin/overview'), apiFetch('/admin/disputes')]);
+        setMessage('page-error', '');
+        $('content').hidden = false;
+        renderOverview(overview);
+        allDisputes = disputes;
+        renderDisputes();
+        await Promise.all([loadVerifications(), loadTrades(), loadUsers()]);
+      } catch (err) {
+        showError(err);
+      }
+    }
+
+    // Filters: reload when the choice or the search text changes
+    let filterTimer;
+    function onFilter(fn) {
+      clearTimeout(filterTimer);
+      filterTimer = setTimeout(() => fn().catch(showError), 250);
+    }
+    $('v-status').addEventListener('change', () => onFilter(loadVerifications));
+    $('t-search').addEventListener('input', () => onFilter(loadTrades));
+    $('t-status').addEventListener('change', () => onFilter(loadTrades));
+    $('u-search').addEventListener('input', () => onFilter(loadUsers));
+    $('u-status').addEventListener('change', () => onFilter(loadUsers));
+
+    // ---------- Shared pieces ----------
+    function addThumbs(listEl, items) {
+      listEl.innerHTML = '';
+      items.forEach(item => {
+        const li = document.createElement('li');
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.title = item.name + ' (from @' + item.submitted_by_username + ')';
+        const img = document.createElement('img');
+        img.alt = item.name;
+        btn.appendChild(img);
+        li.appendChild(btn);
+        listEl.appendChild(li);
+
+        fetchPrivateImage('/evidence/' + item.evidence_id + '/file')
+          .then(url => {
+            blobUrls.push(url);
+            img.src = url;
+            btn.addEventListener('click', () => window.open(url, '_blank'));
+          })
+          .catch(() => { btn.textContent = 'Could not load'; });
+      });
+    }
+
+    function fillChat(listId, noneId, messages) {
+      const chat = $(listId);
+      chat.innerHTML = '';
+      messages.forEach(m => {
+        const li = el('li');
+        li.appendChild(el('b', '', '@' + m.username));
+        li.appendChild(el('small', '', fmtTime(m.sent_at)));
+        li.appendChild(el('div', '', m.content));
+        chat.appendChild(li);
+      });
+      $(noneId).hidden = messages.length > 0;
+      chat.hidden = messages.length === 0;
+    }
+
+    function fillTimeline(listId, noneId, items, showWho) {
+      const list = $(listId);
       list.innerHTML = '';
-      d.proof.forEach(name => list.appendChild(el('li', '', name)));
-      dlg.showModal();
+      items.forEach(a => {
+        const li = el('li');
+        const trade = !showWho && a.transaction_id ? ' (trade #' + a.transaction_id + ')' : '';
+        li.append(activityText(a, showWho) + trade);
+        li.appendChild(el('small', '', fmtTime(a.created_at)));
+        list.appendChild(li);
+      });
+      $(noneId).hidden = items.length > 0;
+      list.hidden = items.length === 0;
     }
 
-    // Record the decision (prototype only, nothing is saved)
-    function decide(state) {
+    // ---------- Verification review ----------
+    let currentVerif = null;
+    const verifUrls = [];
+
+    function normName(s) { return String(s || '').toLowerCase().replace(/\s+/g, ' ').trim(); }
+
+    function showVerifPicture(boxId, path, has) {
+      const box = $(boxId);
+      box.innerHTML = '';
+      if (!has) { box.appendChild(el('div', 'missing', 'The picture was deleted after the decision.')); return; }
+      box.appendChild(el('div', 'missing', 'Loading…'));
+      fetchPrivateImage(path)
+        .then(url => {
+          verifUrls.push(url);
+          const img = el('img');
+          img.alt = '';
+          img.src = url;
+          img.title = 'Click to open it bigger';
+          img.addEventListener('click', () => window.open(url, '_blank'));
+          box.innerHTML = '';
+          box.appendChild(img);
+        })
+        .catch(() => { box.innerHTML = ''; box.appendChild(el('div', 'missing', 'Could not load the picture.')); });
+    }
+
+    async function openVerification(id) {
+      let v;
+      try {
+        v = await apiFetch('/admin/verifications/' + id);
+      } catch (err) {
+        showError(err);
+        return;
+      }
+      currentVerif = v;
+      verifUrls.splice(0).forEach(u => URL.revokeObjectURL(u));
+
+      $('vd-avatar').replaceChildren(makeAvatar(v.username, v.avatar_file, 52));
+      setText('vd-title', '@' + v.username);
+      setText('vd-sub', v.email + ' · member since ' + fmtDate(v.joined));
+      setText('vd-code', v.code);
+      setText('vd-idtype', v.id_type);
+      setText('vd-sent', fmtTime(v.submitted_at));
+
+      const same = normName(v.typed_name) === normName(v.full_name);
+      const typed = $('vd-typed');
+      typed.replaceChildren(v.typed_name);
+      typed.appendChild(el('span', 'match ' + (same ? 'same' : 'diff'), same ? 'Same as sign-up' : 'Different from sign-up'));
+      setText('vd-signup', v.full_name);
+
+      const pending = v.status === 'pending';
+      showVerifPicture('vd-id', '/verifications/' + v.verification_id + '/id', pending && v.has_files);
+      showVerifPicture('vd-selfie', '/verifications/' + v.verification_id + '/selfie', pending && v.has_files);
+
+      $('vd-decision').hidden = !pending;
+      $('vd-decided').hidden = pending;
+      if (pending) {
+        $('vd-reason').value = '';
+        setMessage('vd-error', '');
+        $('vd-approve').disabled = false;
+        $('vd-reject').disabled = false;
+      } else {
+        setText('vd-decided-text', v.status === 'approved'
+          ? 'Approved ' + fmtTime(v.decided_at) + '. The pictures were deleted.'
+          : 'Rejected ' + fmtTime(v.decided_at) + '. Reason: ' + (v.reject_reason || '–') + ' The pictures were deleted.');
+      }
+      $('verif-dialog').showModal();
+    }
+
+    async function decideVerification(decision) {
+      if (!currentVerif) return;
+      setMessage('vd-error', '');
+      const reason = $('vd-reason').value.trim();
+      if (decision === 'reject' && reason.length < 5) {
+        setMessage('vd-error', 'Write a short reason for rejecting.');
+        return;
+      }
+      const question = decision === 'approve'
+        ? 'Approve @' + currentVerif.username + '? Their full name becomes "' + currentVerif.typed_name + '" and the pictures are deleted.'
+        : 'Reject @' + currentVerif.username + '? The pictures are deleted.';
+      if (!window.confirm(question)) return;
+
+      $('vd-approve').disabled = true;
+      $('vd-reject').disabled = true;
+      try {
+        await apiFetch('/admin/verifications/' + currentVerif.verification_id + '/decision', {
+          method: 'POST',
+          body: JSON.stringify({ decision, reason })
+        });
+        $('verif-dialog').close();
+        verifUrls.splice(0).forEach(u => URL.revokeObjectURL(u));
+        currentVerif = null;
+        await load();
+      } catch (err) {
+        setMessage('vd-error', netError(err));
+        $('vd-approve').disabled = false;
+        $('vd-reject').disabled = false;
+      }
+    }
+
+    $('vd-approve').addEventListener('click', () => decideVerification('approve'));
+    $('vd-reject').addEventListener('click', () => decideVerification('reject'));
+    $('vd-close').addEventListener('click', () => $('verif-dialog').close());
+    $('vd-close2').addEventListener('click', () => $('verif-dialog').close());
+    $('verif-dialog').addEventListener('close', () => verifUrls.splice(0).forEach(u => URL.revokeObjectURL(u)));
+
+    // ---------- Dispute review: summary, two sides, one timeline ----------
+    function addFact(dl, label, value) {
+      const box = el('div', 'fact');
+      box.appendChild(el('dt', '', label));
+      const dd = el('dd');
+      if (value instanceof Node) dd.appendChild(value); else dd.textContent = value;
+      box.appendChild(dd);
+      dl.appendChild(box);
+    }
+
+    function buildSummary(d) {
+      const dl = $('rv-summary');
+      dl.innerHTML = '';
+      const open = d.dispute_status !== 'resolved';
+      const other = d.filed_by_username === d.buyer_username ? d.seller_username : d.buyer_username;
+      const filerRole = d.filed_by_username === d.buyer_username ? 'buyer' : 'seller';
+      const otherRole = filerRole === 'buyer' ? 'Seller' : 'Buyer';
+
+      addFact(dl, 'Amount held', peso(d.amount));
+      addFact(dl, 'Status', disputeBadge(d));
+      addFact(dl, 'Reason', d.reason);
+      addFact(dl, 'Opened by', '@' + d.filed_by_username + ' (' + filerRole + ')');
+      addFact(dl, 'Outcome they want', OUTCOME_LABELS[d.requested_outcome] || '–');
+      addFact(dl, open ? 'Waiting for you' : 'Opened', open
+        ? duration(Date.now() - new Date(d.opened_at).getTime())
+        : fmtTime(d.opened_at));
+      addFact(dl, otherRole + ' replied', d.reply
+        ? 'Yes, ' + fmtTime(d.replied_at)
+        : (open ? 'Not yet (@' + other + ')' : 'Never'));
+
+      let gap = 'Item not delivered yet';
+      if (d.delivered_at) {
+        const ms = new Date(d.opened_at).getTime() - new Date(d.delivered_at).getTime();
+        gap = ms >= 0 ? duration(ms) + ' after delivery' : 'Filed before delivery';
+      }
+      addFact(dl, 'Delivery to dispute', gap);
+    }
+
+    function repLine(p) {
+      const parts = [
+        p.completed_trades + ' completed',
+        p.rating === null ? 'no ratings' : '★ ' + p.rating + ' (' + p.rating_count + ')',
+        p.disputes + (p.disputes === 1 ? ' dispute' : ' disputes') + ' (' + p.disputes_filed + ' filed)'
+      ];
+      if (p.seller_cancels > 0) {
+        parts.push(p.seller_cancels + (p.seller_cancels === 1 ? ' cancellation' : ' cancellations') + ' after payment');
+      }
+      return parts.join(' · ') + ' · joined ' + fmtDate(p.joined);
+    }
+
+    function renderParty(container, label, p, d, moneyLine) {
+      container.innerHTML = '';
+
+      const top = el('div', 'party-top');
+      const head = el('h3', '', label + ' @' + p.username);
+      head.appendChild(p.verified ? verifiedBadge() : notVerifiedTag());
+      if (p.account_status !== 'active') {
+        head.append(' ');
+        head.appendChild(accountBadge(p.account_status));
+      }
+      top.append(makeAvatar(p.username, p.avatar_file, 42), head);
+      container.appendChild(top);
+
+      container.appendChild(el('p', 'rep', repLine(p)));
+      container.appendChild(el('p', 'line', moneyLine));
+
+      // The person who opened the dispute wrote the report; the other person writes the reply
+      const filer = d.filed_by_username === p.username;
+      container.appendChild(el('p', 'stmt-title', filer ? 'Report' : 'Reply'));
+      container.appendChild(el('p', 'stmt', filer ? (d.description || '') : (d.reply || 'No reply yet.')));
+
+      container.appendChild(el('p', 'ev-title', 'Evidence'));
+      const items = d.evidence.filter(e => e.submitted_by_username === p.username);
+      const ul = el('ul', 'thumbs');
+      container.appendChild(ul);
+      addThumbs(ul, items);
+      if (items.length === 0) container.appendChild(el('p', 'hint', 'No screenshots from @' + p.username + '.'));
+    }
+
+    // Trade steps, chat messages, and dispute events in one list, oldest first
+    function buildTimeline(d) {
+      const events = [];
+      const has = a => d.activity.some(x => x.action === a);
+      const other = d.filed_by_username === d.buyer_username ? d.seller_username : d.buyer_username;
+
+      d.activity.forEach(a => events.push({
+        time: a.created_at,
+        kind: a.action.indexOf('dispute') === 0 ? 'dispute' : 'trade',
+        text: activityText(a, true)
+      }));
+
+      // Older trades have no activity log: fill the gaps from the dates saved in the database
+      if (!has('trade_created')) events.push({ time: d.trade_created_at, kind: 'trade', text: 'The trade was started' });
+      if (!has('delivered') && d.delivered_at) {
+        events.push({ time: d.delivered_at, kind: 'trade', text: '@' + d.seller_username + ' marked the item as delivered' });
+      }
+      if (!has('dispute_opened')) {
+        events.push({ time: d.opened_at, kind: 'dispute', text: '@' + d.filed_by_username + ' opened a dispute: ' + d.reason });
+      }
+      if (d.replied_at && !has('dispute_reply')) {
+        events.push({ time: d.replied_at, kind: 'dispute', text: '@' + other + ' replied to the dispute' });
+      }
+
+      d.messages.forEach(m => events.push({ time: m.sent_at, kind: 'chat', text: '@' + m.username + ': ' + m.content }));
+
+      events.sort((a, b) => new Date(a.time) - new Date(b.time));
+
+      const KIND_LABEL = { trade: 'Trade', chat: 'Chat', dispute: 'Dispute' };
+      const list = $('rv-timeline');
+      list.innerHTML = '';
+      events.forEach(ev => {
+        const li = el('li');
+        const left = el('div');
+        left.appendChild(el('span', 'kind kind-' + ev.kind, KIND_LABEL[ev.kind]));
+        left.appendChild(el('span', 'when', fmtTime(ev.time)));
+        li.appendChild(left);
+        li.appendChild(el('div', 'text', ev.text));
+        list.appendChild(li);
+      });
+      $('rv-timeline-none').hidden = events.length > 0;
+      list.hidden = events.length === 0;
+    }
+
+    async function openReview(id) {
+      let d;
+      try {
+        d = await apiFetch('/admin/disputes/' + id);
+      } catch (err) {
+        showError(err);
+        return;
+      }
+      current = d;
+      blobUrls.splice(0).forEach(u => URL.revokeObjectURL(u));
+
+      setText('rv-title', 'Dispute #' + d.dispute_id);
+      setText('rv-sub', d.item_description + ' · Trade #' + d.transaction_id);
+
+      buildSummary(d);
+
+      const paidWith = d.payment
+        ? 'Paid with ' + (methodNames[d.payment.method] || d.payment.method) + (d.payment.payer_masked ? ' ' + d.payment.payer_masked : '') + ' · ' + d.payment.status
+        : 'Has not paid yet';
+      const payout = d.payout_method
+        ? 'Payout account: ' + methodNames[d.payout_method] + ' ' + d.payout_masked
+        : 'Payout account: not given yet (not delivered)';
+      renderParty($('rv-buyer-card'), 'Buyer', d.buyer, d, paidWith);
+      renderParty($('rv-seller-card'), 'Seller', d.seller, d, payout);
+
+      buildTimeline(d);
+
+      const resolved = d.dispute_status === 'resolved';
+      $('decision').hidden = resolved;
+      $('decided').hidden = !resolved;
+      if (resolved) {
+        setText('rv-resolution', d.resolution || 'The admin made a decision.');
+      } else {
+        $('rv-note').value = '';
+        setMessage('rv-error', '');
+        $('release').disabled = false;
+        $('refund').disabled = false;
+        const hint = $('rv-release-hint');
+        hint.hidden = d.can_release;
+        if (!d.can_release) {
+          hint.textContent = 'Paying the seller is not possible yet: the seller has not said where to receive the money (the item was not marked as delivered). You can refund the buyer.';
+        }
+      }
+      $('review').showModal();
+    }
+
+    async function decide(decision) {
       if (!current) return;
-      current.state = state;
-      dlg.close();
-      renderDisputes();
+      setMessage('rv-error', '');
+      const note = $('rv-note').value.trim();
+      if (note.length < 5) {
+        setMessage('rv-error', 'Write a short note that explains your decision.');
+        return;
+      }
+      const question = decision === 'refund'
+        ? 'Refund ' + peso(current.amount) + ' to @' + current.buyer_username + '? This cannot be undone.'
+        : 'Pay @' + current.seller_username + ' for this trade? This cannot be undone.';
+      if (!window.confirm(question)) return;
+
+      $('refund').disabled = true;
+      $('release').disabled = true;
+      try {
+        await apiFetch('/admin/disputes/' + current.dispute_id + '/resolve', {
+          method: 'POST',
+          body: JSON.stringify({ decision, note })
+        });
+        $('review').close();
+        current = null;
+        await load();
+      } catch (err) {
+        setMessage('rv-error', netError(err));
+        $('refund').disabled = false;
+        $('release').disabled = false;
+      }
     }
-    document.getElementById('refund').addEventListener('click', () => decide('refunded'));
-    document.getElementById('release').addEventListener('click', () => decide('paid'));
-    document.getElementById('rv-close').addEventListener('click', () => dlg.close());
 
-    // Recent transactions
-    const tRows = document.getElementById('t-rows');
-    ST.admin.recentTransactions.forEach(t => {
-      tRows.appendChild(row(['#' + t.id, t.item, t.buyer, t.seller, ST.pesoShort(t.amount), ST.badge(t.status)]));
+    $('refund').addEventListener('click', () => decide('refund'));
+    $('release').addEventListener('click', () => decide('release'));
+    $('rv-close').addEventListener('click', () => $('review').close());
+    $('rv-close2').addEventListener('click', () => $('review').close());
+
+    // ---------- One trade (read-only) ----------
+    let openTradeDisputeId = null;
+
+    async function openTrade(id) {
+      let t;
+      try {
+        t = await apiFetch('/admin/transactions/' + id);
+      } catch (err) {
+        showError(err);
+        return;
+      }
+      setText('td-title', 'Trade #' + t.transaction_id);
+      setText('td-sub', t.item_description);
+      setText('td-buyer', '@' + t.buyer_username);
+      setText('td-seller', '@' + t.seller_username);
+      setText('td-amount', peso(t.amount) + ' (fee ' + peso(t.service_fee) + ')');
+      setText('td-status', (TRADE_STATUS[t.status] || [0, t.status])[1]);
+      setText('td-paid', t.payment ? (methodNames[t.payment.method] || t.payment.method) + (t.payment.payer_masked ? ' ' + t.payment.payer_masked : '') + ' · ' + t.payment.status : 'Not paid yet');
+      setText('td-payout', t.payout_method ? methodNames[t.payout_method] + ' ' + t.payout_masked : 'Not given yet');
+      setText('td-started', fmtTime(t.created_at));
+      setText('td-receipt', t.receipt_number || '–');
+
+      openTradeDisputeId = t.dispute ? t.dispute.dispute_id : null;
+      $('td-dispute').hidden = !t.dispute;
+
+      fillTimeline('td-timeline', 'td-timeline-none', t.activity, true);
+      fillChat('td-chat', 'td-chat-none', t.messages);
+      $('trade-dialog').showModal();
+    }
+
+    $('td-dispute-btn').addEventListener('click', () => {
+      const id = openTradeDisputeId;
+      $('trade-dialog').close();
+      if (id) openReview(id);
     });
+    $('td-close').addEventListener('click', () => $('trade-dialog').close());
 
-    // Users: newest sign-ups first
-    const uRows = document.getElementById('u-rows');
-    [...ST.users].sort((a, b) => b.joined.localeCompare(a.joined)).slice(0, 4).forEach(u => {
-      const acct = u.account === 'Active'
-        ? el('span', 'badge badge-active', 'Active')
-        : el('span', 'badge badge-flag', u.account);
-      uRows.appendChild(row([u.username, ST.fmtDate(u.joined), u.trades, u.rating, acct]));
-    });
+    // ---------- One user ----------
+    let currentUser = null;
 
-    renderDisputes();
+    async function openUser(id) {
+      let u;
+      try {
+        u = await apiFetch('/admin/users/' + id);
+      } catch (err) {
+        showError(err);
+        return;
+      }
+      currentUser = u;
+
+      $('ud-avatar').replaceChildren(makeAvatar(u.username, u.avatar_file, 56));
+      setText('ud-title', '@' + u.username);
+      setText('ud-sub', u.full_name + ' · ' + u.email);
+      setText('ud-role', u.role === 'admin' ? 'Admin' : 'Member');
+      setText('ud-status', u.account_status === 'active' ? 'Active' : (u.account_status === 'banned' ? 'Banned' : 'Suspended'));
+      setText('ud-verified', u.role === 'admin' ? 'Admin' : (u.verified ? 'Verified' + (u.verified_at ? ' on ' + fmtDate(u.verified_at) : '') : 'Not verified'));
+      setText('ud-joined', fmtDate(u.created_at));
+      setText('ud-seen', seenText(u));
+      setText('ud-completed', u.completed_trades);
+      setText('ud-active', u.active_trades);
+      setText('ud-disputes', u.disputes);
+      setText('ud-cancels', u.cancels_after_payment);
+      setText('ud-rating', u.rating === null ? 'No ratings yet' : '★ ' + u.rating + ' (' + u.rating_count + ')');
+
+      // Control
+      $('ud-control').hidden = !u.can_control;
+      $('ud-locked').hidden = u.can_control;
+      if (u.can_control) {
+        $('ud-note').value = '';
+        setMessage('ud-error', '');
+        $('ud-suspend').hidden = u.account_status === 'suspended';
+        $('ud-ban').hidden = u.account_status === 'banned';
+        $('ud-activate').hidden = u.account_status === 'active';
+        ['ud-suspend', 'ud-ban', 'ud-activate'].forEach(b => { $(b).disabled = false; });
+        const warn = $('ud-warn');
+        warn.hidden = u.active_trades === 0;
+        if (u.active_trades > 0) {
+          warn.textContent = 'This user has ' + u.active_trades + ' trade(s) on process. Those trades stay as they are. If something goes wrong, the partner can open a dispute and you decide it.';
+        }
+      }
+
+      // Their trades
+      const list = $('ud-trades');
+      list.innerHTML = '';
+      u.trades.forEach(t => {
+        const li = el('li');
+        const open = el('button', 'link-btn', '#' + t.transaction_id);
+        open.type = 'button';
+        open.addEventListener('click', () => { $('user-dialog').close(); openTrade(t.transaction_id); });
+        li.appendChild(open);
+        li.append(' ' + t.item_description + ' · ' + peso(t.amount) + ' · as ' + t.role + ' with @' + t.partner_username + ' · ');
+        li.appendChild(tradeBadge(t.status));
+        list.appendChild(li);
+      });
+      $('ud-trades-none').hidden = u.trades.length > 0;
+      list.hidden = u.trades.length === 0;
+
+      fillTimeline('ud-activity', 'ud-activity-none', u.activity, false);
+      $('user-dialog').showModal();
+    }
+
+    async function changeStatus(status) {
+      if (!currentUser) return;
+      setMessage('ud-error', '');
+      const note = $('ud-note').value.trim();
+      if (status !== 'active' && note.length < 5) {
+        setMessage('ud-error', 'Write a short note that explains why.');
+        return;
+      }
+      const verb = status === 'banned' ? 'Ban' : (status === 'suspended' ? 'Suspend' : 'Reactivate');
+      if (!window.confirm(verb + ' @' + currentUser.username + '?')) return;
+
+      ['ud-suspend', 'ud-ban', 'ud-activate'].forEach(b => { $(b).disabled = true; });
+      try {
+        await apiFetch('/admin/users/' + currentUser.user_id + '/status', {
+          method: 'POST',
+          body: JSON.stringify({ status, note })
+        });
+        $('user-dialog').close();
+        currentUser = null;
+        await load();
+      } catch (err) {
+        setMessage('ud-error', netError(err));
+        ['ud-suspend', 'ud-ban', 'ud-activate'].forEach(b => { $(b).disabled = false; });
+      }
+    }
+
+    $('ud-suspend').addEventListener('click', () => changeStatus('suspended'));
+    $('ud-ban').addEventListener('click', () => changeStatus('banned'));
+    $('ud-activate').addEventListener('click', () => changeStatus('active'));
+    $('ud-close').addEventListener('click', () => $('user-dialog').close());
+
+    // ---------- Start ----------
+    load();
+    setInterval(() => { if (!anyDialogOpen()) load(); }, 30000);
 
     // Sidebar: highlight the menu item for the section on screen
     const menuLinks = [...document.querySelectorAll('.sidebar a[href^="#"]')];

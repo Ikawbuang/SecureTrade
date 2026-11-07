@@ -12,7 +12,7 @@
     /* Page-specific styles (style.css stays unchanged) */
     .sidebar .brand { display: block; margin-bottom: 2rem; padding-left: .85rem; }
     .sidebar .spacer { margin-top: 2rem; padding-top: 1rem; border-top: 1px solid var(--ink-3); }
-    .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+    [hidden] { display: none !important; }
 
     .page-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem; flex-wrap: wrap; margin-bottom: 1.5rem; }
     .page-head h1 { margin: 0; font-size: 1.9rem; }
@@ -44,28 +44,64 @@
     .tracker li.done::after { background: var(--teal); }
     .tracker li.current::before { background: var(--gold); color: var(--ink); }
 
+    /* Where the money goes */
+    .money-title { margin: 1.5rem 0 .6rem; font-size: 1rem; }
+    .money { display: grid; grid-template-columns: 1fr auto 1fr auto 1fr; gap: .5rem; align-items: stretch; }
+    .money .box { padding: .75rem .85rem; border: 2px solid #e4e6f6; border-radius: var(--radius-m); font-size: .86rem; color: var(--text-soft); }
+    .money .box strong { display: block; color: var(--text); font-family: var(--font-display); font-size: .95rem; margin-bottom: .15rem; }
+    .money .box.active { border-color: var(--gold); background: #fff8e6; }
+    .money .box.done { border-color: var(--teal); background: #e3f7f2; }
+    .money .arrow { align-self: center; color: var(--text-soft); font-weight: 700; }
+    @media (max-width: 700px) {
+      .money { grid-template-columns: 1fr; }
+      .money .arrow { justify-self: center; transform: rotate(90deg); }
+    }
+
     .notice { margin: 1.25rem 0 0; padding: .85rem 1rem; background: #fff8e6; border-left: 4px solid var(--gold); border-radius: var(--radius-s); font-size: .92rem; }
     .notice.ok { background: #e3f7f2; border-color: var(--teal); }
-    .actions { display: flex; gap: .75rem; flex-wrap: wrap; margin-top: 1.25rem; }
+    .actions { display: flex; gap: .75rem; flex-wrap: wrap; align-items: center; margin-top: 1.25rem; }
+    .actions select, .actions input {
+      padding: .65rem .85rem; font: 1rem var(--font-body); color: var(--text);
+      background: var(--white); border: 2px solid #d5d8ec; border-radius: var(--radius-s);
+    }
+    .actions input { width: 14rem; }
+    .actions input.wide { width: 18rem; max-width: 100%; }
+    .actions input:focus, .actions select:focus { outline: none; border-color: var(--gold); }
+    #action-error { margin-top: 1rem; }
+
+    /* Rating box (after a completed trade) */
+    .rate-card { border-left: 5px solid var(--gold); }
+    .rate-card h2 { margin: 0 0 .25rem; font-size: 1.2rem; word-break: break-all; }
+    .rate-card .hint { margin: 0 0 1rem; }
+    .stars { display: flex; gap: .35rem; margin-bottom: 1rem; }
+    .stars button { background: none; border: 0; padding: 0 .1rem; font-size: 2.2rem; line-height: 1; color: #c9cde6; cursor: pointer; }
+    .stars button.on { color: var(--gold); }
+    .stars button:focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; border-radius: 4px; }
+    .rate-card textarea { width: 100%; padding: .65rem .85rem; font: 1rem var(--font-body); border: 2px solid #d5d8ec; border-radius: var(--radius-s); margin: .35rem 0 1rem; }
+    .rate-card textarea:focus { outline: none; border-color: var(--gold); }
+    .rate-actions { display: flex; gap: .6rem; flex-wrap: wrap; align-items: center; }
+    .rated-line { margin: 0; font-weight: 600; }
 
     .details { margin: 0; }
-    .details .line { display: flex; justify-content: space-between; gap: 1rem; padding: .55rem 0; border-bottom: 1px solid #e6e8f5; }
+    .details .line { display: flex; justify-content: space-between; align-items: center; gap: 1rem; padding: .55rem 0; border-bottom: 1px solid #e6e8f5; }
     .details dt { color: var(--text-soft); }
-    .details dd { margin: 0; font-weight: 600; text-align: right; }
+    .details dd { margin: 0; font-weight: 600; text-align: right; word-break: break-word; }
+    .details .person-cell { display: inline-flex; align-items: center; gap: .4rem; flex-wrap: wrap; justify-content: flex-end; }
 
-    .chat { display: flex; flex-direction: column; height: 360px; }
+    .chat { display: flex; flex-direction: column; height: 400px; }
+    .chat h2 { display: flex; align-items: center; gap: .6rem; }
+    .chat-note { margin: -.35rem 0 .6rem; font-size: .8rem; color: var(--text-soft); }
     .messages { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: .6rem; padding: .25rem .25rem 1rem; }
-    .msg { max-width: 80%; padding: .6rem .85rem; border-radius: var(--radius-m); background: #eceef9; font-size: .95rem; }
+    .msgrow { display: flex; align-items: flex-end; gap: .5rem; max-width: 92%; align-self: flex-start; }
+    .msgrow.me { align-self: flex-end; flex-direction: row-reverse; }
+    .msg { max-width: 100%; padding: .6rem .85rem; border-radius: var(--radius-m); background: #eceef9; font-size: .95rem; word-break: break-word; }
     .msg small { display: block; color: var(--text-soft); font-size: .75rem; margin-bottom: .1rem; }
-    .msg.me { align-self: flex-end; background: var(--ink); color: var(--text-on-dark); }
+    .msg.me { background: var(--ink); color: var(--text-on-dark); }
     .msg.me small { color: var(--text-on-dark-soft); }
+    .no-msgs { color: var(--text-soft); margin: auto; }
     .chat-form { display: flex; gap: .5rem; border-top: 1px solid #e6e8f5; padding-top: .85rem; }
-    .chat-form input { flex: 1; padding: .65rem .85rem; font: 1rem var(--font-body); border: 2px solid #d5d8ec; border-radius: var(--radius-s); }
+    .chat-form input { flex: 1; min-width: 0; padding: .65rem .85rem; font: 1rem var(--font-body); border: 2px solid #d5d8ec; border-radius: var(--radius-s); }
     .chat-form input:focus { outline: none; border-color: var(--gold); }
-
-    .evidence input[type="file"] { width: 100%; padding: .7rem; border: 2px dashed #c3c7e3; border-radius: var(--radius-s); background: var(--paper); }
-    .files { list-style: none; margin: .75rem 0 0; padding: 0; font-size: .92rem; }
-    .files li { padding: .35rem 0; border-bottom: 1px solid #e6e8f5; }
 
     @media (max-width: 1000px) { .layout { grid-template-columns: 1fr; } }
     @media (max-width: 560px) { .tracker { grid-template-columns: 1fr 1fr; row-gap: 1.25rem; } .tracker li::after { display: none; } }
@@ -76,62 +112,65 @@
 
     <nav class="sidebar" aria-label="Main">
       <a class="brand" href="dashboard.html">Secure<span>Trade</span></a>
-      <a href="dashboard.html">Dashboard</a>
-      <a href="create-transaction.html">New trade</a>
-      <a href="transaction.html" aria-current="page">My trades</a>
+      <a href="dashboard.html" aria-current="page">Dashboard</a>
       <a href="dispute.html">Disputes</a>
       <a href="history.html">History</a>
+      <a href="profile.html">My profile</a>
       <div class="spacer">
-        <a href="login.html">Sign out</a>
+        <a href="login.html" id="signout">Sign out</a>
       </div>
     </nav>
 
     <main class="main">
 
-      <header class="page-head">
-        <div>
-          <h1 id="title"></h1>
-          <p id="subtitle"></p>
-        </div>
-        <span class="badge" id="status-badge"></span>
-      </header>
+      <p class="form-error" id="page-error" role="alert" hidden></p>
 
-      <div class="layout">
+      <div id="trade-view" hidden>
+        <header class="page-head">
+          <div>
+            <h1 id="title"></h1>
+            <p id="subtitle"></p>
+          </div>
+          <span class="badge" id="status-badge"></span>
+        </header>
 
-        <div class="stack">
+        <div class="layout">
 
-          <section class="card" aria-labelledby="progress-title">
-            <h2 id="progress-title">Trade progress</h2>
-            <ol class="tracker" id="tracker"></ol>
-            <p class="notice" id="notice"></p>
-            <div class="actions" id="actions"></div>
-          </section>
+          <!-- Left: progress and actions -->
+          <div class="stack">
+            <section class="card" aria-labelledby="progress-title">
+              <h2 id="progress-title">Trade progress</h2>
+              <ol class="tracker" id="tracker"></ol>
 
-          <section class="card chat" aria-labelledby="chat-title">
-            <h2 id="chat-title"></h2>
-            <div class="messages" id="messages" aria-live="polite"></div>
-            <form class="chat-form" id="chat-form">
-              <input id="chat-input" type="text" placeholder="Write a message" aria-label="Message" autocomplete="off">
-              <button class="btn btn-primary" type="submit">Send</button>
-            </form>
-          </section>
+              <h3 class="money-title">Where the money goes</h3>
+              <div class="money" id="money"></div>
 
-        </div>
+              <p class="notice" id="notice"></p>
+              <div class="actions" id="actions"></div>
+              <p class="form-error" id="action-error" role="alert" hidden></p>
+            </section>
 
-        <div class="stack">
+            <!-- Rate the other person (only after the trade is completed) -->
+            <section class="card rate-card" id="rate-card" aria-label="Rate your trade partner" hidden></section>
+          </div>
 
-          <section class="card" aria-labelledby="details-title">
-            <h2 id="details-title">Trade details</h2>
-            <dl class="details" id="details"></dl>
-          </section>
+          <!-- Right: trade details, then the chat -->
+          <div class="stack">
+            <section class="card" aria-labelledby="details-title">
+              <h2 id="details-title">Trade details</h2>
+              <dl class="details" id="details"></dl>
+            </section>
 
-          <section class="card evidence" aria-labelledby="evidence-title">
-            <h2 id="evidence-title">Evidence</h2>
-            <p class="hint" style="margin-top:0" id="evidence-hint"></p>
-            <label class="sr-only" for="evidence-file">Choose screenshots</label>
-            <input id="evidence-file" type="file" accept="image/*" multiple>
-            <ul class="files" id="files"></ul>
-          </section>
+            <section class="card chat" aria-labelledby="chat-title">
+              <h2 id="chat-title"></h2>
+              <p class="chat-note">Admins can view this chat to keep trades safe.</p>
+              <div class="messages" id="messages" aria-live="polite"></div>
+              <form class="chat-form" id="chat-form">
+                <input id="chat-input" type="text" placeholder="Write a message" aria-label="Message" autocomplete="off" maxlength="1000">
+                <button class="btn btn-primary" type="submit">Send</button>
+              </form>
+            </section>
+          </div>
 
         </div>
       </div>
@@ -139,199 +178,615 @@
   </div>
 
   <script src="data.js"></script>
+  <script src="api.js"></script>
+  <script src="nav-badge.js"></script>
   <script>
     ST.applyBrand();
 
-    // One page for every trade: transaction.html?id=ST-1042
-    // If the id is not found (for example a trade just accepted), fall back to ?role=buyer or ?role=seller.
-    const params = new URLSearchParams(location.search);
-    let trade = ST.findTrade(params.get('id'));
-    if (!trade) {
-      const wanted = params.get('role') === 'seller' ? 'seller' : 'buyer';
-      trade = ST.trades.find(x => x.role === wanted && ['held', 'confirm'].includes(x.status)) || ST.trades[0];
-    }
-    const role = trade.role;
+    // Must be signed in to use this page
+    if (!getToken()) window.location.href = 'login.html';
+    document.getElementById('signout').addEventListener('click', e => { e.preventDefault(); logout(); });
+
+    const me = getUser() || {};
+    const tradeId = new URLSearchParams(location.search).get('id');
     const peso = ST.peso;
+    const methodNames = { gcash: 'GCash', maya: 'Maya', card: 'Card' };
 
-    const price = trade.amount;
-    const fee = price * ST.feeRate;
-    const net = price - fee;
-    const P = trade.partner;
+    const pageError = document.getElementById('page-error');
+    const view = document.getElementById('trade-view');
+    const tracker = document.getElementById('tracker');
+    const moneyBox = document.getElementById('money');
+    const notice = document.getElementById('notice');
+    const actions = document.getElementById('actions');
+    const actionError = document.getElementById('action-error');
+    const box = document.getElementById('messages');
+    const rateCard = document.getElementById('rate-card');
 
-    // What the tracker, notice and button say depends on my role and the trade status
-    function viewFor() {
-      if (role === 'seller') {
-        return {
-          badge: ['badge-held', 'Your turn: deliver the item'], partnerLabel: 'Buyer',
-          steps: [
-            ['done', 'Buyer paid', ST.pesoShort(price) + ' is held in escrow.'],
-            ['current', 'You deliver', 'Hand over the item in-game.'],
-            ['', 'Buyer checks', 'Buyer confirms receipt.'],
-            ['', 'You are paid', peso(net) + ' releases to you.']
-          ],
-          notice: 'The payment is safe in escrow. Hand over the item in-game, then mark it as delivered. Take screenshots as proof.',
-          primary: 'I delivered the item',
-          evidence: 'Add screenshots that show what you delivered. They protect you if the buyer opens a dispute.'
-        };
-      }
-      if (trade.status === 'waiting_seller') {
-        return {
-          badge: ['badge-pending', 'Waiting for seller'], partnerLabel: 'Seller',
-          steps: [
-            ['done', 'Paid', 'Your ' + ST.pesoShort(price) + ' is held in escrow.'],
-            ['current', 'Seller delivers', 'Waiting for ' + P + ' to hand over the item.'],
-            ['', 'Your check', 'Confirm you received it.'],
-            ['', 'Seller paid', 'Funds release to the seller.']
-          ],
-          notice: 'Your payment is safe in escrow. You can confirm once the seller marks the item as delivered.',
-          primary: null,
-          evidence: 'Add screenshots if anything looks wrong. They help if a dispute is opened.'
-        };
-      }
-      return {
-        badge: ['badge-held', 'Waiting for your confirmation'], partnerLabel: 'Seller',
-        steps: [
-          ['done', 'Paid', 'Your ' + ST.pesoShort(price) + ' is held in escrow.'],
-          ['done', 'Delivered', 'Seller says the item was sent.'],
-          ['current', 'Your check', 'Confirm you received it.'],
-          ['', 'Seller paid', 'Funds release to the seller.']
-        ],
-        notice: 'Check your game account first. If you do nothing, payment releases to the seller automatically ' + ST.autoReleaseHours + ' hours after delivery.',
-        primary: 'I received the item',
-        evidence: 'Add screenshots that show what was delivered. They help if a dispute is opened.'
-      };
+    let data = null;
+    let lastSignature = '';
+    let lastMessageSignature = '';
+
+    // Rating state
+    let myScore = null;         // my rating for this trade, once I have rated
+    let rateLoaded = false;     // did we already check whether I rated?
+    let rateSkipped = false;    // "Skip for now" hides the box until the page is reloaded
+    let rateDrawnKey = '';      // what the rating box is showing now, so typing is not reset
+    let rateStars = 0;
+
+    function showPageError(msg) { pageError.textContent = msg; pageError.hidden = !msg; }
+    function showActionError(msg) { actionError.textContent = msg; actionError.hidden = !msg; }
+
+    // "GCash 09••••••123", or just "Card" when there is no number
+    function methodWithNumber(method, masked) {
+      return (methodNames[method] || method) + (masked ? ' ' + masked : '');
     }
 
-    const t = Object.assign({
-      title: trade.item,
-      subtitle: 'Trade #' + trade.id + ' · You are the ' + role,
-      partner: P, game: trade.game, price: price, chat: trade.chat, started: trade.started
-    }, viewFor());
+    // The game, item and details are saved together as: "Game – Item. Details"
+    function splitDescription(desc) {
+      const i = desc.indexOf(' – ');
+      if (i < 0) return { game: '', title: desc, details: '' };
+      const game = desc.slice(0, i);
+      const rest = desc.slice(i + 3);
+      const j = rest.indexOf('. ');
+      return j < 0
+        ? { game, title: rest, details: '' }
+        : { game, title: rest.slice(0, j), details: rest.slice(j + 2) };
+    }
 
-    // Header
-    document.getElementById('title').textContent = t.title;
-    document.getElementById('subtitle').textContent = t.subtitle;
-    const badge = document.getElementById('status-badge');
-    badge.className = 'badge ' + t.badge[0];
-    badge.textContent = t.badge[1];
+    function badgeFor(d, role) {
+      const pick = key => ST.status[key];
+      const map = {
+        pending:   ['badge-pending', 'Waiting for partner'],
+        accepted:  role === 'buyer' ? pick('await_pay') : pick('await_buyer_pay'),
+        paid:      role === 'buyer' ? pick('waiting_seller') : ['badge-held', 'Your turn: deliver the item'],
+        delivered: role === 'buyer' ? pick('confirm') : ['badge-pending', 'Waiting for buyer'],
+        disputed:  pick('dispute'),
+        completed: pick('completed'),
+        refunded:  pick('refunded'),
+        cancelled: pick('cancelled')
+      };
+      return map[d.status] || ['badge-pending', d.status];
+    }
 
-    // Tracker
-    const tracker = document.getElementById('tracker');
-    function drawSteps(steps) {
+    function noticeFor(d, role, partner, net) {
+      const hours = ST.autoReleaseHours;
+      const price = peso(Number(d.amount));
+      const iCancelled = d.cancelled_by && String(d.cancelled_by) === String(me.user_id);
+      switch (d.status) {
+        case 'pending':
+          return d.created_by_me
+            ? { text: 'Waiting for @' + partner + ' to accept your request. It is cancelled automatically if nobody answers in 12 hours, or you can cancel it yourself.' }
+            : { text: '@' + partner + ' sent you this request. Accept or decline it on your dashboard. It is cancelled automatically if nobody answers in 12 hours.' };
+        case 'accepted':
+          return role === 'buyer'
+            ? { text: 'Choose how you want to pay and which GCash or Maya number you are paying from. The money goes to SecureTrade, not to the seller, and stays there until you confirm the item arrived. Payments are simulated for now.' }
+            : { text: 'Waiting for the buyer to pay into escrow. Do not hand over the item until the payment is held.' };
+        case 'paid':
+          return role === 'buyer'
+            ? { text: 'Your payment of ' + price + ' is safe in escrow. You can confirm once the seller marks the item as delivered. If the seller cancels, you are refunded in full.' }
+            : { text: 'The payment is safe in escrow. Hand over the item in-game. When you mark it as delivered, enter the GCash or Maya number where you want to receive your money. If you cannot deliver, you can cancel and the buyer is refunded in full.' };
+        case 'delivered':
+          return role === 'buyer'
+            ? { text: 'Check your game account first. If you do nothing, payment releases to the seller automatically ' + hours + ' hours after delivery.' }
+            : { text: '@' + partner + ' has ' + hours + ' hours to confirm. If they do not respond, ' + peso(net) + ' releases to you automatically.' };
+        case 'completed':
+          return {
+            ok: true,
+            text: (role === 'buyer'
+              ? 'Trade complete. ' + peso(net) + ' was sent to @' + partner + '.'
+              : 'Trade complete. ' + peso(net) + ' was sent to your payout account.')
+              + (d.receipt ? ' Receipt ' + d.receipt.receipt_number + '.' : '')
+          };
+        case 'disputed':
+          return { text: 'This trade is in dispute. An admin will review it.' };
+        case 'refunded':
+          if (d.cancelled_by_username) {
+            return {
+              text: (iCancelled ? 'You cancelled this trade. ' : 'The seller cancelled this trade. ')
+                + (role === 'buyer' ? 'Your payment of ' + price + ' was refunded in full.' : 'The buyer was refunded in full.')
+                + (d.cancel_reason ? ' Reason: ' + d.cancel_reason : '')
+            };
+          }
+          return { text: 'This trade was refunded by an admin after a dispute.' };
+        case 'cancelled':
+          if (d.cancelled_by_username) {
+            return {
+              text: (iCancelled ? 'You cancelled this trade.' : '@' + d.cancelled_by_username + ' cancelled this trade.')
+                + (d.cancel_reason ? ' Reason: ' + d.cancel_reason : '')
+            };
+          }
+          return { text: 'This request expired because nobody answered in 12 hours, or it was cancelled.' };
+        default:
+          return { text: '' };
+      }
+    }
+
+    // Run one step (pay, deliver, confirm, cancel), then reload the trade
+    async function act(path, body, button) {
+      showActionError('');
+      button.disabled = true;
+      try {
+        await apiFetch('/transactions/' + tradeId + path, { method: 'POST', body: JSON.stringify(body || {}) });
+        await load();
+      } catch (err) {
+        showActionError(err.message);
+        button.disabled = false;
+      }
+    }
+
+    function addButton(text, onClick) {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'btn btn-primary';
+      b.textContent = text;
+      b.addEventListener('click', () => onClick(b));
+      actions.appendChild(b);
+      return b;
+    }
+
+    // Buyer pays -> SecureTrade escrow -> Seller payout
+    function renderMoney(d, role, price, net) {
+      // 0 = nothing yet, 1 = waiting for the buyer's payment, 2 = held in escrow, 3 = paid out
+      const stage = { accepted: 1, paid: 2, delivered: 2, disputed: 2, completed: 3 }[d.status] || 0;
+
+      const buyerLine = d.payment
+        ? methodWithNumber(d.payment.payment_method, d.payment.payer_masked) + ' · ' + peso(price)
+        : 'GCash, Maya, or card · ' + peso(price);
+      const sellerLine = d.payout_method
+        ? methodWithNumber(d.payout_method, d.payout_masked)
+        : (role === 'seller'
+            ? 'You enter this when you mark the item as delivered'
+            : 'The seller adds it when delivering the item');
+
+      const boxes = [
+        {
+          cls: stage >= 2 ? 'done' : (stage === 1 ? 'active' : ''),
+          title: role === 'buyer' ? 'You pay' : 'Buyer pays',
+          lines: [buyerLine]
+        },
+        {
+          cls: stage === 3 ? 'done' : (stage === 2 ? 'active' : ''),
+          title: 'SecureTrade escrow',
+          lines: [stage === 3 ? 'Released' : (stage === 2 ? 'Holding ' + peso(price) : 'Holds the payment until the buyer confirms')]
+        },
+        {
+          cls: stage === 3 ? 'done' : '',
+          title: role === 'seller' ? 'You get paid' : 'Seller gets paid',
+          lines: [sellerLine, peso(net) + ' after the ' + (ST.feeRate * 100) + '% fee']
+        }
+      ];
+
+      moneyBox.innerHTML = '';
+      boxes.forEach((b, i) => {
+        if (i > 0) {
+          const arrow = document.createElement('div');
+          arrow.className = 'arrow';
+          arrow.textContent = '→';
+          moneyBox.appendChild(arrow);
+        }
+        const div = document.createElement('div');
+        div.className = 'box ' + b.cls;
+        const strong = document.createElement('strong');
+        strong.textContent = b.title;
+        div.appendChild(strong);
+        b.lines.forEach(text => {
+          const p = document.createElement('div');
+          p.textContent = text;
+          div.appendChild(p);
+        });
+        moneyBox.appendChild(div);
+      });
+    }
+
+    // Buyer: choose how to pay and which number to pay from
+    function addPayControls(price) {
+      const select = document.createElement('select');
+      select.setAttribute('aria-label', 'Payment method');
+      [['gcash', 'GCash'], ['maya', 'Maya'], ['card', 'Credit or debit card']].forEach(o => {
+        const opt = document.createElement('option');
+        opt.value = o[0];
+        opt.textContent = o[1];
+        select.appendChild(opt);
+      });
+
+      const number = document.createElement('input');
+      number.type = 'tel';
+      number.inputMode = 'numeric';
+      number.maxLength = 11;
+      number.setAttribute('aria-label', 'Mobile number you are paying from');
+
+      function syncNumberField() {
+        const needsNumber = select.value !== 'card';
+        number.hidden = !needsNumber;
+        number.placeholder = (select.value === 'maya' ? 'Maya' : 'GCash') + ' number 09XXXXXXXXX';
+      }
+      select.addEventListener('change', syncNumberField);
+      syncNumberField();
+
+      actions.append(select, number);
+      addButton('Pay ' + peso(price) + ' into escrow', btn =>
+        act('/pay', { method: select.value, number: select.value === 'card' ? '' : number.value }, btn));
+    }
+
+    // Seller: say where the money should be sent, then mark the item as delivered
+    function addDeliverControls() {
+      const select = document.createElement('select');
+      select.setAttribute('aria-label', 'Where to receive your money');
+      [['gcash', 'GCash'], ['maya', 'Maya']].forEach(o => {
+        const opt = document.createElement('option');
+        opt.value = o[0];
+        opt.textContent = o[1];
+        select.appendChild(opt);
+      });
+
+      const number = document.createElement('input');
+      number.type = 'tel';
+      number.inputMode = 'numeric';
+      number.maxLength = 11;
+      number.placeholder = 'Number to receive your money';
+      number.setAttribute('aria-label', 'Mobile number to receive your money');
+
+      actions.append(select, number);
+      addButton('I delivered the item', btn =>
+        act('/deliver', { method: select.value, number: number.value }, btn));
+    }
+
+    // Cancel: the request (by the sender), the trade before payment (either person),
+    // or after payment (the seller only, with a reason, and the buyer is refunded)
+    function addCancelControls(d, role) {
+      if (d.status === 'pending' && d.created_by_me) {
+        const b = addButton('Cancel request', btn => {
+          if (window.confirm('Cancel this request?')) act('/cancel', {}, btn);
+        });
+        b.className = 'btn btn-outline';
+      }
+
+      if (d.status === 'accepted') {
+        const b = addButton('Cancel trade', btn => {
+          if (window.confirm('Cancel this trade? Nothing was paid yet.')) act('/cancel', {}, btn);
+        });
+        b.className = 'btn btn-outline';
+      }
+
+      if (d.status === 'paid' && role === 'seller') {
+        const reason = document.createElement('input');
+        reason.type = 'text';
+        reason.className = 'wide';
+        reason.maxLength = 300;
+        reason.placeholder = 'Reason for cancelling (required)';
+        reason.setAttribute('aria-label', 'Reason for cancelling');
+        actions.appendChild(reason);
+
+        const b = addButton('Cancel and refund the buyer', btn => {
+          const text = reason.value.trim();
+          if (text.length < 5) { showActionError('Write a short reason for cancelling.'); return; }
+          if (!window.confirm('Cancel this trade and refund the buyer in full? This cannot be undone.')) return;
+          act('/cancel', { reason: text }, btn);
+        });
+        b.className = 'btn btn-danger';
+      }
+    }
+
+    function renderView() {
+      const d = data;
+      const role = d.my_role;
+      const partner = role === 'buyer' ? d.seller_username : d.buyer_username;
+      const partnerAvatar = role === 'buyer' ? d.seller_avatar : d.buyer_avatar;
+      const partnerVerified = role === 'buyer' ? d.seller_verified : d.buyer_verified;
+      const price = Number(d.amount);
+      const fee = Number(d.service_fee);
+      const net = price - fee;
+      const info = splitDescription(d.item_description);
+
+      // Header
+      document.getElementById('title').textContent = info.title;
+      document.getElementById('subtitle').textContent = 'Trade #' + d.transaction_id + ' · You are the ' + role;
+      const badge = document.getElementById('status-badge');
+      const b = badgeFor(d, role);
+      badge.className = 'badge ' + b[0];
+      badge.textContent = b[1];
+
+      // Tracker
+      const doneCount = { pending: 0, accepted: 0, paid: 1, delivered: 2, completed: 4, disputed: 1, refunded: 1, cancelled: 0 }[d.status] || 0;
+      const inProgress = ['accepted', 'paid', 'delivered'].includes(d.status);
+      const steps = [
+        ['Buyer pays', role === 'buyer' ? 'Pay into escrow.' : 'Waiting for the buyer to pay.'],
+        ['Seller delivers', role === 'seller' ? 'Hand over the item in-game.' : 'Waiting for @' + d.seller_username + ' to hand over the item.'],
+        ['Buyer checks', role === 'buyer' ? 'Confirm you received it.' : 'Buyer confirms receipt.'],
+        ['Seller is paid', role === 'seller' ? peso(net) + ' is sent to you.' : 'Funds are sent to the seller.']
+      ];
       tracker.innerHTML = '';
       steps.forEach((s, i) => {
         const li = document.createElement('li');
-        li.className = s[0];
+        li.className = i < doneCount ? 'done' : (inProgress && i === doneCount ? 'current' : '');
         li.dataset.n = i + 1;
         const strong = document.createElement('strong');
-        strong.textContent = s[1];
-        li.append(strong, document.createTextNode(s[2]));
+        strong.textContent = s[0];
+        li.append(strong, document.createTextNode(s[1]));
         tracker.appendChild(li);
       });
-    }
-    drawSteps(t.steps);
 
-    // Notice and actions
-    const notice = document.getElementById('notice');
-    const actions = document.getElementById('actions');
-    notice.textContent = t.notice;
+      // Where the money goes
+      renderMoney(d, role, price, net);
 
-    function setActions(primaryText, onPrimary) {
+      // Notice
+      const n = noticeFor(d, role, partner, net);
+      notice.className = 'notice' + (n.ok ? ' ok' : '');
+      notice.textContent = n.text;
+
+      // Actions
       actions.innerHTML = '';
-      if (primaryText) {
+      showActionError('');
+      if (role === 'buyer' && d.status === 'accepted') addPayControls(price);
+      if (role === 'seller' && d.status === 'paid') addDeliverControls();
+      if (role === 'buyer' && d.status === 'delivered') {
+        addButton('I received the item', btn => act('/confirm', {}, btn));
+      }
+      addCancelControls(d, role);
+      if (['paid', 'delivered'].includes(d.status)) {
+        const wrong = document.createElement('a');
+        wrong.className = 'btn btn-outline';
+        wrong.href = 'dispute.html?id=' + d.transaction_id;
+        wrong.textContent = 'Something is wrong';
+        actions.appendChild(wrong);
+      }
+      const back = document.createElement('a');
+      back.className = 'btn btn-outline';
+      back.href = 'dashboard.html';
+      back.textContent = 'Back to dashboard';
+      actions.appendChild(back);
+
+      // Details (the partner row shows their photo, a Verified badge, and a star)
+      const partnerCell = document.createElement('span');
+      partnerCell.className = 'person-cell';
+      partnerCell.append(makeAvatar(partner, partnerAvatar, 28), '@' + partner);
+      partnerCell.appendChild(partnerVerified ? verifiedBadge() : notVerifiedTag());
+      partnerCell.appendChild(makeStar(partner, d.partner_is_favorite));
+
+      const rows = [];
+      if (info.game) rows.push(['Game', info.game]);
+      if (info.details) rows.push(['Item details', info.details]);
+      rows.push([role === 'buyer' ? 'Seller' : 'Buyer', partnerCell]);
+      rows.push(['Price', peso(price)]);
+      rows.push(['Service fee (' + (ST.feeRate * 100) + '%)', peso(fee)]);
+      rows.push([role === 'seller' ? 'You receive' : 'Seller receives', peso(net)]);
+      if (d.payout_method) {
+        rows.push([role === 'seller' ? 'Paid out to' : 'Seller paid out to', methodWithNumber(d.payout_method, d.payout_masked)]);
+      }
+      if (d.payment) {
+        rows.push([
+          role === 'buyer' ? 'You paid with' : 'Buyer paid with',
+          methodWithNumber(d.payment.payment_method, d.payment.payer_masked)
+        ]);
+        rows.push(['Payment status', d.payment.payment_status]);
+      }
+      if (d.receipt) rows.push(['Receipt', d.receipt.receipt_number]);
+      rows.push(['Started', new Date(d.created_at).toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' })]);
+
+      const dl = document.getElementById('details');
+      dl.innerHTML = '';
+      rows.forEach(r => {
+        const line = document.createElement('div');
+        line.className = 'line';
+        const dt = document.createElement('dt'); dt.textContent = r[0];
+        const dd = document.createElement('dd');
+        if (r[1] instanceof Node) dd.appendChild(r[1]); else dd.textContent = r[1];
+        line.append(dt, dd);
+        dl.appendChild(line);
+      });
+
+      const chatTitle = document.getElementById('chat-title');
+      chatTitle.replaceChildren(makeAvatar(partner, partnerAvatar, 30), 'Chat with @' + partner);
+    }
+
+    // ---------- Rating box: shown only after the trade is completed ----------
+    function drawStars(starsBox) {
+      starsBox.innerHTML = '';
+      for (let i = 1; i <= 5; i++) {
         const b = document.createElement('button');
         b.type = 'button';
-        b.className = 'btn btn-primary';
-        b.textContent = primaryText;
-        b.addEventListener('click', onPrimary);
-        actions.appendChild(b);
+        b.className = i <= rateStars ? 'on' : '';
+        b.textContent = '★';
+        b.setAttribute('role', 'radio');
+        b.setAttribute('aria-checked', i === rateStars);
+        b.setAttribute('aria-label', i + (i === 1 ? ' star' : ' stars'));
+        b.addEventListener('click', () => { rateStars = i; drawStars(starsBox); });
+        starsBox.appendChild(b);
       }
-      const d = document.createElement('a');
-      d.className = 'btn btn-outline';
-      d.href = 'dispute.html';
-      d.textContent = 'Something is wrong';
-      actions.appendChild(d);
     }
 
-    function finish(text) {
-      notice.className = 'notice ok';
-      notice.textContent = text;
-      actions.innerHTML = '<a class="btn btn-outline" href="dashboard.html">Back to dashboard</a>';
+    // Find out whether I already rated this trade (the history list holds my rating)
+    async function loadRating() {
+      if (!data || data.status !== 'completed') {
+        rateCard.hidden = true;
+        rateDrawnKey = '';
+        return;
+      }
+      if (!rateLoaded) {
+        try {
+          const list = await apiFetch('/history');
+          const mine = list.find(h => String(h.transaction_id) === String(tradeId));
+          myScore = mine && mine.my_score ? Number(mine.my_score) : null;
+          rateLoaded = true;
+        } catch (err) {
+          return;   // try again on the next refresh
+        }
+      }
+      drawRating();
     }
 
-    if (role === 'buyer') {
-      setActions(t.primary, () => {
-        drawSteps([['done', 'Paid', t.steps[0][2]], ['done', 'Delivered', t.steps[1][2]], ['done', 'Your check', 'You confirmed.'], ['done', 'Seller paid', 'Funds were released.']]);
-        badge.className = 'badge badge-released';
-        badge.textContent = 'Completed';
-        finish('Thanks for confirming. ' + peso(net) + ' was released to ' + t.partner + '.');
+    function drawRating() {
+      const d = data;
+      const partner = d.my_role === 'buyer' ? d.seller_username : d.buyer_username;
+      const key = myScore ? 'rated:' + myScore : (rateSkipped ? 'skipped' : 'form');
+      if (key === rateDrawnKey) return;     // nothing changed, so typed feedback is not lost
+      rateDrawnKey = key;
+
+      rateCard.innerHTML = '';
+      rateCard.hidden = key === 'skipped';
+      if (key === 'skipped') return;
+
+      if (myScore) {
+        const p = document.createElement('p');
+        p.className = 'rated-line';
+        p.textContent = 'You rated @' + partner + ' ★ ' + myScore + '. Thank you!';
+        rateCard.appendChild(p);
+        return;
+      }
+
+      const h = document.createElement('h2');
+      h.textContent = 'Rate @' + partner;
+      const hint = document.createElement('p');
+      hint.className = 'hint';
+      hint.textContent = 'How was the trade? Your rating helps other gamers. You can rate once, and it cannot be changed.';
+
+      const starsBox = document.createElement('div');
+      starsBox.className = 'stars';
+      starsBox.setAttribute('role', 'radiogroup');
+      starsBox.setAttribute('aria-label', 'Your rating');
+      rateStars = 0;
+      drawStars(starsBox);
+
+      const label = document.createElement('label');
+      label.setAttribute('for', 'rate-feedback');
+      label.textContent = 'Feedback (optional)';
+      const text = document.createElement('textarea');
+      text.id = 'rate-feedback';
+      text.rows = 3;
+      text.maxLength = 500;
+      text.placeholder = 'Example: fast delivery, easy to trade with';
+
+      const error = document.createElement('p');
+      error.className = 'form-error';
+      error.setAttribute('role', 'alert');
+      error.hidden = true;
+
+      const row = document.createElement('div');
+      row.className = 'rate-actions';
+      const save = document.createElement('button');
+      save.type = 'button';
+      save.className = 'btn btn-primary';
+      save.textContent = 'Save rating';
+      const skip = document.createElement('button');
+      skip.type = 'button';
+      skip.className = 'btn btn-outline';
+      skip.textContent = 'Skip for now';
+      row.append(save, skip);
+
+      save.addEventListener('click', async () => {
+        error.hidden = true;
+        if (!rateStars) { error.textContent = 'Choose 1 to 5 stars.'; error.hidden = false; return; }
+        save.disabled = true;
+        try {
+          await apiFetch('/transactions/' + tradeId + '/rating', {
+            method: 'POST',
+            body: JSON.stringify({ score: rateStars, feedback: text.value })
+          });
+          myScore = rateStars;
+          drawRating();
+        } catch (err) {
+          error.textContent = err instanceof TypeError ? 'Cannot reach the server. Is the backend running?' : err.message;
+          error.hidden = false;
+          save.disabled = false;
+        }
       });
-    } else {
-      setActions(t.primary, () => {
-        drawSteps([['done', 'Buyer paid', t.steps[0][2]], ['done', 'You delivered', 'Marked as delivered.'], ['current', 'Buyer checks', 'Waiting for confirmation.'], ['', 'You are paid', t.steps[3][2]]]);
-        badge.className = 'badge badge-pending';
-        badge.textContent = 'Waiting for buyer';
-        notice.className = 'notice';
-        notice.textContent = t.partner + ' has ' + ST.autoReleaseHours + ' hours to confirm. If they do not respond, ' + peso(net) + ' releases to you automatically.';
-        setActions(null);
-      });
+      skip.addEventListener('click', () => { rateSkipped = true; drawRating(); });
+
+      rateCard.append(h, hint, starsBox, label, text, error, row);
     }
 
-    // Details
-    const rows = [
-      ['Game', t.game],
-      [t.partnerLabel, t.partner],
-      ['Price', peso(t.price)],
-      ['Service fee (' + (ST.feeRate * 100) + '%)', peso(fee)],
-      [role === 'seller' ? 'You receive' : 'Seller receives', peso(net)],
-      ['Started', t.started]
-    ];
-    const dl = document.getElementById('details');
-    rows.forEach(r => {
-      const line = document.createElement('div');
-      line.className = 'line';
-      const dt = document.createElement('dt'); dt.textContent = r[0];
-      const dd = document.createElement('dd'); dd.textContent = r[1];
-      line.append(dt, dd);
-      dl.appendChild(line);
-    });
+    function renderMessages() {
+      box.innerHTML = '';
+      if (data.messages.length === 0) {
+        const p = document.createElement('p');
+        p.className = 'no-msgs';
+        p.textContent = 'No messages yet. Say hello to start the chat.';
+        box.appendChild(p);
+        return;
+      }
+      data.messages.forEach(m => {
+        const mine = String(m.sender_id) === String(me.user_id);
 
-    // Evidence hint
-    document.getElementById('evidence-hint').textContent = t.evidence;
+        const row = document.createElement('div');
+        row.className = 'msgrow' + (mine ? ' me' : '');
 
-    // Chat
-    document.getElementById('chat-title').textContent = 'Chat with ' + t.partner;
-    const box = document.getElementById('messages');
-    function addMsg(who, time, text) {
-      const msg = document.createElement('div');
-      msg.className = 'msg' + (who === 'me' ? ' me' : '');
-      const small = document.createElement('small');
-      small.textContent = (who === 'me' ? 'You' : t.partner) + ' · ' + time;
-      msg.append(small, document.createTextNode(text));
-      box.appendChild(msg);
+        const msg = document.createElement('div');
+        msg.className = 'msg' + (mine ? ' me' : '');
+        const small = document.createElement('small');
+        const time = new Date(m.sent_at).toLocaleTimeString('en-PH', { hour: 'numeric', minute: '2-digit' });
+        small.textContent = (mine ? 'You' : '@' + m.username) + ' · ' + time;
+        msg.append(small, document.createTextNode(m.content));
+
+        row.append(makeAvatar(m.username, m.avatar_file, 30), msg);
+        box.appendChild(row);
+      });
       box.scrollTop = box.scrollHeight;
     }
-    t.chat.forEach(m => addMsg(m[0], m[1], m[2]));
 
+    async function load() {
+      try {
+        data = await apiFetch('/transactions/' + tradeId);
+      } catch (err) {
+        if (!data) {
+          showPageError(err instanceof TypeError ? 'Cannot reach the server. Is the backend running?' : err.message);
+        }
+        return;
+      }
+      showPageError('');
+      view.hidden = false;
+
+      // Only redraw what changed, so typed numbers and payment choices are not reset
+      const signature = [
+        data.status,
+        data.payment ? data.payment.payment_status + (data.payment.payer_masked || '') : '',
+        data.receipt ? 'r' : '',
+        data.payout_method || '',
+        data.payout_masked || '',
+        data.cancelled_by || '',
+        data.cancel_reason || '',
+        data.buyer_username, data.seller_username,
+        data.buyer_avatar || '', data.seller_avatar || '',
+        data.buyer_verified, data.seller_verified
+      ].join(':');
+      if (signature !== lastSignature) {
+        lastSignature = signature;
+        renderView();
+      }
+
+      const messageSignature = data.messages.map(m => m.message_id + (m.avatar_file || '') + m.username).join('|');
+      if (messageSignature !== lastMessageSignature) {
+        lastMessageSignature = messageSignature;
+        renderMessages();
+      }
+
+      await loadRating();
+    }
+
+    // Chat
     const input = document.getElementById('chat-input');
-    document.getElementById('chat-form').addEventListener('submit', e => {
+    document.getElementById('chat-form').addEventListener('submit', async e => {
       e.preventDefault();
-      const text = input.value.trim();
-      if (!text) return;
-      addMsg('me', 'now', text);
+      const content = input.value.trim();
+      if (!content) return;
       input.value = '';
-    });
-
-    // Evidence: list the chosen file names
-    document.getElementById('evidence-file').addEventListener('change', e => {
-      const list = document.getElementById('files');
-      list.innerHTML = '';
-      for (const f of e.target.files) {
-        const li = document.createElement('li');
-        li.textContent = f.name;
-        list.appendChild(li);
+      try {
+        await apiFetch('/transactions/' + tradeId + '/messages', {
+          method: 'POST',
+          body: JSON.stringify({ content })
+        });
+        await load();
+      } catch (err) {
+        input.value = content;
+        showActionError(err.message);
       }
     });
+
+    if (!/^\d+$/.test(String(tradeId))) {
+      showPageError('No trade selected. Open a trade from your dashboard.');
+    } else {
+      load();
+      setInterval(load, 5000);   // pick up new messages and status changes
+    }
   </script>
 </body>
 </html>

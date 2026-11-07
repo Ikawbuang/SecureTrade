@@ -8,6 +8,16 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=Figtree:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css">
+  <style>
+    /* Page-specific styles (style.css stays unchanged) */
+    [hidden] { display: none !important; }
+    .form-ok { margin: 0 0 1rem; padding: .65rem .85rem; border-radius: 8px; background: #e3f7f2; color: #146b5a; font-size: .9rem; }
+    .form-notice { margin: 0 0 1rem; padding: .65rem .85rem; border-radius: 8px; background: #fff8e6; color: #6b4b00; font-size: .9rem; }
+    .pin-input { font: 700 1.6rem var(--font-display); letter-spacing: .5rem; text-align: center; }
+    .forgot { margin: -.5rem 0 1rem; text-align: right; font-size: .9rem; }
+    .link-btn { background: none; border: 0; padding: 0; font: inherit; font-weight: 600; color: inherit; text-decoration: underline; cursor: pointer; }
+    .link-btn:disabled { opacity: .55; cursor: not-allowed; text-decoration: none; }
+  </style>
 </head>
 <body>
   <main class="auth">
@@ -47,19 +57,22 @@
       <p class="auth-foot" id="team-line"></p>
     </section>
 
-    <!-- Right: sign in / create account -->
+    <!-- Right: sign in / create account / PIN steps -->
     <section class="auth-panel">
       <div class="auth-box">
 
-        <div class="tabs" role="tablist">
+        <div class="tabs" role="tablist" id="tabs">
           <button type="button" role="tab" id="tab-login" aria-selected="true" aria-controls="form-login">Sign in</button>
           <button type="button" role="tab" id="tab-register" aria-selected="false" aria-controls="form-register">Create account</button>
         </div>
 
         <!-- Sign in -->
-        <form id="form-login" action="dashboard.html" aria-labelledby="tab-login">
+        <form id="form-login" aria-labelledby="tab-login">
           <h2>Welcome back</h2>
           <p class="hint" style="margin-bottom:1.5rem">Sign in to see your trades.</p>
+
+          <p class="form-notice" id="login-notice" role="status" hidden></p>
+          <p class="form-ok" id="login-info" role="status" hidden></p>
 
           <div class="field">
             <label for="login-email">Email</label>
@@ -69,6 +82,7 @@
             <label for="login-password">Password</label>
             <input id="login-password" type="password" placeholder="Enter your password" required>
           </div>
+          <p class="forgot"><a href="#" data-switch="forgot">Forgot password?</a></p>
 
           <p class="form-error" id="login-error" role="alert" hidden></p>
 
@@ -76,18 +90,26 @@
           <p class="auth-switch">New here? <a href="#" data-switch="register">Create an account</a></p>
         </form>
 
-        <!-- Create account -->
-        <form id="form-register" action="dashboard.html" aria-labelledby="tab-register" hidden>
+        <!-- Create account (step 1) -->
+        <form id="form-register" aria-labelledby="tab-register" hidden>
           <h2>Create your account</h2>
-          <p class="hint" style="margin-bottom:1.5rem">It takes a minute. You can buy and sell with one account.</p>
+          <p class="hint" style="margin-bottom:1.5rem">We will email you a PIN to confirm your email.</p>
+
+          <div class="row-2">
+            <div class="field">
+              <label for="reg-first">First name</label>
+              <input id="reg-first" type="text" placeholder="Juan" maxlength="45" autocomplete="given-name" required>
+            </div>
+            <div class="field">
+              <label for="reg-last">Last name</label>
+              <input id="reg-last" type="text" placeholder="Dela Cruz" maxlength="45" autocomplete="family-name" required>
+            </div>
+          </div>
+          <p class="hint" style="margin:-.5rem 0 1rem">Use your real name. Other users do not see it, only your gamer username.</p>
 
           <div class="field">
-            <label for="reg-name">Full name</label>
-            <input id="reg-name" type="text" placeholder="Juan Dela Cruz" required>
-          </div>
-          <div class="field">
             <label for="reg-username">Gamer username</label>
-            <input id="reg-username" type="text" placeholder="Shown to trade partners" required>
+            <input id="reg-username" type="text" placeholder="Shown to trade partners" minlength="3" maxlength="30" required>
           </div>
           <div class="field">
             <label for="reg-email">Email</label>
@@ -105,14 +127,80 @@
           </div>
 
           <p class="form-error" id="reg-error" role="alert" hidden></p>
-          
+
           <label class="check">
             <input type="checkbox" required>
             <span>I agree to the terms, including the <span id="fee-terms"></span> service fee on completed trades.</span>
           </label>
 
-          <button class="btn btn-primary btn-block" type="submit">Create account</button>
+          <button class="btn btn-primary btn-block" type="submit">Send me a PIN</button>
           <p class="auth-switch">Already registered? <a href="#" data-switch="login">Sign in</a></p>
+        </form>
+
+        <!-- Create account (step 2): type the PIN from the email -->
+        <form id="form-verify" hidden>
+          <h2>Check your email</h2>
+          <p class="hint" style="margin-bottom:1.5rem" id="verify-text"></p>
+
+          <div class="field">
+            <label for="verify-pin">6-digit PIN</label>
+            <input id="verify-pin" class="pin-input" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="••••••" required>
+          </div>
+
+          <p class="form-ok" id="verify-info" role="status" hidden></p>
+          <p class="form-error" id="verify-error" role="alert" hidden></p>
+
+          <button class="btn btn-primary btn-block" type="submit">Verify and create account</button>
+          <p class="auth-switch">
+            <button type="button" class="link-btn" id="verify-resend">Resend PIN</button>
+            · <a href="#" data-switch="register">Change email</a>
+          </p>
+        </form>
+
+        <!-- Forgot password (step 1): ask for the email -->
+        <form id="form-forgot" hidden>
+          <h2>Forgot your password?</h2>
+          <p class="hint" style="margin-bottom:1.5rem">Enter your email and we will send you a PIN to reset it.</p>
+
+          <div class="field">
+            <label for="forgot-email">Email</label>
+            <input id="forgot-email" type="email" placeholder="you@example.com" required>
+          </div>
+
+          <p class="form-error" id="forgot-error" role="alert" hidden></p>
+
+          <button class="btn btn-primary btn-block" type="submit">Send me a PIN</button>
+          <p class="auth-switch"><a href="#" data-switch="login">Back to sign in</a></p>
+        </form>
+
+        <!-- Forgot password (step 2): PIN and new password -->
+        <form id="form-reset" hidden>
+          <h2>Reset your password</h2>
+          <p class="hint" style="margin-bottom:1.5rem" id="reset-text"></p>
+
+          <div class="field">
+            <label for="reset-pin">6-digit PIN</label>
+            <input id="reset-pin" class="pin-input" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="••••••" required>
+          </div>
+          <div class="row-2">
+            <div class="field">
+              <label for="reset-password">New password</label>
+              <input id="reset-password" type="password" placeholder="8+ characters" minlength="8" required>
+            </div>
+            <div class="field">
+              <label for="reset-confirm">Confirm password</label>
+              <input id="reset-confirm" type="password" placeholder="Repeat password" minlength="8" required>
+            </div>
+          </div>
+
+          <p class="form-ok" id="reset-info" role="status" hidden></p>
+          <p class="form-error" id="reset-error" role="alert" hidden></p>
+
+          <button class="btn btn-primary btn-block" type="submit">Change password</button>
+          <p class="auth-switch">
+            <button type="button" class="link-btn" id="reset-resend">Resend PIN</button>
+            · <a href="#" data-switch="login">Back to sign in</a>
+          </p>
         </form>
 
       </div>
@@ -126,32 +214,41 @@
     document.getElementById('team-line').textContent = ST.course + ' UI prototype – Team ' + ST.team;
     document.getElementById('fee-step').textContent = (ST.feeRate * 100) + '%';
     document.getElementById('fee-terms').textContent = (ST.feeRate * 100) + '%';
-    document.getElementById('reg-name').placeholder = ST.me.name;
-    // Switch between the Sign in and Create account forms
-    const tabs = {
-      login:    { tab: document.getElementById('tab-login'),    form: document.getElementById('form-login') },
-      register: { tab: document.getElementById('tab-register'), form: document.getElementById('form-register') }
-    };
 
-    function show(name) {
-      for (const key in tabs) {
-        const active = key === name;
-        tabs[key].tab.setAttribute('aria-selected', active);
-        tabs[key].form.hidden = !active;
-      }
+    // ---------- Which form is showing ----------
+    const forms = {
+      login:    document.getElementById('form-login'),
+      register: document.getElementById('form-register'),
+      verify:   document.getElementById('form-verify'),
+      forgot:   document.getElementById('form-forgot'),
+      reset:    document.getElementById('form-reset')
+    };
+    const tabsBar = document.getElementById('tabs');
+    const tabLogin = document.getElementById('tab-login');
+    const tabRegister = document.getElementById('tab-register');
+
+    function clearMessages() {
+      document.querySelectorAll('.form-error, .form-ok, .form-notice').forEach(p => { p.hidden = true; p.textContent = ''; });
     }
 
-    tabs.login.tab.addEventListener('click', () => show('login'));
-    tabs.register.tab.addEventListener('click', () => show('register'));
+    function show(name) {
+      clearMessages();
+      for (const key in forms) forms[key].hidden = key !== name;
+      tabsBar.hidden = !(name === 'login' || name === 'register');
+      tabLogin.setAttribute('aria-selected', name === 'login');
+      tabRegister.setAttribute('aria-selected', name === 'register');
+    }
 
+    tabLogin.addEventListener('click', () => show('login'));
+    tabRegister.addEventListener('click', () => show('register'));
     document.querySelectorAll('[data-switch]').forEach(link => {
       link.addEventListener('click', e => { e.preventDefault(); show(link.dataset.switch); });
     });
 
-    // ---- Connect to the backend API ----
+    // ---------- Helpers ----------
     const API = 'http://localhost:3000/api';
 
-    function showError(id, msg) {
+    function setMessage(id, msg) {
       const el = document.getElementById(id);
       el.textContent = msg;
       el.hidden = !msg;
@@ -177,12 +274,38 @@
     function saveSession(data) {
       localStorage.setItem('st_token', data.token);
       localStorage.setItem('st_user', JSON.stringify(data.user));
+      localStorage.setItem('st_last_active', String(Date.now()));   // starts the idle timer
+      localStorage.removeItem('st_logout_reason');
     }
 
-    // Sign in
+    // Admins go to the admin dashboard, everyone else to their dashboard
+    function goHome(user) {
+      window.location.href = user && user.role === 'admin' ? 'admin-dashboard.html' : 'dashboard.html';
+    }
+
+    // "Resend PIN" button that waits 60 seconds between sends
+    const cooldownTimers = {};
+    function startCooldown(button, seconds) {
+      clearInterval(cooldownTimers[button.id]);
+      let left = seconds;
+      button.disabled = true;
+      button.textContent = 'Resend PIN (' + left + 's)';
+      cooldownTimers[button.id] = setInterval(() => {
+        left--;
+        if (left <= 0) {
+          clearInterval(cooldownTimers[button.id]);
+          button.disabled = false;
+          button.textContent = 'Resend PIN';
+        } else {
+          button.textContent = 'Resend PIN (' + left + 's)';
+        }
+      }, 1000);
+    }
+
+    // ---------- Sign in ----------
     document.getElementById('form-login').addEventListener('submit', async e => {
       e.preventDefault();
-      showError('login-error', '');
+      setMessage('login-error', '');
       const btn = e.target.querySelector('button[type="submit"]');
       btn.disabled = true;
       try {
@@ -191,39 +314,158 @@
           password: document.getElementById('login-password').value
         });
         saveSession(data);
-        window.location.href = 'dashboard.html';
+        goHome(data.user);
       } catch (err) {
-        showError('login-error', friendly(err));
+        setMessage('login-error', friendly(err));
         btn.disabled = false;
       }
     });
 
-    // Create account, then sign in right away
+    // ---------- Create account ----------
+    let pendingEmail = '';
+    const verifyResend = document.getElementById('verify-resend');
+
+    // Step 1: send the PIN
     document.getElementById('form-register').addEventListener('submit', async e => {
       e.preventDefault();
-      showError('reg-error', '');
+      setMessage('reg-error', '');
       const password = document.getElementById('reg-password').value;
       if (password !== document.getElementById('reg-confirm').value) {
-        showError('reg-error', 'Passwords do not match.');
+        setMessage('reg-error', 'Passwords do not match.');
         return;
       }
       const btn = e.target.querySelector('button[type="submit"]');
       btn.disabled = true;
       try {
-        const email = document.getElementById('reg-email').value;
-        await callApi('/register', {
-          full_name: document.getElementById('reg-name').value,
+        const email = document.getElementById('reg-email').value.trim();
+        await callApi('/register/start', {
+          first_name: document.getElementById('reg-first').value,
+          last_name: document.getElementById('reg-last').value,
+          username: document.getElementById('reg-username').value,
           email,
           password
         });
-        const data = await callApi('/login', { email, password });
-        saveSession(data);
-        window.location.href = 'dashboard.html';
+        pendingEmail = email;
+        show('verify');
+        document.getElementById('verify-text').textContent =
+          'We sent a 6-digit PIN to ' + email + '. Type it below to finish creating your account. It expires in 10 minutes.';
+        document.getElementById('verify-pin').value = '';
+        document.getElementById('verify-pin').focus();
+        startCooldown(verifyResend, 60);
       } catch (err) {
-        showError('reg-error', friendly(err));
+        setMessage('reg-error', friendly(err));
+      }
+      btn.disabled = false;
+    });
+
+    // Step 2: check the PIN, create the account, and sign in
+    document.getElementById('form-verify').addEventListener('submit', async e => {
+      e.preventDefault();
+      setMessage('verify-error', '');
+      setMessage('verify-info', '');
+      const btn = e.target.querySelector('button[type="submit"]');
+      btn.disabled = true;
+      try {
+        const data = await callApi('/register/verify', {
+          email: pendingEmail,
+          pin: document.getElementById('verify-pin').value.trim()
+        });
+        saveSession(data);
+        goHome(data.user);
+      } catch (err) {
+        setMessage('verify-error', friendly(err));
         btn.disabled = false;
       }
     });
+
+    verifyResend.addEventListener('click', async () => {
+      setMessage('verify-error', '');
+      setMessage('verify-info', '');
+      verifyResend.disabled = true;
+      try {
+        await callApi('/register/resend', { email: pendingEmail });
+        setMessage('verify-info', 'A new PIN was sent to ' + pendingEmail + '.');
+        startCooldown(verifyResend, 60);
+      } catch (err) {
+        setMessage('verify-error', friendly(err));
+        verifyResend.disabled = false;
+      }
+    });
+
+    // ---------- Forgot password ----------
+    let resetEmail = '';
+    const resetResend = document.getElementById('reset-resend');
+
+    // Step 1: send the PIN
+    document.getElementById('form-forgot').addEventListener('submit', async e => {
+      e.preventDefault();
+      setMessage('forgot-error', '');
+      const btn = e.target.querySelector('button[type="submit"]');
+      btn.disabled = true;
+      try {
+        const email = document.getElementById('forgot-email').value.trim();
+        await callApi('/password/forgot', { email });
+        resetEmail = email;
+        show('reset');
+        document.getElementById('reset-text').textContent =
+          'If ' + email + ' has an account, we sent a 6-digit PIN to it. Type the PIN and your new password below.';
+        document.getElementById('reset-pin').value = '';
+        document.getElementById('reset-pin').focus();
+        startCooldown(resetResend, 60);
+      } catch (err) {
+        setMessage('forgot-error', friendly(err));
+      }
+      btn.disabled = false;
+    });
+
+    // Step 2: check the PIN and change the password (every device is signed out)
+    document.getElementById('form-reset').addEventListener('submit', async e => {
+      e.preventDefault();
+      setMessage('reset-error', '');
+      setMessage('reset-info', '');
+      const password = document.getElementById('reset-password').value;
+      if (password !== document.getElementById('reset-confirm').value) {
+        setMessage('reset-error', 'Passwords do not match.');
+        return;
+      }
+      const btn = e.target.querySelector('button[type="submit"]');
+      btn.disabled = true;
+      try {
+        await callApi('/password/reset', {
+          email: resetEmail,
+          pin: document.getElementById('reset-pin').value.trim(),
+          new_password: password
+        });
+        show('login');
+        document.getElementById('login-email').value = resetEmail;
+        document.getElementById('login-password').value = '';
+        setMessage('login-info', 'Your password was changed and every device was signed out. Sign in with your new password.');
+      } catch (err) {
+        setMessage('reset-error', friendly(err));
+      }
+      btn.disabled = false;
+    });
+
+    resetResend.addEventListener('click', async () => {
+      setMessage('reset-error', '');
+      setMessage('reset-info', '');
+      resetResend.disabled = true;
+      try {
+        await callApi('/password/forgot', { email: resetEmail });
+        setMessage('reset-info', 'If the email has an account, a new PIN was sent.');
+        startCooldown(resetResend, 60);
+      } catch (err) {
+        setMessage('reset-error', friendly(err));
+        resetResend.disabled = false;
+      }
+    });
+
+    // ---------- Why was I sent here? (signed out on another device, or inactive) ----------
+    const logoutReason = localStorage.getItem('st_logout_reason');
+    if (logoutReason) {
+      setMessage('login-notice', logoutReason);
+      localStorage.removeItem('st_logout_reason');
+    }
   </script>
 </body>
 </html>

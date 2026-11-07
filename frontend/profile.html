@@ -1,0 +1,656 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>My profile – SecureTrade</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=Figtree:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+  <style>
+    /* Page-specific styles (style.css stays unchanged) */
+    [hidden] { display: none !important; }
+    .sidebar .brand { display: block; margin-bottom: 2rem; padding-left: .85rem; }
+    .sidebar .spacer { margin-top: 2rem; padding-top: 1rem; border-top: 1px solid var(--ink-3); }
+    .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+    .page-head { margin-bottom: 1.5rem; }
+    .page-head h1 { margin: 0; font-size: 1.9rem; }
+    .page-head p { margin: .25rem 0 0; color: var(--text-soft); }
+
+    .stack > * + * { margin-top: 1.5rem; }
+    .layout { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr); gap: 1.5rem; align-items: start; }
+    @media (max-width: 1000px) { .layout { grid-template-columns: 1fr; } }
+
+    .section-title { margin: 0 0 .25rem; font-size: 1.15rem; }
+    .section-sub { margin: 0 0 1rem; color: var(--text-soft); font-size: .92rem; }
+    .btn-small { padding: .45rem .9rem; font-size: .92rem; }
+
+    .who-head { display: flex; align-items: center; gap: 1rem; }
+    .who-head h2 { margin: 0; font-size: 1.3rem; word-break: break-all; }
+    .who-head p { margin: .15rem 0 0; color: var(--text-soft); font-size: .92rem; word-break: break-all; }
+
+    .row-2 { display: grid; grid-template-columns: 1fr 1fr; gap: .8rem; }
+    .row-2 input { width: 100%; }
+
+    /* Information list: each row shows a value, and some have an Edit button */
+    .info-row { padding: .85rem 0; border-bottom: 1px solid #e6e8f5; }
+    .info-row:last-of-type { border-bottom: 0; }
+    .info-top { display: flex; justify-content: space-between; align-items: center; gap: 1rem; }
+    .info-label { margin: 0; color: var(--text-soft); font-size: .85rem; }
+    .info-value { margin: .1rem 0 0; font-weight: 600; word-break: break-word; }
+    .info-note { margin: .25rem 0 0; color: var(--text-soft); font-size: .85rem; }
+    .edit-panel { margin-top: .75rem; padding: .9rem 1rem; background: #f6f7fc; border-radius: var(--radius-s); }
+
+    .pf-row { display: flex; gap: .6rem; flex-wrap: wrap; align-items: flex-end; }
+    .pf-row .field { margin: 0; flex: 1; min-width: 180px; }
+    .pf-row input, .field select {
+      width: 100%; padding: .6rem .85rem; font: 1rem var(--font-body); color: var(--text);
+      background: var(--white); border: 2px solid #d5d8ec; border-radius: var(--radius-s);
+    }
+    .pf-row input:focus, .field select:focus { outline: none; border-color: var(--gold); }
+    .pf-actions { display: flex; gap: .6rem; flex-wrap: wrap; align-items: center; margin-top: .75rem; }
+    .form-ok { margin: .6rem 0 0; padding: .6rem .85rem; border-radius: 8px; background: #e3f7f2; color: #146b5a; font-size: .9rem; }
+    .link-btn { background: none; border: 0; padding: 0; font: inherit; font-weight: 600; color: var(--gold-dark); text-decoration: underline; cursor: pointer; }
+    .link-btn:disabled { opacity: .55; cursor: not-allowed; text-decoration: none; }
+
+    /* Verification */
+    .vf-state { padding: .9rem 1rem; border-radius: var(--radius-s); font-size: .95rem; margin-bottom: 1rem; }
+    .vf-state.ok { background: #e3f7f2; border-left: 4px solid var(--teal); }
+    .vf-state.wait { background: #fff8e6; border-left: 4px solid var(--gold); }
+    .vf-state.bad { background: #fdecea; border-left: 4px solid #d9534f; }
+    .vf-state strong { display: block; margin-bottom: .2rem; }
+    .code-box { text-align: center; padding: 1rem; background: var(--ink); color: var(--gold); border-radius: var(--radius-m); margin: .75rem 0 1rem; }
+    .code-box .num { font: 700 2.4rem var(--font-display); letter-spacing: .5rem; }
+    .code-box small { display: block; color: var(--text-on-dark-soft); margin-top: .25rem; }
+    .steps { margin: 0 0 1rem; padding-left: 1.2rem; color: var(--text-soft); font-size: .93rem; }
+    .steps li { margin-bottom: .35rem; }
+    fieldset.vf { border: 0; padding: 0; margin: 0; }
+    fieldset.vf:disabled { opacity: .55; }
+    .pics { display: grid; grid-template-columns: 1fr 1fr; gap: .9rem; margin-bottom: 1rem; }
+    .pic { border: 2px dashed #c3c7e3; border-radius: var(--radius-m); padding: .75rem; background: var(--paper); min-width: 0; }
+    .pic label { font-weight: 600; font-size: .9rem; display: block; margin-bottom: .4rem; }
+    .pic input[type="file"] { width: 100%; font-size: .85rem; }
+    .pic img { display: block; width: 100%; max-height: 180px; object-fit: cover; border-radius: var(--radius-s); margin-top: .5rem; }
+    .check-line { display: flex; gap: .6rem; align-items: flex-start; font-size: .9rem; margin: .5rem 0 1rem; }
+    .check-line input { margin-top: .25rem; }
+    @media (max-width: 560px) { .pics, .row-2 { grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body>
+  <div class="app">
+
+    <nav class="sidebar" aria-label="Main">
+      <a class="brand" href="dashboard.html">Secure<span>Trade</span></a>
+      <a href="dashboard.html">Dashboard</a>
+      <a href="dispute.html">Disputes</a>
+      <a href="history.html">History</a>
+      <a href="profile.html" aria-current="page">My profile</a>
+      <div class="spacer">
+        <a href="login.html" id="signout">Sign out</a>
+      </div>
+    </nav>
+
+    <main class="main">
+
+      <header class="page-head">
+        <h1>My profile</h1>
+        <p>Your information. Press Edit beside what you want to change.</p>
+      </header>
+
+      <p class="form-error" id="page-error" role="alert" hidden></p>
+
+      <div class="layout">
+
+        <!-- Left: who I am, then my information -->
+        <div class="stack">
+
+          <section class="card" aria-label="Profile">
+            <div class="who-head">
+              <span id="pf-avatar"></span>
+              <div>
+                <h2 id="pf-title">@username</h2>
+                <p id="pf-sub"></p>
+              </div>
+            </div>
+            <div class="pf-actions">
+              <input id="pf-file" type="file" accept="image/jpeg,image/png,image/webp" hidden>
+              <button class="btn btn-outline btn-small" type="button" id="pf-choose">Change photo</button>
+              <button class="btn btn-outline btn-small" type="button" id="pf-remove" hidden>Remove</button>
+            </div>
+            <p class="hint" style="margin:.5rem 0 0">JPG, PNG, or WEBP, up to 2 MB.</p>
+            <p class="form-error" id="pf-photo-error" role="alert" hidden></p>
+            <p class="form-ok" id="pf-photo-ok" role="status" hidden></p>
+          </section>
+
+          <section class="card" aria-labelledby="info-title">
+            <h3 class="section-title" id="info-title">Your information</h3>
+
+            <div class="info-row">
+              <p class="info-label">First name</p>
+              <p class="info-value" id="pf-first"></p>
+            </div>
+
+            <div class="info-row">
+              <p class="info-label">Last name</p>
+              <p class="info-value" id="pf-last"></p>
+              <p class="info-note">Only you and the admins can see your name. It changes only when you verify your identity.</p>
+            </div>
+
+            <!-- Username -->
+            <div class="info-row">
+              <div class="info-top">
+                <div>
+                  <p class="info-label">Username</p>
+                  <p class="info-value" id="pf-username-value"></p>
+                </div>
+                <button class="btn btn-outline btn-small" type="button" id="pf-username-edit">Edit</button>
+              </div>
+              <p class="info-note" id="pf-username-hint" hidden></p>
+              <form class="edit-panel" id="pf-username-form" hidden>
+                <div class="pf-row">
+                  <div class="field">
+                    <label class="sr-only" for="pf-username-input">New username</label>
+                    <input id="pf-username-input" type="text" minlength="3" maxlength="30" autocomplete="off" required>
+                  </div>
+                  <button class="btn btn-primary" type="submit" id="pf-username-save">Save</button>
+                  <button class="btn btn-outline" type="button" id="pf-username-cancel">Cancel</button>
+                </div>
+                <p class="hint" style="margin:.5rem 0 0">Letters, numbers, and underscores only (3 to 30). You can change it once every 30 days.</p>
+              </form>
+              <p class="form-error" id="pf-username-error" role="alert" hidden></p>
+              <p class="form-ok" id="pf-username-ok" role="status" hidden></p>
+            </div>
+
+            <!-- Email -->
+            <div class="info-row">
+              <div class="info-top">
+                <div>
+                  <p class="info-label">Email</p>
+                  <p class="info-value" id="pf-email-value"></p>
+                </div>
+                <button class="btn btn-outline btn-small" type="button" id="pf-email-edit">Edit</button>
+              </div>
+
+              <div class="edit-panel" id="pf-email-panel" hidden>
+                <form id="pf-email-form">
+                  <div class="pf-row">
+                    <div class="field">
+                      <label for="pf-new-email">New email</label>
+                      <input id="pf-new-email" type="email" placeholder="you@example.com" required>
+                    </div>
+                    <div class="field">
+                      <label for="pf-email-password">Current password</label>
+                      <input id="pf-email-password" type="password" autocomplete="current-password" required>
+                    </div>
+                  </div>
+                  <div class="pf-actions">
+                    <button class="btn btn-primary" type="submit" id="pf-email-send">Send PIN</button>
+                    <button class="btn btn-outline" type="button" id="pf-email-cancel-1">Cancel</button>
+                  </div>
+                  <p class="hint" style="margin:.5rem 0 0">We send a 6-digit PIN to the new email. Your email changes only after you type it.</p>
+                </form>
+
+                <form id="pf-email-verify" hidden>
+                  <p class="hint" style="margin:0 0 .5rem" id="pf-email-verify-text"></p>
+                  <div class="pf-row">
+                    <div class="field">
+                      <label for="pf-email-pin">6-digit PIN</label>
+                      <input id="pf-email-pin" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="6" required>
+                    </div>
+                    <button class="btn btn-primary" type="submit" id="pf-email-confirm">Confirm email</button>
+                  </div>
+                  <div class="pf-actions">
+                    <button type="button" class="link-btn" id="pf-email-resend">Resend PIN</button>
+                    <button type="button" class="link-btn" id="pf-email-other">Use a different email</button>
+                    <button type="button" class="link-btn" id="pf-email-cancel-2">Cancel</button>
+                  </div>
+                </form>
+              </div>
+
+              <p class="form-error" id="pf-email-error" role="alert" hidden></p>
+              <p class="form-ok" id="pf-email-ok" role="status" hidden></p>
+            </div>
+
+            <div class="info-row">
+              <p class="info-label">Member since</p>
+              <p class="info-value" id="pf-joined"></p>
+            </div>
+          </section>
+
+        </div>
+
+        <!-- Right: identity verification -->
+        <section class="card" aria-labelledby="vf-title">
+          <h3 class="section-title" id="vf-title">Identity verification</h3>
+          <p class="section-sub">You must be verified to start or accept trades. An admin checks your ID, then the pictures are deleted.</p>
+
+          <div id="vf-verified" class="vf-state ok" hidden>
+            <strong>✔ You are verified</strong>
+            <span id="vf-verified-text"></span>
+          </div>
+
+          <div id="vf-pending" class="vf-state wait" hidden>
+            <strong>Your request is being reviewed</strong>
+            <span id="vf-pending-text"></span>
+          </div>
+
+          <div id="vf-rejected" class="vf-state bad" hidden>
+            <strong>Your last request was rejected</strong>
+            <span id="vf-rejected-text"></span>
+          </div>
+
+          <!-- Not verified yet: the form opens only after pressing the button -->
+          <div id="vf-intro" hidden>
+            <p style="margin:0 0 1rem; color:var(--text-soft)">It takes a few minutes: a code, a picture of your ID, and a selfie holding it.</p>
+            <button class="btn btn-primary" type="button" id="vf-start">Verify now</button>
+          </div>
+
+          <div id="vf-form-wrap" hidden>
+            <ol class="steps">
+              <li><strong>Get your code</strong> and write it on a piece of paper.</li>
+              <li>Take a <strong>selfie holding your ID</strong> next to your face, with the paper and the code in the picture.</li>
+              <li>Type your <strong>first name and last name exactly as written on the ID</strong>, and add both pictures.</li>
+            </ol>
+
+            <div id="vf-code-area">
+              <button class="btn btn-outline" type="button" id="vf-get-code">Get my code</button>
+            </div>
+            <div class="code-box" id="vf-code-box" hidden>
+              <div class="num" id="vf-code"></div>
+              <small id="vf-code-expires"></small>
+            </div>
+
+            <form id="vf-form">
+              <fieldset class="vf" id="vf-fields" disabled>
+                <div class="row-2">
+                  <div class="field">
+                    <label for="vf-first">First name on your ID</label>
+                    <input id="vf-first" type="text" maxlength="45" autocomplete="off" placeholder="Juan" required>
+                  </div>
+                  <div class="field">
+                    <label for="vf-last">Last name on your ID</label>
+                    <input id="vf-last" type="text" maxlength="45" autocomplete="off" placeholder="Dela Cruz" required>
+                  </div>
+                </div>
+                <div class="field">
+                  <label for="vf-type">Kind of ID</label>
+                  <select id="vf-type" required></select>
+                </div>
+
+                <div class="pics">
+                  <div class="pic">
+                    <label for="vf-id">Picture of your ID</label>
+                    <input id="vf-id" type="file" accept="image/jpeg,image/png,image/webp" required>
+                    <img id="vf-id-preview" alt="" hidden>
+                  </div>
+                  <div class="pic">
+                    <label for="vf-selfie">Selfie holding the ID and the code</label>
+                    <input id="vf-selfie" type="file" accept="image/jpeg,image/png,image/webp" required>
+                    <img id="vf-selfie-preview" alt="" hidden>
+                  </div>
+                </div>
+
+                <label class="check-line">
+                  <input id="vf-consent" type="checkbox" required>
+                  <span>I agree that SecureTrade and its admins look at my ID and selfie only to verify me. The pictures are deleted after the decision, and no ID number is saved.</span>
+                </label>
+
+                <p class="form-error" id="vf-error" role="alert" hidden></p>
+                <div class="pf-actions">
+                  <button class="btn btn-primary" type="submit" id="vf-submit">Send for review</button>
+                  <button class="btn btn-outline" type="button" id="vf-cancel">Cancel</button>
+                </div>
+              </fieldset>
+            </form>
+
+            <!-- Cancel is also reachable before the code is shown -->
+            <div class="pf-actions" id="vf-cancel-early">
+              <button class="btn btn-outline" type="button" id="vf-cancel-2">Cancel</button>
+            </div>
+          </div>
+        </section>
+
+      </div>
+    </main>
+  </div>
+
+  <script src="data.js"></script>
+  <script src="api.js"></script>
+  <script src="nav-badge.js"></script>
+  <script>
+    ST.applyBrand();
+
+    // Must be signed in to use this page
+    if (!getToken()) window.location.href = 'login.html';
+    document.getElementById('signout').addEventListener('click', e => { e.preventDefault(); logout(); });
+
+    const $ = id => document.getElementById(id);
+    let profile = null;
+    let verification = null;
+    let showVerifyForm = false;   // the verification form opens only after pressing "Verify now"
+
+    function fmtDate(iso) {
+      return new Date(iso).toLocaleDateString('en-PH', { month: 'long', day: 'numeric', year: 'numeric' });
+    }
+    // Show a message in a green (ok) or red (error) line
+    function say(prefix, text, ok) {
+      $(prefix + '-error').hidden = true;
+      if ($(prefix + '-ok')) $(prefix + '-ok').hidden = true;
+      if (!text) return;
+      const line = $(prefix + (ok ? '-ok' : '-error'));
+      line.textContent = text;
+      line.hidden = false;
+    }
+
+    // ---------- Profile: view mode ----------
+    function renderProfile() {
+      const p = profile;
+      $('pf-avatar').replaceChildren(makeAvatar(p.username, p.avatar_file, 72));
+      $('pf-title').replaceChildren('@' + p.username);
+      if (p.verified) $('pf-title').appendChild(verifiedBadge());
+      $('pf-sub').textContent = p.email;
+      $('pf-remove').hidden = !p.avatar_file;
+
+      $('pf-first').textContent = p.first_name || p.full_name || '–';
+      $('pf-last').textContent = p.last_name || '–';
+      $('pf-username-value').textContent = '@' + p.username;
+      $('pf-email-value').textContent = p.email;
+      $('pf-joined').textContent = new Date(p.created_at).toLocaleDateString('en-PH', { month: 'long', year: 'numeric' });
+
+      saveUser({ username: p.username, email: p.email, avatar_file: p.avatar_file, verified: p.verified, full_name: p.full_name });
+
+      // The Edit button for the username is locked while trades are on process or during the 30 days
+      let reason = '';
+      if (p.active_trades > 0) reason = 'You cannot change your username while you have trades on process.';
+      else if (p.next_username_change) reason = 'You can change your username again on ' + fmtDate(p.next_username_change) + '.';
+      $('pf-username-edit').disabled = !!reason;
+      $('pf-username-hint').textContent = reason;
+      $('pf-username-hint').hidden = !reason;
+    }
+
+    // Photo: choose a file and it uploads right away
+    $('pf-choose').addEventListener('click', () => $('pf-file').click());
+    $('pf-file').addEventListener('change', async e => {
+      const file = e.target.files[0];
+      e.target.value = '';
+      say('pf-photo', '');
+      if (!file) return;
+      if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) { say('pf-photo', 'Choose a JPG, PNG, or WEBP photo.'); return; }
+      if (file.size > 2 * 1024 * 1024) { say('pf-photo', 'The photo must be 2 MB or smaller.'); return; }
+      const form = new FormData();
+      form.append('photo', file);
+      $('pf-choose').disabled = true;
+      try {
+        await apiUpload('/profile/avatar', form);
+        await loadAll();
+        say('pf-photo', 'Your photo was updated.', true);
+      } catch (err) { say('pf-photo', netError(err)); }
+      $('pf-choose').disabled = false;
+    });
+    $('pf-remove').addEventListener('click', async () => {
+      say('pf-photo', '');
+      try {
+        await apiFetch('/profile/avatar', { method: 'DELETE' });
+        await loadAll();
+        say('pf-photo', 'Your photo was removed.', true);
+      } catch (err) { say('pf-photo', netError(err)); }
+    });
+
+    // ---------- Username: Edit opens the form, Save or Cancel closes it ----------
+    function openUsernameEdit() {
+      say('pf-username', '');
+      $('pf-username-input').value = profile.username;
+      $('pf-username-form').hidden = false;
+      $('pf-username-edit').hidden = true;
+      $('pf-username-input').focus();
+    }
+    function closeUsernameEdit() {
+      $('pf-username-form').hidden = true;
+      $('pf-username-edit').hidden = false;
+    }
+    $('pf-username-edit').addEventListener('click', openUsernameEdit);
+    $('pf-username-cancel').addEventListener('click', () => { say('pf-username', ''); closeUsernameEdit(); });
+
+    $('pf-username-form').addEventListener('submit', async e => {
+      e.preventDefault();
+      say('pf-username', '');
+      const btn = $('pf-username-save');
+      btn.disabled = true;
+      try {
+        const result = await apiFetch('/profile/username', { method: 'PUT', body: JSON.stringify({ username: $('pf-username-input').value }) });
+        closeUsernameEdit();
+        await loadAll();
+        say('pf-username', 'Your username is now @' + result.username + '.', true);
+      } catch (err) {
+        say('pf-username', netError(err));
+      }
+      btn.disabled = false;
+    });
+
+    // ---------- Email: Edit opens the form, then the PIN step ----------
+    const emailResend = $('pf-email-resend');
+    let resendTimer;
+    function startResendCooldown(seconds) {
+      clearInterval(resendTimer);
+      let left = seconds;
+      emailResend.disabled = true;
+      emailResend.textContent = 'Resend PIN (' + left + 's)';
+      resendTimer = setInterval(() => {
+        left--;
+        if (left <= 0) { clearInterval(resendTimer); emailResend.disabled = false; emailResend.textContent = 'Resend PIN'; }
+        else emailResend.textContent = 'Resend PIN (' + left + 's)';
+      }, 1000);
+    }
+    function backToEmailForm() {
+      $('pf-email-verify').hidden = true;
+      $('pf-email-form').hidden = false;
+      $('pf-email-pin').value = '';
+    }
+    function openEmailEdit() {
+      say('pf-email', '');
+      backToEmailForm();
+      $('pf-email-panel').hidden = false;
+      $('pf-email-edit').hidden = true;
+      $('pf-new-email').focus();
+    }
+    function closeEmailEdit() {
+      clearInterval(resendTimer);
+      backToEmailForm();
+      $('pf-new-email').value = '';
+      $('pf-email-password').value = '';
+      $('pf-email-panel').hidden = true;
+      $('pf-email-edit').hidden = false;
+    }
+    $('pf-email-edit').addEventListener('click', openEmailEdit);
+    $('pf-email-cancel-1').addEventListener('click', () => { say('pf-email', ''); closeEmailEdit(); });
+    $('pf-email-cancel-2').addEventListener('click', () => { say('pf-email', ''); closeEmailEdit(); });
+    $('pf-email-other').addEventListener('click', () => { say('pf-email', ''); backToEmailForm(); });
+
+    $('pf-email-form').addEventListener('submit', async e => {
+      e.preventDefault();
+      say('pf-email', '');
+      const btn = $('pf-email-send');
+      btn.disabled = true;
+      try {
+        const result = await apiFetch('/profile/email/start', {
+          method: 'POST',
+          body: JSON.stringify({ new_email: $('pf-new-email').value, password: $('pf-email-password').value })
+        });
+        $('pf-email-password').value = '';
+        $('pf-email-form').hidden = true;
+        $('pf-email-verify').hidden = false;
+        $('pf-email-verify-text').textContent = 'We sent a 6-digit PIN to ' + result.new_email + '. Type it below to confirm the change. It expires in 10 minutes.';
+        $('pf-email-pin').focus();
+        startResendCooldown(60);
+      } catch (err) { say('pf-email', netError(err)); }
+      btn.disabled = false;
+    });
+    $('pf-email-verify').addEventListener('submit', async e => {
+      e.preventDefault();
+      say('pf-email', '');
+      const btn = $('pf-email-confirm');
+      btn.disabled = true;
+      try {
+        await apiFetch('/profile/email/verify', { method: 'POST', body: JSON.stringify({ pin: $('pf-email-pin').value.trim() }) });
+        closeEmailEdit();
+        await loadAll();
+        say('pf-email', 'Your email was changed. Use the new email the next time you sign in.', true);
+      } catch (err) { say('pf-email', netError(err)); }
+      btn.disabled = false;
+    });
+    emailResend.addEventListener('click', async () => {
+      say('pf-email', '');
+      emailResend.disabled = true;
+      try {
+        await apiFetch('/profile/email/resend', { method: 'POST' });
+        say('pf-email', 'A new PIN was sent.', true);
+        startResendCooldown(60);
+      } catch (err) { say('pf-email', netError(err)); emailResend.disabled = false; }
+    });
+
+    // ---------- Identity verification ----------
+    function renderVerification() {
+      const v = verification;
+      const canStart = !v.verified && !v.pending;
+
+      $('vf-verified').hidden = !v.verified;
+      $('vf-pending').hidden = !v.pending;
+      $('vf-rejected').hidden = !(v.rejected && canStart);
+
+      // The button, or the form (never both)
+      $('vf-intro').hidden = !canStart || showVerifyForm;
+      $('vf-form-wrap').hidden = !canStart || !showVerifyForm;
+      $('vf-start').textContent = v.rejected ? 'Verify again' : 'Verify now';
+
+      if (v.verified) {
+        $('vf-verified-text').textContent = (v.verified_at ? 'Verified on ' + fmtDate(v.verified_at) + '. ' : '') +
+          'Your name on file: ' + v.full_name + '.';
+      }
+      if (v.pending) {
+        $('vf-pending-text').textContent = 'Sent ' + fmtTime(v.pending.submitted_at) + ' as "' + v.pending.typed_name + '" (' + v.pending.id_type + '). An admin will check it. You will see the result here.';
+      }
+      if (v.rejected) {
+        $('vf-rejected-text').textContent = (v.rejected.reject_reason || 'No reason was given.') + ' You can send a new request.';
+      }
+
+      // The ID kinds
+      const select = $('vf-type');
+      if (!select.options.length) {
+        select.innerHTML = '<option value="">Choose an ID</option>';
+        v.id_types.forEach(t => { const o = document.createElement('option'); o.value = t; o.textContent = t; select.appendChild(o); });
+      }
+
+      // The code: the form fields open only after the code is shown
+      const hasCode = !!v.code;
+      $('vf-code-box').hidden = !hasCode;
+      $('vf-fields').disabled = !hasCode;
+      $('vf-cancel-early').hidden = hasCode;   // once the form is open, Cancel is inside the form
+      $('vf-get-code').textContent = hasCode ? 'Get a new code' : 'Get my code';
+      if (hasCode) {
+        $('vf-code').textContent = v.code;
+        $('vf-code-expires').textContent = 'Write this code on paper. It is good until ' + fmtTime(v.code_expires_at) + '.';
+      }
+    }
+
+    $('vf-start').addEventListener('click', () => {
+      say('vf', '');
+      showVerifyForm = true;
+      renderVerification();
+    });
+    function cancelVerifyForm() {
+      say('vf', '');
+      showVerifyForm = false;
+      renderVerification();
+    }
+    $('vf-cancel').addEventListener('click', cancelVerifyForm);
+    $('vf-cancel-2').addEventListener('click', cancelVerifyForm);
+
+    $('vf-get-code').addEventListener('click', async () => {
+      say('vf', '');
+      $('vf-get-code').disabled = true;
+      try {
+        await apiFetch('/verification/code', { method: 'POST' });
+        verification = await apiFetch('/verification');
+        renderVerification();
+      } catch (err) { say('vf', netError(err)); }
+      $('vf-get-code').disabled = false;
+    });
+
+    // Show a small preview of the chosen picture
+    function bindPreview(inputId, imgId) {
+      $(inputId).addEventListener('change', e => {
+        const img = $(imgId);
+        const file = e.target.files[0];
+        if (img.dataset.url) URL.revokeObjectURL(img.dataset.url);
+        if (!file) { img.hidden = true; return; }
+        const url = URL.createObjectURL(file);
+        img.dataset.url = url;
+        img.src = url;
+        img.hidden = false;
+      });
+    }
+    bindPreview('vf-id', 'vf-id-preview');
+    bindPreview('vf-selfie', 'vf-selfie-preview');
+
+    $('vf-form').addEventListener('submit', async e => {
+      e.preventDefault();
+      say('vf', '');
+      const types = ['image/jpeg', 'image/png', 'image/webp'];
+      const idFile = $('vf-id').files[0];
+      const selfie = $('vf-selfie').files[0];
+      if (!idFile || !selfie) { say('vf', 'Add a picture of your ID and a selfie holding it.'); return; }
+      for (const f of [idFile, selfie]) {
+        if (!types.includes(f.type)) { say('vf', f.name + ' must be a JPG, PNG, or WEBP picture.'); return; }
+        if (f.size > 5 * 1024 * 1024) { say('vf', f.name + ' is bigger than 5 MB.'); return; }
+      }
+      const form = new FormData();
+      form.append('first_name', $('vf-first').value);
+      form.append('last_name', $('vf-last').value);
+      form.append('id_type', $('vf-type').value);
+      form.append('consent', $('vf-consent').checked ? 'true' : 'false');
+      form.append('id_photo', idFile);
+      form.append('selfie', selfie);
+
+      const btn = $('vf-submit');
+      btn.disabled = true;
+      try {
+        await apiUpload('/verification/submit', form);
+        e.target.reset();
+        $('vf-id-preview').hidden = true;
+        $('vf-selfie-preview').hidden = true;
+        showVerifyForm = false;
+        verification = await apiFetch('/verification');
+        renderVerification();
+      } catch (err) { say('vf', netError(err)); }
+      btn.disabled = false;
+    });
+
+    // ---------- Load ----------
+    async function loadAll() {
+      try {
+        [profile, verification] = await Promise.all([apiFetch('/profile'), apiFetch('/verification')]);
+        $('page-error').hidden = true;
+        renderProfile();
+        renderVerification();
+      } catch (err) {
+        $('page-error').textContent = netError(err);
+        $('page-error').hidden = false;
+      }
+    }
+    loadAll();
+
+    // Pick up the admin's decision without reloading the page
+    setInterval(async () => {
+      try {
+        const v = await apiFetch('/verification');
+        const changed = v.verified !== verification.verified
+          || !!v.pending !== !!verification.pending
+          || !!v.rejected !== !!verification.rejected;
+        if (changed) await loadAll();
+      } catch (err) { /* try again next time */ }
+    }, 30000);
+  </script>
+</body>
+</html>

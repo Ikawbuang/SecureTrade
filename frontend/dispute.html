@@ -3,13 +3,14 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Report a problem – SecureTrade</title>
+  <title>Disputes – SecureTrade</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=Figtree:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css">
   <style>
     /* Page-specific styles (style.css stays unchanged) */
+    [hidden] { display: none !important; }
     .sidebar .brand { display: block; margin-bottom: 2rem; padding-left: .85rem; }
     .sidebar .spacer { margin-top: 2rem; padding-top: 1rem; border-top: 1px solid var(--ink-3); }
     .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
@@ -20,6 +21,13 @@
 
     .layout { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr); gap: 1.5rem; align-items: start; }
     .stack > * + * { margin-top: 1.5rem; }
+
+    /* The list of my disputes */
+    .table-wrap { overflow-x: auto; }
+    td a { font-weight: 600; }
+    .needs-reply { display: block; margin-top: .3rem; font-size: .78rem; font-weight: 600; color: #9c2a22; }
+    .empty-box { padding: 1.5rem .5rem; color: var(--text-soft); }
+    .empty-box p { margin: 0 0 .75rem; }
 
     .trade-line { display: flex; justify-content: space-between; align-items: center; gap: 1rem; flex-wrap: wrap; padding: .9rem 1rem; background: var(--paper); border-radius: var(--radius-s); margin-bottom: 1.4rem; }
     .trade-line strong { font-family: var(--font-display); }
@@ -41,9 +49,25 @@
     .steps li { margin-bottom: .6rem; }
     .steps strong { color: var(--text); }
 
-    .done-box { text-align: left; }
-    .done-box .badge { margin-bottom: .75rem; }
-    .done-box[hidden], form[hidden] { display: none; }
+    /* The dispute itself */
+    .thread-head { display: flex; justify-content: space-between; align-items: center; gap: 1rem; flex-wrap: wrap; margin-bottom: 1rem; }
+    .thread-head small { color: var(--text-soft); }
+    .facts { margin: 0 0 1.25rem; }
+    .facts .line { padding: .6rem 0; border-bottom: 1px solid #e6e8f5; }
+    .facts dt { color: var(--text-soft); font-size: .85rem; margin-bottom: .15rem; }
+    .facts dd { margin: 0; white-space: pre-wrap; word-break: break-word; }
+    .side-title { margin: 1.4rem 0 .5rem; font-size: 1.05rem; }
+    .side-title small { color: var(--text-soft); font-weight: 400; }
+    .thumbs { display: flex; flex-wrap: wrap; gap: .6rem; margin: .5rem 0 0; padding: 0; list-style: none; }
+    .thumbs button { display: block; width: 104px; height: 104px; padding: 0; border: 2px solid #d5d8ec; border-radius: var(--radius-s); background: #eceef9; overflow: hidden; cursor: pointer; }
+    .thumbs button:hover { border-color: var(--gold); }
+    .thumbs img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .reply-box { margin-top: 1.4rem; padding: 1rem 1.1rem; border: 2px dashed #c3c7e3; border-radius: var(--radius-m); }
+    .reply-box h3 { margin: 0 0 .5rem; font-size: 1.05rem; }
+    .reply-box p { margin: 0 0 .75rem; color: var(--text-soft); font-size: .92rem; }
+    .notice { margin: 1.25rem 0 0; padding: .85rem 1rem; background: #fff8e6; border-left: 4px solid var(--gold); border-radius: var(--radius-s); font-size: .92rem; }
+    .notice.ok { background: #e3f7f2; border-color: var(--teal); }
+    .form-ok { margin: .75rem 0 0; padding: .65rem .85rem; border-radius: 8px; background: #e3f7f2; color: #146b5a; font-size: .9rem; }
 
     @media (max-width: 1000px) { .layout { grid-template-columns: 1fr; } }
   </style>
@@ -54,26 +78,53 @@
     <nav class="sidebar" aria-label="Main">
       <a class="brand" href="dashboard.html">Secure<span>Trade</span></a>
       <a href="dashboard.html">Dashboard</a>
-      <a href="create-transaction.html">New trade</a>
-      <a href="transaction.html">My trades</a>
       <a href="dispute.html" aria-current="page">Disputes</a>
       <a href="history.html">History</a>
+      <a href="profile.html">My profile</a>
       <div class="spacer">
-        <a href="login.html">Sign out</a>
+        <a href="login.html" id="signout">Sign out</a>
       </div>
     </nav>
 
     <main class="main">
 
       <header class="page-head">
-        <h1>Report a problem</h1>
-        <p>Tell us what went wrong. Your payment stays in escrow while an admin reviews the trade.</p>
+        <h1 id="page-title">Disputes</h1>
+        <p id="page-sub">Problems reported on your trades.</p>
       </header>
 
-      <div class="layout">
+      <p class="form-error" id="page-error" role="alert" hidden></p>
+
+      <!-- Opened from the menu (no trade chosen): the list of my disputes -->
+      <section class="card" id="list-view" aria-label="My disputes" hidden>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Dispute</th>
+                <th>Trade</th>
+                <th>You were the</th>
+                <th>Partner</th>
+                <th>Amount</th>
+                <th>Status</th>
+                <th><span class="sr-only">Open</span></th>
+              </tr>
+            </thead>
+            <tbody id="list-rows"></tbody>
+          </table>
+        </div>
+        <div class="empty-box" id="list-empty" hidden>
+          <p><strong>You have no disputes.</strong></p>
+          <p>If something goes wrong with a trade that is paid or delivered, open the trade and click "Something is wrong". Your disputes will show up here.</p>
+          <a class="btn btn-primary" href="dashboard.html">Go to dashboard</a>
+        </div>
+      </section>
+
+      <!-- Opened for one trade: the form, or the dispute itself -->
+      <div class="layout" id="layout" hidden>
 
         <section class="card" aria-labelledby="form-title">
-          <h2 id="form-title" class="sr-only">Dispute form</h2>
+          <h2 id="form-title" class="sr-only">Dispute</h2>
 
           <div class="trade-line">
             <div>
@@ -83,56 +134,99 @@
             <a id="tl-link" href="transaction.html">View trade</a>
           </div>
 
-          <form id="dispute-form">
+          <!-- No dispute yet, and the trade is paid or delivered: the form -->
+          <form id="dispute-form" hidden>
             <div class="field">
               <label for="reason">What is the problem?</label>
-              <select id="reason" required>
-                <option value="">Choose a reason</option>
-                <option>I did not receive the item</option>
-                <option>The item is different from the description</option>
-                <option>The item is missing parts or was changed after delivery</option>
-                <option>The seller stopped replying</option>
-                <option>Other</option>
-              </select>
+              <select id="reason" required></select>
             </div>
 
             <div class="field">
               <label for="desc">What happened?</label>
-              <textarea id="desc" rows="5" required placeholder="Say what you expected, what you got, and when you noticed."></textarea>
+              <textarea id="desc" rows="5" maxlength="2000" required placeholder="Say what you expected, what you got, and when you noticed."></textarea>
               <p class="hint">Include the times and any in-game names or IDs involved.</p>
             </div>
 
             <div class="field evidence">
               <label for="proof">Screenshots or proof</label>
-              <input id="proof" type="file" accept="image/*" multiple>
+              <input id="proof" type="file" accept="image/jpeg,image/png,image/webp,image/gif" multiple>
+              <p class="hint">Up to 5 images (JPG, PNG, WEBP, or GIF), 5 MB each.</p>
               <ul class="files" id="files"></ul>
             </div>
 
             <fieldset class="want">
               <legend>What outcome do you want?</legend>
-              <label>
-                <input type="radio" name="outcome" value="refund" checked>
-                <div>Refund me <span>The full amount goes back to the buyer.</span></div>
-              </label>
-              <label>
-                <input type="radio" name="outcome" value="fix">
-                <div>Ask the seller to fix it <span>The seller gets a chance to correct the delivery first.</span></div>
-              </label>
+              <div id="outcomes"></div>
             </fieldset>
+
+            <p class="form-error" id="form-error" role="alert" hidden></p>
 
             <div class="actions">
               <button class="btn btn-danger" type="submit">Submit dispute</button>
-              <a class="btn btn-outline" href="transaction.html">Back to trade</a>
+              <a class="btn btn-outline" id="back-link" href="transaction.html">Back to trade</a>
             </div>
           </form>
 
-          <div class="done-box" id="done" hidden>
-            <span class="badge badge-dispute">Dispute open</span>
-            <h2>We received your report</h2>
-            <p id="done-text"></p>
+          <!-- Dispute not possible -->
+          <div id="cannot" hidden>
+            <p class="notice">You can only report a problem while the trade is paid or delivered.</p>
             <div class="actions">
-              <a class="btn btn-primary" href="dashboard.html">Back to dashboard</a>
-              <a class="btn btn-outline" id="done-link" href="transaction.html">View trade</a>
+              <a class="btn btn-primary" id="cannot-link" href="transaction.html">Back to trade</a>
+              <a class="btn btn-outline" href="dashboard.html">Back to dashboard</a>
+            </div>
+          </div>
+
+          <!-- A dispute exists: the story so far -->
+          <div id="thread" hidden>
+            <div class="thread-head">
+              <div>
+                <span class="badge" id="thread-badge"></span>
+              </div>
+              <small id="thread-meta"></small>
+            </div>
+
+            <dl class="facts">
+              <div class="line"><dt>The problem</dt><dd id="f-reason"></dd></div>
+              <div class="line"><dt>What happened</dt><dd id="f-desc"></dd></div>
+              <div class="line"><dt>Outcome they want</dt><dd id="f-outcome"></dd></div>
+            </dl>
+
+            <h3 class="side-title" id="ev-opener-title"></h3>
+            <ul class="thumbs" id="ev-opener"></ul>
+            <p class="hint" id="ev-opener-none" hidden>No screenshots were added.</p>
+
+            <h3 class="side-title" id="reply-title"></h3>
+            <div id="reply-shown" hidden>
+              <p style="margin:0; white-space:pre-wrap; word-break:break-word" id="reply-text"></p>
+              <ul class="thumbs" id="ev-reply"></ul>
+            </div>
+            <p class="hint" id="reply-waiting" hidden></p>
+
+            <form class="reply-box" id="reply-form" hidden>
+              <h3 id="reply-form-title">Reply to this dispute</h3>
+              <p>Tell your side. You can add screenshots too.</p>
+              <div class="field">
+                <label for="reply-message">Your reply</label>
+                <textarea id="reply-message" rows="4" maxlength="2000" required></textarea>
+              </div>
+              <div class="field evidence">
+                <label for="reply-proof">Screenshots or proof</label>
+                <input id="reply-proof" type="file" accept="image/jpeg,image/png,image/webp,image/gif" multiple>
+                <p class="hint">Up to 5 images (JPG, PNG, WEBP, or GIF), 5 MB each.</p>
+                <ul class="files" id="reply-files"></ul>
+              </div>
+              <p class="form-error" id="reply-error" role="alert" hidden></p>
+              <p class="form-ok" id="reply-ok" role="status" hidden></p>
+              <div class="actions">
+                <button class="btn btn-primary" type="submit" id="reply-submit">Send reply</button>
+              </div>
+            </form>
+
+            <div class="notice" id="resolution" hidden></div>
+
+            <div class="actions">
+              <a class="btn btn-primary" id="thread-trade-link" href="transaction.html">View trade</a>
+              <a class="btn btn-outline" href="dispute.html">All my disputes</a>
             </div>
           </div>
         </section>
@@ -141,9 +235,9 @@
           <h2 id="next-title">What happens next</h2>
           <ol class="steps">
             <li><strong>Payment is frozen.</strong> Automatic release stops while the dispute is open.</li>
-            <li><strong>The seller replies.</strong> They can add their own message and screenshots.</li>
+            <li><strong>The other person replies.</strong> They can add their own message and screenshots.</li>
             <li><strong>An admin reviews both sides.</strong> They read the chat and the evidence.</li>
-            <li><strong>You get a decision.</strong> The money is refunded to you or released to the seller.</li>
+            <li><strong>You get a decision.</strong> The money is refunded to the buyer or released to the seller.</li>
           </ol>
         </aside>
 
@@ -152,42 +246,354 @@
   </div>
 
   <script src="data.js"></script>
+  <script src="api.js"></script>
+  <script src="nav-badge.js"></script>
   <script>
     ST.applyBrand();
 
-    // Which trade is this dispute about? (dispute.html?id=ST-1042)
-    const params = new URLSearchParams(location.search);
-    const trade = ST.findTrade(params.get('id')) || ST.findTrade('ST-1042');
-    const other = trade.role === 'buyer' ? 'Seller' : 'Buyer';
-    const disputeRec = ST.admin.disputes.find(d => d.tradeId === trade.id);
-    const disputeId = disputeRec ? disputeRec.id : 'DP-NEW';
+    // Must be signed in to use this page
+    if (!getToken()) window.location.href = 'login.html';
+    document.getElementById('signout').addEventListener('click', e => { e.preventDefault(); logout(); });
 
-    document.getElementById('tl-item').textContent = trade.item;
-    document.getElementById('tl-meta').textContent =
-      'Trade #' + trade.id + ' · ' + other + ' ' + trade.partner + ' · ' + ST.peso(trade.amount);
-    const tradeUrl = 'transaction.html?id=' + trade.id + '&role=' + trade.role;
-    document.getElementById('tl-link').href = tradeUrl;
-    document.getElementById('done-link').href = tradeUrl;
-    // Evidence: list the chosen file names
-    document.getElementById('proof').addEventListener('change', e => {
-      const list = document.getElementById('files');
+    const tradeId = new URLSearchParams(location.search).get('id');
+    const MAX_FILES = 5;
+    const MAX_BYTES = 5 * 1024 * 1024;
+    const IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+    const OUTCOME_LABELS = {
+      refund: 'Refund the buyer',
+      release: 'Release the payment to the seller',
+      fix: 'Ask the other person to fix it'
+    };
+
+    const $ = id => document.getElementById(id);
+    let info = null;
+    let lastSignature = '';
+    const blobUrls = [];      // image previews, cleaned up when the page redraws
+
+    function showPageError(msg) { $('page-error').textContent = msg; $('page-error').hidden = !msg; }
+    function when(iso) {
+      return new Date(iso).toLocaleString('en-PH', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' });
+    }
+
+    // ---------- The list of my disputes (no trade chosen) ----------
+    function listBadge(d) {
+      if (d.dispute_status === 'resolved') {
+        return d.trade_status === 'refunded'
+          ? el('span', 'badge badge-pending', 'Refunded to buyer')
+          : el('span', 'badge badge-released', 'Paid to seller');
+      }
+      return d.dispute_status === 'under_review'
+        ? el('span', 'badge badge-held', 'Under review')
+        : el('span', 'badge badge-dispute', 'Open');
+    }
+
+    async function loadList() {
+      let list;
+      try {
+        list = await apiFetch('/disputes');
+      } catch (err) {
+        showPageError(err instanceof TypeError ? 'Cannot reach the server. Is the backend running?' : err.message);
+        return;
+      }
+      showPageError('');
+
+      const rows = $('list-rows');
+      rows.innerHTML = '';
+      list.forEach(d => {
+        const tr = el('tr');
+        tr.appendChild(el('td', '', '#' + d.dispute_id));
+        tr.appendChild(el('td', '', d.item_description));
+        tr.appendChild(el('td', '', d.my_role === 'buyer' ? 'Buyer' : 'Seller'));
+        tr.appendChild(el('td', '', '@' + d.partner_username));
+        tr.appendChild(el('td', '', ST.pesoShort(d.amount)));
+
+        const status = el('td');
+        status.appendChild(listBadge(d));
+        if (d.needs_my_reply) status.appendChild(el('span', 'needs-reply', 'Needs your reply'));
+        tr.appendChild(status);
+
+        const open = el('td');
+        const a = el('a', '', 'Open');
+        a.href = 'dispute.html?id=' + d.transaction_id;
+        open.appendChild(a);
+        tr.appendChild(open);
+
+        rows.appendChild(tr);
+      });
+
+      $('list-empty').hidden = list.length > 0;
+      $('list-view').querySelector('.table-wrap').hidden = list.length === 0;
+      $('list-view').hidden = false;
+    }
+
+    // ---------- One trade: the form, or the dispute itself ----------
+
+    // Check the chosen images and list their names
+    function checkImages(files) {
+      if (files.length > MAX_FILES) return 'You can upload up to ' + MAX_FILES + ' images.';
+      for (const f of files) {
+        if (!IMAGE_TYPES.includes(f.type)) return f.name + ' is not a JPG, PNG, WEBP, or GIF image.';
+        if (f.size > MAX_BYTES) return f.name + ' is bigger than 5 MB.';
+      }
+      return '';
+    }
+    function listFiles(input, listId) {
+      const list = $(listId);
       list.innerHTML = '';
-      for (const f of e.target.files) {
+      for (const f of input.files) {
         const li = document.createElement('li');
         li.textContent = f.name;
         list.appendChild(li);
       }
+    }
+    $('proof').addEventListener('change', e => listFiles(e.target, 'files'));
+    $('reply-proof').addEventListener('change', e => listFiles(e.target, 'reply-files'));
+
+    // Send a form with images (apiFetch is only for JSON)
+    async function sendForm(path, formData) {
+      return apiUpload(path, formData, 'POST');
+    }
+
+    // Evidence images need the login token, so they are fetched and shown as previews
+    function addThumbs(listEl, items) {
+      listEl.innerHTML = '';
+      items.forEach(item => {
+        const li = document.createElement('li');
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.title = item.name || 'Evidence';
+        const img = document.createElement('img');
+        img.alt = item.name || 'Evidence';
+        btn.appendChild(img);
+        li.appendChild(btn);
+        listEl.appendChild(li);
+
+        fetchPrivateImage('/evidence/' + item.evidence_id + '/file')
+          .then(url => {
+            blobUrls.push(url);
+            img.src = url;
+            btn.addEventListener('click', () => window.open(url, '_blank'));
+          })
+          .catch(() => { btn.textContent = 'Could not load'; });
+      });
+    }
+
+    function renderTradeLine() {
+      const t = info.trade;
+      const other = t.my_role === 'buyer' ? 'Seller @' + t.seller_username : 'Buyer @' + t.buyer_username;
+      $('tl-item').textContent = t.item_description;
+      $('tl-meta').textContent = 'Trade #' + t.transaction_id + ' · ' + other + ' · ' + ST.peso(Number(t.amount));
+      const link = 'transaction.html?id=' + t.transaction_id;
+      $('tl-link').href = link;
+      $('back-link').href = link;
+      $('cannot-link').href = link;
+      $('thread-trade-link').href = link;
+    }
+
+    function renderForm() {
+      $('page-title').textContent = 'Report a problem';
+      $('page-sub').textContent = 'Tell us what went wrong. Your payment stays in escrow while an admin reviews the trade.';
+
+      const reason = $('reason');
+      reason.innerHTML = '<option value="">Choose a reason</option>';
+      info.reasons.forEach(r => {
+        const opt = document.createElement('option');
+        opt.value = r;
+        opt.textContent = r;
+        reason.appendChild(opt);
+      });
+
+      const box = $('outcomes');
+      box.innerHTML = '';
+      info.outcomes.forEach((o, i) => {
+        const label = document.createElement('label');
+        const input = document.createElement('input');
+        input.type = 'radio';
+        input.name = 'outcome';
+        input.value = o.value;
+        input.checked = i === 0;
+        const div = document.createElement('div');
+        div.append(o.label);
+        const span = document.createElement('span');
+        span.textContent = o.hint;
+        div.appendChild(span);
+        label.append(input, div);
+        box.appendChild(label);
+      });
+
+      $('dispute-form').hidden = false;
+    }
+
+    function renderThread() {
+      const d = info.dispute;
+      const t = info.trade;
+      const partner = t.my_role === 'buyer' ? t.seller_username : t.buyer_username;
+
+      $('page-title').textContent = 'Dispute #' + d.dispute_id;
+      $('page-sub').textContent = d.dispute_status === 'resolved'
+        ? 'An admin decided this dispute.'
+        : 'Your payment stays in escrow while an admin reviews the trade.';
+
+      const badge = $('thread-badge');
+      const labels = {
+        open:         ['badge-dispute',  'Dispute open'],
+        under_review: ['badge-held',     'Under review'],
+        resolved:     ['badge-released', 'Resolved']
+      };
+      const b = labels[d.dispute_status] || ['badge-pending', d.dispute_status];
+      badge.className = 'badge ' + b[0];
+      badge.textContent = b[1];
+
+      $('thread-meta').textContent = 'Opened ' + when(d.opened_at) + ' by ' + (d.filed_by_me ? 'you' : '@' + d.filed_by_username);
+      $('f-reason').textContent = d.reason;
+      $('f-desc').textContent = d.description || '';
+      $('f-outcome').textContent = OUTCOME_LABELS[d.requested_outcome] || '';
+
+      // The person who opened it
+      const opener = d.filed_by_me ? 'you' : '@' + d.filed_by_username;
+      $('ev-opener-title').textContent = 'Evidence from ' + opener;
+      const openerEvidence = d.evidence.filter(e => e.submitted_by_username === d.filed_by_username);
+      addThumbs($('ev-opener'), openerEvidence);
+      $('ev-opener-none').hidden = openerEvidence.length > 0;
+
+      // The other person's reply
+      const replier = d.filed_by_me ? '@' + partner : 'you';
+      $('reply-title').textContent = 'Reply from ' + replier;
+      const replyEvidence = d.evidence.filter(e => e.submitted_by_username !== d.filed_by_username);
+      $('reply-shown').hidden = !d.reply;
+      $('reply-waiting').hidden = true;
+      if (d.reply) {
+        $('reply-text').textContent = d.reply;
+        addThumbs($('ev-reply'), replyEvidence);
+      } else if (d.dispute_status !== 'resolved') {
+        $('reply-waiting').textContent = d.filed_by_me
+          ? 'Waiting for @' + partner + ' to reply.'
+          : 'You have not replied yet.';
+        $('reply-waiting').hidden = false;
+      } else {
+        $('reply-waiting').textContent = 'No reply was sent.';
+        $('reply-waiting').hidden = false;
+      }
+
+      // Reply form: only for the person who did not open the dispute
+      $('reply-form').hidden = !d.can_reply;
+      $('reply-form-title').textContent = d.reply ? 'Update your reply' : 'Reply to this dispute';
+      $('reply-submit').textContent = d.reply ? 'Update reply' : 'Send reply';
+
+      // Admin decision
+      const resolution = $('resolution');
+      resolution.hidden = d.dispute_status !== 'resolved';
+      if (d.dispute_status === 'resolved') {
+        resolution.className = 'notice ok';
+        resolution.textContent = d.resolution || 'The admin made a decision.';
+      }
+
+      $('thread').hidden = false;
+    }
+
+    function render() {
+      blobUrls.splice(0).forEach(u => URL.revokeObjectURL(u));
+      $('dispute-form').hidden = true;
+      $('cannot').hidden = true;
+      $('thread').hidden = true;
+
+      renderTradeLine();
+      if (info.dispute) renderThread();
+      else if (info.can_file) renderForm();
+      else $('cannot').hidden = false;
+      $('layout').hidden = false;
+    }
+
+    async function load() {
+      try {
+        info = await apiFetch('/transactions/' + tradeId + '/dispute');
+      } catch (err) {
+        if (!info) {
+          showPageError(err instanceof TypeError ? 'Cannot reach the server. Is the backend running?' : err.message);
+        }
+        return;
+      }
+      showPageError('');
+
+      // Only redraw when something changed, so a reply being typed is not lost
+      const d = info.dispute;
+      const signature = [
+        info.trade.status,
+        d ? d.dispute_status : 'none',
+        d ? (d.reply || '').length : 0,
+        d ? d.evidence.length : 0,
+        d ? (d.resolution || '') : ''
+      ].join(':');
+      if (signature !== lastSignature) {
+        lastSignature = signature;
+        render();
+      }
+    }
+
+    // Open a dispute
+    $('dispute-form').addEventListener('submit', async e => {
+      e.preventDefault();
+      setMessage('form-error', '');
+      const files = Array.from($('proof').files);
+      const problem = checkImages(files);
+      if (problem) { setMessage('form-error', problem); return; }
+
+      const form = new FormData();
+      form.append('reason', $('reason').value);
+      form.append('description', $('desc').value);
+      form.append('outcome', document.querySelector('input[name="outcome"]:checked').value);
+      files.forEach(f => form.append('files', f));
+
+      const btn = e.target.querySelector('button[type="submit"]');
+      btn.disabled = true;
+      try {
+        await sendForm('/transactions/' + tradeId + '/dispute', form);
+        lastSignature = '';
+        await load();
+      } catch (err) {
+        setMessage('form-error', err instanceof TypeError ? 'Cannot reach the server. Is the backend running?' : err.message);
+      }
+      btn.disabled = false;
     });
 
-    // Submit: hide the form and show the confirmation (prototype only)
-    document.getElementById('dispute-form').addEventListener('submit', e => {
+    // Reply to a dispute
+    $('reply-form').addEventListener('submit', async e => {
       e.preventDefault();
-      e.target.hidden = true;
-      document.querySelector('.trade-line').hidden = true;
-      document.getElementById('done-text').textContent =
-        'Dispute #' + disputeId + ' was opened for trade #' + trade.id + '. ' + trade.partner + ' was notified and the payment is frozen until an admin decides.';
-      document.getElementById('done').hidden = false;
+      setMessage('reply-error', '');
+      setMessage('reply-ok', '');
+      const files = Array.from($('reply-proof').files);
+      const problem = checkImages(files);
+      if (problem) { setMessage('reply-error', problem); return; }
+
+      const form = new FormData();
+      form.append('message', $('reply-message').value);
+      files.forEach(f => form.append('files', f));
+
+      const btn = $('reply-submit');
+      btn.disabled = true;
+      try {
+        await sendForm('/transactions/' + tradeId + '/dispute/reply', form);
+        lastSignature = '';
+        await load();
+        setMessage('reply-ok', 'Your reply was sent.');
+      } catch (err) {
+        setMessage('reply-error', err instanceof TypeError ? 'Cannot reach the server. Is the backend running?' : err.message);
+      }
+      btn.disabled = false;
     });
+
+    // ---------- Start ----------
+    if (!tradeId) {
+      // Opened from the menu: show all my disputes
+      loadList();
+      setInterval(loadList, 30000);
+    } else if (!/^\d+$/.test(String(tradeId))) {
+      showPageError('That trade link is not valid. Open a dispute from the list below.');
+      loadList();
+    } else {
+      load();
+      setInterval(load, 15000);   // pick up the other person's reply and the admin decision
+    }
   </script>
 </body>
 </html>
