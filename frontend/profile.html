@@ -55,6 +55,17 @@
     .link-btn { background: none; border: 0; padding: 0; font: inherit; font-weight: 600; color: var(--gold-dark); text-decoration: underline; cursor: pointer; }
     .link-btn:disabled { opacity: .55; cursor: not-allowed; text-decoration: none; }
 
+    /* My reviews (anonymous: the writer's name is hidden) */
+    .rev-list { list-style: none; margin: 0; padding: 0; }
+    .rev-item { padding: .75rem 0; border-bottom: 1px solid #e6e8f5; }
+    .rev-item:last-child { border-bottom: 0; }
+    .rev-meta { color: var(--text-soft); font-size: .85rem; }
+    .rev-text { margin: .3rem 0 0; white-space: pre-wrap; word-break: break-word; }
+    .rev-actions { margin-top: .35rem; font-size: .88rem; }
+    .rev-report { margin-top: .4rem; display: flex; gap: .4rem; flex-wrap: wrap; }
+    .rev-report input { flex: 1; min-width: 160px; padding: .45rem .7rem; font: .92rem var(--font-body); border: 2px solid #d5d8ec; border-radius: var(--radius-s); }
+    .rev-report input:focus { outline: none; border-color: var(--gold); }
+
     /* Verification */
     .vf-state { padding: .9rem 1rem; border-radius: var(--radius-s); font-size: .95rem; margin-bottom: 1rem; }
     .vf-state.ok { background: #e3f7f2; border-left: 4px solid var(--teal); }
@@ -103,7 +114,7 @@
 
       <div class="layout">
 
-        <!-- Left: who I am, then my information -->
+        <!-- Left: who I am, my information, and my reviews -->
         <div class="stack">
 
           <section class="card" aria-label="Profile">
@@ -219,12 +230,22 @@
             </div>
           </section>
 
+          <!-- Reviews other people wrote about me. Their names are hidden. -->
+          <section class="card" aria-labelledby="rev-title">
+            <h3 class="section-title" id="rev-title">My reviews</h3>
+            <p class="section-sub" id="rev-sub">Ratings from the people you traded with. Their names are hidden from you and from everyone else.</p>
+            <ul class="rev-list" id="rev-list"></ul>
+            <p class="hint" id="rev-none" hidden>No reviews yet. They show up here after someone rates a completed trade with you.</p>
+            <p class="form-error" id="rev-error" role="alert" hidden></p>
+            <p class="form-ok" id="rev-ok" role="status" hidden></p>
+          </section>
+
         </div>
 
         <!-- Right: identity verification -->
         <section class="card" aria-labelledby="vf-title">
           <h3 class="section-title" id="vf-title">Identity verification</h3>
-          <p class="section-sub">You must be verified to start or accept trades. An admin checks your ID, then the pictures are deleted.</p>
+          <p class="section-sub">You must be verified to start or accept trades. SecureTrade is for users 18 and older, so your ID must show that you are 18 or older. An admin checks your ID, then the pictures are deleted.</p>
 
           <div id="vf-verified" class="vf-state ok" hidden>
             <strong>✔ You are verified</strong>
@@ -329,6 +350,7 @@
     const $ = id => document.getElementById(id);
     let profile = null;
     let verification = null;
+    let reviews = [];
     let showVerifyForm = false;   // the verification form opens only after pressing "Verify now"
 
     function fmtDate(iso) {
@@ -368,6 +390,70 @@
       $('pf-username-edit').disabled = !!reason;
       $('pf-username-hint').textContent = reason;
       $('pf-username-hint').hidden = !reason;
+
+      // The numbers above the reviews
+      $('rev-sub').textContent = p.rating_count
+        ? '★ ' + Number(p.avg_rating).toFixed(1) + ' from ' + p.rating_count + (p.rating_count === 1 ? ' rating' : ' ratings')
+          + '. Their names are hidden from you and from everyone else.'
+        : 'Ratings from the people you traded with. Their names are hidden from you and from everyone else.';
+    }
+
+    // ---------- My reviews: stars, comment, date, and whether the writer was the buyer or the seller ----------
+    function renderReviews() {
+      const list = $('rev-list');
+      list.innerHTML = '';
+      reviews.forEach(r => {
+        const li = el('li', 'rev-item');
+        const top = el('div');
+        top.append(
+          el('strong', '', '★ ' + r.score),
+          el('span', 'rev-meta', ' · from the ' + r.as_role.toLowerCase() + ' · ' + fmtDate(r.rated_at))
+        );
+        li.appendChild(top);
+        if (r.feedback) li.appendChild(el('p', 'rev-text', r.feedback));
+
+        const act = el('div', 'rev-actions');
+        if (r.reported_by_me) {
+          act.appendChild(el('span', 'rev-meta', 'You reported this review. An admin will look at it.'));
+        } else {
+          const open = el('button', 'link-btn', 'Report this review');
+          open.type = 'button';
+          act.appendChild(open);
+
+          const panel = el('div', 'rev-report');
+          panel.hidden = true;
+          const reason = el('input');
+          reason.type = 'text';
+          reason.maxLength = 300;
+          reason.placeholder = 'Why? (abusive, false, personal information)';
+          reason.setAttribute('aria-label', 'Reason for reporting');
+          const send = el('button', 'btn btn-primary btn-small', 'Send report');
+          send.type = 'button';
+          const cancel = el('button', 'btn btn-outline btn-small', 'Cancel');
+          cancel.type = 'button';
+          panel.append(reason, send, cancel);
+          act.appendChild(panel);
+
+          open.addEventListener('click', () => { panel.hidden = false; open.hidden = true; reason.focus(); });
+          cancel.addEventListener('click', () => { panel.hidden = true; open.hidden = false; });
+          send.addEventListener('click', async () => {
+            say('rev', '');
+            send.disabled = true;
+            try {
+              await apiFetch('/reviews/' + r.review_ref + '/report', { method: 'POST', body: JSON.stringify({ reason: reason.value }) });
+              r.reported_by_me = true;
+              renderReviews();
+              say('rev', 'Thank you. An admin will look at this review.', true);
+            } catch (err) {
+              say('rev', netError(err));
+              send.disabled = false;
+            }
+          });
+        }
+        li.appendChild(act);
+        list.appendChild(li);
+      });
+      $('rev-none').hidden = reviews.length > 0;
     }
 
     // Photo: choose a file and it uploads right away
@@ -630,10 +716,13 @@
     // ---------- Load ----------
     async function loadAll() {
       try {
-        [profile, verification] = await Promise.all([apiFetch('/profile'), apiFetch('/verification')]);
+        [profile, verification, reviews] = await Promise.all([
+          apiFetch('/profile'), apiFetch('/verification'), apiFetch('/reviews/mine')
+        ]);
         $('page-error').hidden = true;
         renderProfile();
         renderVerification();
+        renderReviews();
       } catch (err) {
         $('page-error').textContent = netError(err);
         $('page-error').hidden = false;

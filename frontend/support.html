@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Support – SecureTrade</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=Figtree:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+  <style>
+    /* Page-specific styles (style.css stays unchanged) */
+    [hidden] { display: none !important; }
+    .sidebar .brand { display: block; margin-bottom: 2rem; padding-left: .85rem; }
+    .sidebar .spacer { margin-top: 2rem; padding-top: 1rem; border-top: 1px solid var(--ink-3); }
+
+    .page-head { margin-bottom: 1.5rem; }
+    .page-head h1 { margin: 0; font-size: 1.9rem; }
+    .page-head p { margin: .25rem 0 0; color: var(--text-soft); }
+
+    .notice-box { margin-bottom: 1.25rem; padding: .9rem 1.1rem; border-radius: var(--radius-m); border-left: 5px solid #d9534f; background: #fdecea; font-size: .95rem; }
+    .notice-box.ok { border-color: var(--teal); background: #e3f7f2; }
+    .notice-box strong { display: block; margin-bottom: .2rem; }
+    .notice-box .btn { margin-top: .6rem; }
+
+    .support-wrap { max-width: 760px; }
+    .chat { display: flex; flex-direction: column; height: 520px; }
+    .chat h2 { margin: 0 0 .25rem; }
+    .chat-note { margin: 0 0 .75rem; font-size: .85rem; color: var(--text-soft); }
+    .messages { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: .6rem; padding: .25rem .25rem 1rem; }
+    .msgrow { display: flex; align-items: flex-end; gap: .5rem; max-width: 92%; align-self: flex-start; }
+    .msgrow.me { align-self: flex-end; flex-direction: row-reverse; }
+    .msg { max-width: 100%; padding: .6rem .85rem; border-radius: var(--radius-m); background: #eceef9; font-size: .95rem; word-break: break-word; white-space: pre-wrap; }
+    .msg small { display: block; color: var(--text-soft); font-size: .75rem; margin-bottom: .1rem; }
+    .msg.me { background: var(--ink); color: var(--text-on-dark); }
+    .msg.me small { color: var(--text-on-dark-soft); }
+    .no-msgs { color: var(--text-soft); margin: auto; text-align: center; max-width: 30rem; }
+    .chat-form { display: flex; gap: .5rem; border-top: 1px solid #e6e8f5; padding-top: .85rem; }
+    .chat-form input { flex: 1; min-width: 0; padding: .65rem .85rem; font: 1rem var(--font-body); border: 2px solid #d5d8ec; border-radius: var(--radius-s); }
+    .chat-form input:focus { outline: none; border-color: var(--gold); }
+    #send-error { margin: .6rem 0 0; }
+  </style>
+</head>
+<body>
+  <div class="app">
+
+    <nav class="sidebar" aria-label="Main">
+      <a class="brand" href="dashboard.html">Secure<span>Trade</span></a>
+      <a href="dashboard.html">Dashboard</a>
+      <a href="dispute.html">Disputes</a>
+      <a href="history.html">History</a>
+      <a href="profile.html">My profile</a>
+      <div class="spacer">
+        <a href="login.html" id="signout">Sign out</a>
+      </div>
+    </nav>
+
+    <main class="main">
+
+      <header class="page-head">
+        <h1>Support</h1>
+        <p>Write to the SecureTrade admins about a problem, a rejected verification, or a suspended account. They reply here.</p>
+      </header>
+
+      <p class="form-error" id="page-error" role="alert" hidden></p>
+
+      <div class="notice-box" id="suspended-box" role="status" hidden>
+        <strong>Your account is suspended</strong>
+        <span id="suspended-text"></span>
+      </div>
+
+      <div class="notice-box ok" id="active-box" role="status" hidden>
+        <strong>Your account is active again</strong>
+        <span>An admin reactivated it. You can use SecureTrade as usual.</span><br>
+        <a class="btn btn-primary" href="dashboard.html">Open dashboard</a>
+      </div>
+
+      <div class="support-wrap">
+        <section class="card chat" aria-labelledby="chat-title">
+          <h2 id="chat-title">Chat with the admins</h2>
+          <p class="chat-note">The admins can read these messages. Never share your password or PIN.</p>
+          <div class="messages" id="messages" aria-live="polite"></div>
+          <form class="chat-form" id="chat-form">
+            <input id="chat-input" type="text" placeholder="Write a message" aria-label="Message" autocomplete="off" maxlength="1000">
+            <button class="btn btn-primary" type="submit" id="chat-send">Send</button>
+          </form>
+          <p class="form-error" id="send-error" role="alert" hidden></p>
+        </section>
+      </div>
+
+    </main>
+  </div>
+
+  <script src="data.js"></script>
+  <script src="api.js"></script>
+  <script src="nav-badge.js"></script>
+  <script>
+    ST.applyBrand();
+
+    // Must be signed in to use this page
+    if (!getToken()) window.location.href = 'login.html';
+    document.getElementById('signout').addEventListener('click', e => { e.preventDefault(); logout(); });
+
+    const $ = id => document.getElementById(id);
+    const me = getUser() || {};
+
+    // Admins answer from the admin panel
+    if (me.role === 'admin') window.location.replace('admin-dashboard.html#messages');
+
+    let data = null;
+    let lastSignature = '';
+
+    // The account status: a suspended account can only use this page
+    function renderStatus() {
+      const stored = (getUser() || {}).account_status || 'active';
+      const status = data.account_status;
+
+      if (status === 'suspended') {
+        if (stored !== 'suspended') {
+          // Just suspended: reload so the menu shows only Support and Sign out
+          saveUser({ account_status: 'suspended' });
+          window.location.reload();
+          return;
+        }
+        $('suspended-text').textContent =
+          'You can only use Support until an admin reactivates it.' +
+          (data.suspension_reason ? ' Reason: ' + data.suspension_reason + '.' : '') +
+          ' Write to the admins below if you want to appeal.';
+        $('suspended-box').hidden = false;
+        $('active-box').hidden = true;
+      } else {
+        $('suspended-box').hidden = true;
+        if (stored === 'suspended') {
+          saveUser({ account_status: 'active' });
+          $('active-box').hidden = false;
+        }
+      }
+    }
+
+    function render() {
+      const box = $('messages');
+      box.innerHTML = '';
+      if (data.messages.length === 0) {
+        const p = el('p', 'no-msgs', 'No messages yet. Write to the admins and they will reply here.');
+        box.appendChild(p);
+        return;
+      }
+      data.messages.forEach(m => {
+        const mine = !m.from_admin;
+
+        const row = el('div', 'msgrow' + (mine ? ' me' : ''));
+        const msg = el('div', 'msg' + (mine ? ' me' : ''));
+        msg.append(el('small', '', (mine ? 'You' : 'Admin') + ' · ' + fmtTime(m.sent_at)), document.createTextNode(m.content));
+
+        const avatar = mine ? makeAvatar(me.username, me.avatar_file, 30) : makeAvatar('Admin', null, 30);
+        row.append(avatar, msg);
+        box.appendChild(row);
+      });
+      box.scrollTop = box.scrollHeight;
+    }
+
+    async function load() {
+      try {
+        data = await apiFetch('/support');
+      } catch (err) {
+        if (!data) setMessage('page-error', netError(err));
+        return;
+      }
+      setMessage('page-error', '');
+      renderStatus();
+
+      // Only redraw when there is something new
+      const signature = data.messages.map(m => m.message_id).join('|');
+      if (signature !== lastSignature) {
+        lastSignature = signature;
+        render();
+      }
+      // Opening this page marks the admin's messages as read
+      if (window.setNavSupportCount) window.setNavSupportCount(0);
+    }
+
+    $('chat-form').addEventListener('submit', async e => {
+      e.preventDefault();
+      setMessage('send-error', '');
+      const content = $('chat-input').value.trim();
+      if (!content) return;
+      $('chat-send').disabled = true;
+      try {
+        await apiFetch('/support', { method: 'POST', body: JSON.stringify({ content }) });
+        $('chat-input').value = '';
+        await load();
+      } catch (err) {
+        setMessage('send-error', netError(err));
+      }
+      $('chat-send').disabled = false;
+    });
+
+    load();
+    // Pick up the admin's reply. A hidden tab does not count, so messages stay unread until you look.
+    setInterval(() => { if (!document.hidden) load(); }, 5000);
+  </script>
+</body>
+</html>

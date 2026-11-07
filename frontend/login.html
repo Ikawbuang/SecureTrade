@@ -13,6 +13,9 @@
     [hidden] { display: none !important; }
     .form-ok { margin: 0 0 1rem; padding: .65rem .85rem; border-radius: 8px; background: #e3f7f2; color: #146b5a; font-size: .9rem; }
     .form-notice { margin: 0 0 1rem; padding: .65rem .85rem; border-radius: 8px; background: #fff8e6; color: #6b4b00; font-size: .9rem; }
+    .warn-box { margin: 0 0 1rem; padding: .9rem 1rem; border-radius: 8px; background: #fff8e6; border-left: 4px solid var(--gold); font-size: .92rem; }
+    .warn-actions { display: flex; gap: .6rem; flex-wrap: wrap; margin-top: .75rem; }
+    .warn-actions .btn { padding: .5rem .9rem; font-size: .92rem; }
     .pin-input { font: 700 1.6rem var(--font-display); letter-spacing: .5rem; text-align: center; }
     .forgot { margin: -.5rem 0 1rem; text-align: right; font-size: .9rem; }
     .link-btn { background: none; border: 0; padding: 0; font: inherit; font-weight: 600; color: inherit; text-decoration: underline; cursor: pointer; }
@@ -86,7 +89,16 @@
 
           <p class="form-error" id="login-error" role="alert" hidden></p>
 
-          <button class="btn btn-primary btn-block" type="submit">Sign in</button>
+          <!-- The account is open on another device right now -->
+          <div class="warn-box" id="login-warn" role="alert" hidden>
+            <p id="login-warn-text" style="margin:0"></p>
+            <div class="warn-actions">
+              <button class="btn btn-primary" type="button" id="login-continue">Continue and sign out the other device</button>
+              <button class="btn btn-outline" type="button" id="login-cancel">Cancel</button>
+            </div>
+          </div>
+
+          <button class="btn btn-primary btn-block" type="submit" id="login-submit">Sign in</button>
           <p class="auth-switch">New here? <a href="#" data-switch="register">Create an account</a></p>
         </form>
 
@@ -127,6 +139,11 @@
           </div>
 
           <p class="form-error" id="reg-error" role="alert" hidden></p>
+
+          <label class="check">
+            <input type="checkbox" id="reg-adult" required>
+            <span>I am 18 years old or older. SecureTrade is for users 18 and older, and an admin checks your ID to confirm it.</span>
+          </label>
 
           <label class="check">
             <input type="checkbox" required>
@@ -215,20 +232,24 @@
     document.getElementById('fee-step').textContent = (ST.feeRate * 100) + '%';
     document.getElementById('fee-terms').textContent = (ST.feeRate * 100) + '%';
 
+    const $ = id => document.getElementById(id);
+    const API = 'http://localhost:3000/api';
+
     // ---------- Which form is showing ----------
     const forms = {
-      login:    document.getElementById('form-login'),
-      register: document.getElementById('form-register'),
-      verify:   document.getElementById('form-verify'),
-      forgot:   document.getElementById('form-forgot'),
-      reset:    document.getElementById('form-reset')
+      login:    $('form-login'),
+      register: $('form-register'),
+      verify:   $('form-verify'),
+      forgot:   $('form-forgot'),
+      reset:    $('form-reset')
     };
-    const tabsBar = document.getElementById('tabs');
-    const tabLogin = document.getElementById('tab-login');
-    const tabRegister = document.getElementById('tab-register');
+    const tabsBar = $('tabs');
+    const tabLogin = $('tab-login');
+    const tabRegister = $('tab-register');
 
     function clearMessages() {
       document.querySelectorAll('.form-error, .form-ok, .form-notice').forEach(p => { p.hidden = true; p.textContent = ''; });
+      $('login-warn').hidden = true;
     }
 
     function show(name) {
@@ -246,14 +267,13 @@
     });
 
     // ---------- Helpers ----------
-    const API = 'http://localhost:3000/api';
-
     function setMessage(id, msg) {
-      const el = document.getElementById(id);
+      const el = $(id);
       el.textContent = msg;
       el.hidden = !msg;
     }
 
+    // Call the backend. A problem keeps the server's message and its code (for example ALREADY_LOGGED_IN).
     async function callApi(path, body) {
       const res = await fetch(API + path, {
         method: 'POST',
@@ -261,7 +281,11 @@
         body: JSON.stringify(body)
       });
       const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data.message || 'Something went wrong. Please try again.');
+      if (!res.ok) {
+        const err = new Error(data.message || 'Something went wrong. Please try again.');
+        err.code = data.code;
+        throw err;
+      }
       return data;
     }
 
@@ -278,9 +302,12 @@
       localStorage.removeItem('st_logout_reason');
     }
 
-    // Admins go to the admin dashboard, everyone else to their dashboard
+    // Admins go to the admin dashboard, a suspended account goes to Support, everyone else to their dashboard
     function goHome(user) {
-      window.location.href = user && user.role === 'admin' ? 'admin-dashboard.html' : 'dashboard.html';
+      let page = 'dashboard.html';
+      if (user && user.role === 'admin') page = 'admin-dashboard.html';
+      else if (user && user.account_status === 'suspended') page = 'support.html';
+      window.location.href = page;
     }
 
     // "Resend PIN" button that waits 60 seconds between sends
@@ -302,55 +329,123 @@
       }, 1000);
     }
 
+    // ---------- Already signed in? Go straight to the dashboard ----------
+    // The saved login is checked with the server. If it is still good (not idle for more than
+    // 15 minutes, and not opened on another device), there is no need to sign in again.
+    (async function checkSignedIn() {
+      const token = localStorage.getItem('st_token');
+      if (!token) return;
+      document.body.style.visibility = 'hidden';
+      try {
+        const res = await fetch(API + '/me', { headers: { Authorization: 'Bearer ' + token } });
+        if (res.ok) {
+          const me = await res.json();
+          let saved = {};
+          try { saved = JSON.parse(localStorage.getItem('st_user')) || {}; } catch (e) { saved = {}; }
+          localStorage.setItem('st_user', JSON.stringify({ ...saved, ...me }));
+          goHome(me);
+          return;
+        }
+        if (res.status === 401) {
+          const data = await res.json().catch(() => ({}));
+          localStorage.removeItem('st_token');
+          localStorage.removeItem('st_user');
+          localStorage.removeItem('st_last_active');
+          if (!localStorage.getItem('st_logout_reason') && /signed out|inactive|not active/i.test(data.message || '')) {
+            setMessage('login-notice', data.message);
+          }
+        }
+      } catch (err) { /* the server cannot be reached: show the sign-in form */ }
+      document.body.style.visibility = '';
+    })();
+
     // ---------- Sign in ----------
-    document.getElementById('form-login').addEventListener('submit', async e => {
+    async function doLogin(force) {
+      const data = await callApi('/login', {
+        email: $('login-email').value,
+        password: $('login-password').value,
+        force: !!force
+      });
+      saveSession(data);
+      goHome(data.user);
+    }
+
+    $('form-login').addEventListener('submit', async e => {
       e.preventDefault();
       setMessage('login-error', '');
-      const btn = e.target.querySelector('button[type="submit"]');
+      $('login-warn').hidden = true;
+      const btn = $('login-submit');
       btn.disabled = true;
       try {
-        const data = await callApi('/login', {
-          email: document.getElementById('login-email').value,
-          password: document.getElementById('login-password').value
-        });
-        saveSession(data);
-        goHome(data.user);
+        await doLogin(false);
       } catch (err) {
+        if (err.code === 'ALREADY_LOGGED_IN') {
+          // The password was right, but the account is open somewhere else. Ask before signing that device out.
+          $('login-warn-text').textContent = err.message;
+          $('login-warn').hidden = false;
+        } else {
+          setMessage('login-error', friendly(err));
+        }
+        btn.disabled = false;
+      }
+    });
+
+    // Continue: sign in here, and the other device is signed out
+    $('login-continue').addEventListener('click', async () => {
+      const btn = $('login-continue');
+      btn.disabled = true;
+      setMessage('login-error', '');
+      try {
+        await doLogin(true);
+      } catch (err) {
+        $('login-warn').hidden = true;
         setMessage('login-error', friendly(err));
         btn.disabled = false;
       }
     });
 
+    // Cancel: nothing changes, the other device stays signed in
+    $('login-cancel').addEventListener('click', () => {
+      $('login-warn').hidden = true;
+      $('login-password').value = '';
+    });
+
+    // If the email or password is edited, the warning no longer applies
+    ['login-email', 'login-password'].forEach(id => {
+      $(id).addEventListener('input', () => { $('login-warn').hidden = true; });
+    });
+
     // ---------- Create account ----------
     let pendingEmail = '';
-    const verifyResend = document.getElementById('verify-resend');
+    const verifyResend = $('verify-resend');
 
     // Step 1: send the PIN
-    document.getElementById('form-register').addEventListener('submit', async e => {
+    $('form-register').addEventListener('submit', async e => {
       e.preventDefault();
       setMessage('reg-error', '');
-      const password = document.getElementById('reg-password').value;
-      if (password !== document.getElementById('reg-confirm').value) {
+      const password = $('reg-password').value;
+      if (password !== $('reg-confirm').value) {
         setMessage('reg-error', 'Passwords do not match.');
         return;
       }
       const btn = e.target.querySelector('button[type="submit"]');
       btn.disabled = true;
       try {
-        const email = document.getElementById('reg-email').value.trim();
+        const email = $('reg-email').value.trim();
         await callApi('/register/start', {
-          first_name: document.getElementById('reg-first').value,
-          last_name: document.getElementById('reg-last').value,
-          username: document.getElementById('reg-username').value,
+          first_name: $('reg-first').value,
+          last_name: $('reg-last').value,
+          username: $('reg-username').value,
           email,
-          password
+          password,
+          is_adult: $('reg-adult').checked
         });
         pendingEmail = email;
         show('verify');
-        document.getElementById('verify-text').textContent =
+        $('verify-text').textContent =
           'We sent a 6-digit PIN to ' + email + '. Type it below to finish creating your account. It expires in 10 minutes.';
-        document.getElementById('verify-pin').value = '';
-        document.getElementById('verify-pin').focus();
+        $('verify-pin').value = '';
+        $('verify-pin').focus();
         startCooldown(verifyResend, 60);
       } catch (err) {
         setMessage('reg-error', friendly(err));
@@ -359,7 +454,7 @@
     });
 
     // Step 2: check the PIN, create the account, and sign in
-    document.getElementById('form-verify').addEventListener('submit', async e => {
+    $('form-verify').addEventListener('submit', async e => {
       e.preventDefault();
       setMessage('verify-error', '');
       setMessage('verify-info', '');
@@ -368,7 +463,7 @@
       try {
         const data = await callApi('/register/verify', {
           email: pendingEmail,
-          pin: document.getElementById('verify-pin').value.trim()
+          pin: $('verify-pin').value.trim()
         });
         saveSession(data);
         goHome(data.user);
@@ -394,23 +489,23 @@
 
     // ---------- Forgot password ----------
     let resetEmail = '';
-    const resetResend = document.getElementById('reset-resend');
+    const resetResend = $('reset-resend');
 
     // Step 1: send the PIN
-    document.getElementById('form-forgot').addEventListener('submit', async e => {
+    $('form-forgot').addEventListener('submit', async e => {
       e.preventDefault();
       setMessage('forgot-error', '');
       const btn = e.target.querySelector('button[type="submit"]');
       btn.disabled = true;
       try {
-        const email = document.getElementById('forgot-email').value.trim();
+        const email = $('forgot-email').value.trim();
         await callApi('/password/forgot', { email });
         resetEmail = email;
         show('reset');
-        document.getElementById('reset-text').textContent =
+        $('reset-text').textContent =
           'If ' + email + ' has an account, we sent a 6-digit PIN to it. Type the PIN and your new password below.';
-        document.getElementById('reset-pin').value = '';
-        document.getElementById('reset-pin').focus();
+        $('reset-pin').value = '';
+        $('reset-pin').focus();
         startCooldown(resetResend, 60);
       } catch (err) {
         setMessage('forgot-error', friendly(err));
@@ -419,12 +514,12 @@
     });
 
     // Step 2: check the PIN and change the password (every device is signed out)
-    document.getElementById('form-reset').addEventListener('submit', async e => {
+    $('form-reset').addEventListener('submit', async e => {
       e.preventDefault();
       setMessage('reset-error', '');
       setMessage('reset-info', '');
-      const password = document.getElementById('reset-password').value;
-      if (password !== document.getElementById('reset-confirm').value) {
+      const password = $('reset-password').value;
+      if (password !== $('reset-confirm').value) {
         setMessage('reset-error', 'Passwords do not match.');
         return;
       }
@@ -433,12 +528,12 @@
       try {
         await callApi('/password/reset', {
           email: resetEmail,
-          pin: document.getElementById('reset-pin').value.trim(),
+          pin: $('reset-pin').value.trim(),
           new_password: password
         });
         show('login');
-        document.getElementById('login-email').value = resetEmail;
-        document.getElementById('login-password').value = '';
+        $('login-email').value = resetEmail;
+        $('login-password').value = '';
         setMessage('login-info', 'Your password was changed and every device was signed out. Sign in with your new password.');
       } catch (err) {
         setMessage('reset-error', friendly(err));

@@ -134,6 +134,12 @@
     .reviews { list-style: none; margin: 0 0 .5rem; padding: 0; }
     .reviews li { padding: .5rem 0; border-bottom: 1px solid #e6e8f5; font-size: .92rem; }
     .reviews .by { color: var(--text-soft); }
+    .reviews .text { margin-top: .2rem; white-space: pre-wrap; word-break: break-word; }
+    .link-btn { background: none; border: 0; padding: 0; font: inherit; font-weight: 600; color: var(--gold-dark); text-decoration: underline; cursor: pointer; }
+    .rev-report { margin-top: .3rem; font-size: .85rem; }
+    .rev-report .row { display: flex; gap: .4rem; flex-wrap: wrap; margin-top: .35rem; }
+    .rev-report input { flex: 1; min-width: 140px; padding: .4rem .65rem; font: .9rem var(--font-body); border: 2px solid #d5d8ec; border-radius: var(--radius-s); }
+    .rev-report input:focus { outline: none; border-color: var(--gold); }
     .note-box textarea { width: 100%; padding: .55rem .75rem; font: .95rem var(--font-body); border: 2px solid #d5d8ec; border-radius: var(--radius-s); }
     .note-box textarea:focus { outline: none; border-color: var(--gold); }
     .dlg-actions { display: flex; gap: .6rem; flex-wrap: wrap; align-items: center; margin-top: 1.1rem; }
@@ -205,7 +211,7 @@
         </div>
         <div class="me-stats">
           <div><p class="num" id="me-completed">0</p><p class="cap">Completed trades</p></div>
-          <div><p class="num" id="me-rating">–</p><p class="cap">Rating</p></div>
+          <div><p class="num" id="me-rating">–</p><p class="cap" id="me-rating-cap">Rating</p></div>
           <div><p class="num" id="me-active">0</p><p class="cap">On process</p></div>
         </div>
         <a class="btn btn-outline" href="profile.html">Edit profile</a>
@@ -309,9 +315,11 @@
         <p class="form-ok" id="pd-note-ok" role="status" hidden>Note saved.</p>
       </div>
 
-      <h3>Recent reviews</h3>
+      <h3>Recent reviews <span class="hint">(the writers' names are hidden)</span></h3>
       <ul class="reviews" id="pd-reviews"></ul>
       <p class="hint" id="pd-no-reviews" hidden>No reviews yet.</p>
+      <p class="form-ok" id="pd-rev-ok" role="status" hidden></p>
+      <p class="form-error" id="pd-rev-error" role="alert" hidden></p>
 
       <div class="dlg-actions">
         <span id="pd-star"></span>
@@ -400,6 +408,15 @@
 
     let meVerified = !!me.verified || me.role === 'admin';
 
+    function el(tag, cls, text) {
+      const e = document.createElement(tag);
+      if (cls) e.className = cls;
+      if (text !== undefined) e.textContent = text;
+      return e;
+    }
+    function netError(err) {
+      return err instanceof TypeError ? 'Cannot reach the server. Is the backend running?' : err.message;
+    }
     // A message at the top of the page. It scrolls up so it is always seen.
     function showPageError(msg) {
       $('page-error').textContent = msg;
@@ -448,6 +465,9 @@
         $('me-joined').textContent = 'Member since ' + new Date(p.created_at).toLocaleDateString('en-PH', { month: 'long', year: 'numeric' });
         $('me-completed').textContent = p.completed_trades;
         $('me-rating').textContent = p.avg_rating === null ? '–' : '★ ' + p.avg_rating.toFixed(1);
+        $('me-rating-cap').textContent = p.rating_count
+          ? p.rating_count + (p.rating_count === 1 ? ' rating' : ' ratings')
+          : 'Rating';
         $('me-active').textContent = p.active_trades;
 
         const banner = $('verify-banner');
@@ -472,7 +492,7 @@
             $('verify-text').replaceChildren(el('strong', '', 'Your verification was rejected'), (v.rejected.reject_reason || '') + ' Send a new request.' + tried);
             $('verify-link').textContent = 'Try again';
           } else {
-            $('verify-text').replaceChildren(el('strong', '', 'Verify your identity to start or accept trades'), 'It takes a few minutes: an ID and a selfie holding it.' + tried);
+            $('verify-text').replaceChildren(el('strong', '', 'Verify your identity to start or accept trades'), 'It takes a few minutes: an ID and a selfie holding it. You must be 18 or older.' + tried);
             $('verify-link').textContent = 'Verify now';
           }
         }
@@ -647,6 +667,61 @@
     const pdDialog = $('profile-dialog');
     let pdUser = null;
 
+    // One anonymous review: stars, buyer or seller, date, comment, and a way to report it
+    function reviewItem(r) {
+      const li = el('li');
+      li.appendChild(el('strong', '', '★ ' + r.score));
+      li.appendChild(el('span', 'by', ' · from the ' + r.as_role.toLowerCase() + ' · '
+        + new Date(r.rated_at).toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' })));
+      if (r.feedback) li.appendChild(el('div', 'text', r.feedback));
+
+      // You cannot report your own review
+      if (r.is_mine) {
+        li.appendChild(el('div', 'by', 'This is your review.'));
+        return li;
+      }
+      const box = el('div', 'rev-report');
+      if (r.reported_by_me) {
+        box.appendChild(el('span', 'by', 'You reported this review.'));
+      } else {
+        const open = el('button', 'link-btn', 'Report');
+        open.type = 'button';
+        const row = el('div', 'row');
+        row.hidden = true;
+        const reason = el('input');
+        reason.type = 'text';
+        reason.maxLength = 300;
+        reason.placeholder = 'Why? (abusive, false, personal information)';
+        reason.setAttribute('aria-label', 'Reason for reporting');
+        const send = el('button', 'btn btn-primary btn-small', 'Send report');
+        send.type = 'button';
+        const cancel = el('button', 'btn btn-outline btn-small', 'Cancel');
+        cancel.type = 'button';
+        row.append(reason, send, cancel);
+        box.append(open, row);
+
+        open.addEventListener('click', () => { row.hidden = false; open.hidden = true; reason.focus(); });
+        cancel.addEventListener('click', () => { row.hidden = true; open.hidden = false; });
+        send.addEventListener('click', async () => {
+          $('pd-rev-ok').hidden = true;
+          $('pd-rev-error').hidden = true;
+          send.disabled = true;
+          try {
+            await apiFetch('/reviews/' + r.review_ref + '/report', { method: 'POST', body: JSON.stringify({ reason: reason.value }) });
+            box.replaceChildren(el('span', 'by', 'You reported this review.'));
+            $('pd-rev-ok').textContent = 'Thank you. An admin will look at this review.';
+            $('pd-rev-ok').hidden = false;
+          } catch (err) {
+            $('pd-rev-error').textContent = netError(err);
+            $('pd-rev-error').hidden = false;
+            send.disabled = false;
+          }
+        });
+      }
+      li.appendChild(box);
+      return li;
+    }
+
     async function openProfile(username) {
       try {
         const p = await apiFetch('/users/' + encodeURIComponent(username));
@@ -677,14 +752,10 @@
 
         const list = $('pd-reviews');
         list.innerHTML = '';
-        p.reviews.forEach(r => {
-          const li = el('li');
-          li.appendChild(el('strong', '', '★ ' + r.score));
-          li.appendChild(el('span', 'by', ' from @' + r.from_username));
-          if (r.feedback) li.appendChild(el('div', '', r.feedback));
-          list.appendChild(li);
-        });
+        p.reviews.forEach(r => list.appendChild(reviewItem(r)));
         $('pd-no-reviews').hidden = p.reviews.length > 0;
+        $('pd-rev-ok').hidden = true;
+        $('pd-rev-error').hidden = true;
 
         // Always clickable: if something is missing, the notice says what
         const trade = $('pd-trade');

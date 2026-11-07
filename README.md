@@ -1,37 +1,150 @@
 # SecureTrade
 
-**SIA101 – Systems Integration and Architecture · Deliverable 5**
-UI prototype built with the Design Thinking Process · Team Alt-F4
+**SIA101 – Systems Integration and Architecture** · Team Alt-F4
 
 SecureTrade is an escrow platform for gamers who buy and sell in-game items, accounts and currency. The buyer pays into escrow, the seller delivers, the buyer confirms, and only then is the payment released to the seller (minus a 3% service fee). If something goes wrong, either side can open a dispute and an administrator decides.
 
-> This is a **non-functional UI prototype**. It uses sample data and has no backend or database. The backend will be integrated in a later phase.
+> **Status:** the app works end to end (accounts, identity verification, trades, escrow flow, chat, disputes, ratings, support, admin panel). **Payments are simulated:** no real money moves yet, and "held in escrow" is a status in the database. See [Future work](#future-work-and-recommendations).
 
-**Live demo:** https://ikawbuang.github.io/SecureTrade/frontend/login.html
+**UI-only demo (frontend pages, needs the backend to sign in):** https://ikawbuang.github.io/SecureTrade/frontend/login.html
 
-## Tech stack (frontend / UI)
+## Tech stack
 
-| Technology | Used for |
+| Layer | Technology |
 |---|---|
-| HTML5 | Page structure |
-| CSS3 | Layout and styling (one shared `style.css`, responsive) |
-| JavaScript | Interactions: tabs, accept/decline, search and filters, chat, dialogs, live fee preview |
-| `data.js` | Single source of sample data and names, read by every page |
-| Google Fonts | Chakra Petch (headings), Figtree (body) |
-| Git and GitHub | Version control and hosting |
-| Digital wireframes | Low-fidelity layouts of the seven screens (`docs/wireframes/`) |
+| Frontend | HTML5, CSS3 (one shared `style.css`), plain JavaScript, Google Fonts (Chakra Petch, Figtree) |
+| Backend | Node.js and Express (REST API) |
+| Database | PostgreSQL on Supabase |
+| Authentication | JSON Web Tokens, bcrypt password hashing |
+| File uploads | multer (dispute evidence, profile photos, ID photos) |
+| Email | nodemailer (PINs). In development the PIN is printed in the server terminal |
+| Version control | Git and GitHub |
 
-<!--
-## How to open it
+## How it works
 
-1. Download or clone this repository.
-2. Open `frontend/login.html` in a web browser.
-3. Click **Sign in** (any input works) to enter the prototype.
+```
+Browser (HTML, CSS, JS)  ──►  Express REST API (backend/server.js)  ──►  PostgreSQL (Supabase)
+                                      │
+                                      ├── uploads/  (evidence, avatars, ID photos)
+                                      └── email provider (PIN emails, planned: Brevo)
+```
 
-Keep `data.js` and `style.css` in the same folder as the pages. An internet connection is only needed for the Google Fonts.
+**Trade flow:** request sent → partner accepts → buyer pays with GCash into escrow → seller delivers and gives the GCash number to receive the money → buyer confirms → payment released (receipt issued) → both can rate each other.
+
+## Features
+
+| Area | What it does |
+|---|---|
+| Accounts | Sign up with first name, last name, gamer username, email and password, confirmed by an emailed PIN. Forgot password with PIN. 18+ confirmation. |
+| Identity verification | A code, a photo of an ID and a selfie holding it. An admin reviews it (including that the ID shows the person is 18 or older). The pictures are deleted after the decision and no ID number is saved. The name on the ID becomes the account name. |
+| Trades | Find a partner (All, Recent, Online, Offline, Favorites), send a request, accept or decline. Both people must be verified. Trade requests appear at the top of the dashboard. |
+| Escrow | The buyer pays with GCash, the payment is held, the seller marks the item as delivered, the buyer confirms. If the buyer does nothing, the payment is released automatically 2 hours after delivery. |
+| Cancel | The sender can cancel a request. Either person can cancel before payment. After payment only the seller can cancel (with a reason) and the buyer is refunded in full. |
+| Chat | In-app chat for every trade (admins can read it). |
+| Disputes | Report a problem with screenshots, the other side replies, an admin reads both sides and the chat, then refunds the buyer or pays the seller. |
+| Receipts and history | Digital receipts and a history of finished trades. |
+| Ratings | Rate the other person after a completed trade. Reviews are **anonymous to the public** (stars, comment, date, buyer or seller). Only admins can see who wrote one. Reviews can be reported and deleted by an admin. |
+| Favorites | A star beside a user, with a private note. The other person is never told. |
+| Profile | Photo, username (once every 30 days, not while trades are on process), email change (password and PIN), and "My reviews". |
+| Support | A chat between a user and the admins. A suspended user can sign in but can only use Support (to appeal). |
+| Admin panel | Verifications, support messages, disputes, reported reviews, all trades, and users (suspend, ban, reactivate). The admin can refund the buyer on a held trade that has no dispute. |
+| Feedback | A link to the Google Form survey in the menu: https://forms.gle/Rex91MrokLRTdjg47 |
+
+## Rules of the system
+
+| Rule | Value |
+|---|---|
+| Service fee | 3% of the price |
+| Payment method | GCash only (to pay in and to receive the money) |
+| Minimum age | 18 and older |
+| One device per account | A new login signs out the other device, after a warning ("already logged in") |
+| Idle sign-out | 15 minutes without real activity (set by `IDLE_MINUTES`) |
+| Trade request expiry | 12 hours without an answer |
+| Auto-release | 2 hours after delivery. It is paused when the buyer or the seller is suspended or banned, or while there is a dispute. An admin decides those trades. |
+| Banned account | Cannot sign in |
+| Suspended account | Can sign in, but only Support works |
+
+## Run it locally
+
+**Requirements:** Node.js and a Supabase project (PostgreSQL).
+
+1. **Backend**
+
+   ```
+   cd backend
+   npm install bcryptjs cors dotenv express jsonwebtoken multer nodemailer pg
+   ```
+
+   Create `backend/.env`:
+
+   ```
+   DATABASE_URL=postgresql://postgres.<project-ref>:<password>@<host>.pooler.supabase.com:6543/postgres
+   PORT=3000
+   JWT_SECRET=<a long random text>
+   IDLE_MINUTES=15
+   DEV_LOG_PIN=true
+   ```
+
+   Use the **Session pooler** string and **port 6543**. `DEV_LOG_PIN=true` prints PINs in the terminal instead of sending email. Remove it once real email is set up. Never commit `.env`.
+
+2. **Database:** create the tables listed below in Supabase (SQL Editor). The server needs all of them.
+
+3. **Start the server:**
+
+   ```
+   node server.js
+   ```
+
+   Check `http://localhost:3000/api/health`. It should answer `{"status":"ok", ...}`.
+
+4. **Frontend:** open `frontend/login.html` in a browser (or use a local web server such as Live Server). The API address is `http://localhost:3000/api` (in `api.js` and `login.html`).
+
+5. **First admin:** sign up normally, then in Supabase run:
+
+   ```sql
+   UPDATE users SET role = 'admin', verified_at = now() WHERE email = 'your_email@example.com';
+   ```
+
+**To verify a test user without the ID flow (testing only):**
+
+```sql
+UPDATE users SET verified_at = now() WHERE username = 'some_username';
+```
+
+### Database tables
+
+`users`, `transactions`, `escrow_payments`, `messages`, `disputes`, `evidence`, `receipts`, `ratings`, `activity_log`, `email_pins`, `email_changes`, `verifications`, `favorites`, `trade_attempts`, `rate_dismissals`, `support_messages`, `review_reports`.
+
+## API overview
+
+| Group | Examples |
+|---|---|
+| Accounts | `POST /api/register/start`, `/api/register/verify`, `/api/login`, `/api/logout`, `/api/password/forgot`, `/api/password/reset` |
+| Profile | `GET /api/profile`, `PUT /api/profile/username`, `POST /api/profile/email/start`, `POST /api/profile/avatar` |
+| Verification | `GET /api/verification`, `POST /api/verification/code`, `POST /api/verification/submit` |
+| People | `GET /api/users`, `GET /api/users/:username`, `PUT /api/favorites/:username` |
+| Trades | `POST /api/transactions`, `POST /api/transactions/:id/respond`, `/pay`, `/deliver`, `/confirm`, `/cancel`, `/messages`, `/rating` |
+| Disputes | `GET /api/disputes`, `POST /api/transactions/:id/dispute`, `/dispute/reply` |
+| Reviews | `GET /api/reviews/mine`, `POST /api/reviews/:ref/report` |
+| Support | `GET /api/support`, `POST /api/support` |
+| Admin | `/api/admin/overview`, `/verifications`, `/support`, `/disputes`, `/reports`, `/transactions`, `/users` |
+
+## Security measures
+
+- Passwords and PINs are hashed (bcrypt). PINs expire after 10 minutes and allow 5 tries.
+- Every database query uses parameters (no SQL injection).
+- The admin role is checked in the database on every admin request, not only in the token.
+- Only the buyer, the seller and admins can read a trade, its chat and its evidence.
+- Trade steps run in database transactions with row locks, so a payment cannot be released or refunded twice.
+- ID and selfie photos are private, deleted after the admin decides, and no ID number is stored.
+- Mobile numbers are only shown masked. The real name is hidden from other users.
+- One device per account, idle sign-out on the server and in the browser, and sign-out of all devices after a password reset.
+- Review writers are hidden from the public, with report and delete tools for admins.
+
+**Known limits (this is a school project, not production):** payments are simulated, there is no rate limiting or lockout on login yet, CORS is open, the login token is kept in `localStorage`, uploaded files are on the server's disk, and the ID check depends on the admin's eyes.
 
 ## Design Thinking summary
--->
+
 ### 1. Empathize
 
 A Google Forms survey was shared with gamers in Cebu. **26 responses** were collected on October 9–10, 2026.
@@ -72,56 +185,85 @@ A Google Forms survey was shared with gamers in Cebu. **26 responses** were coll
 
 ### 3. Ideate
 
-Features were prioritized into must have, should have and future work, using the survey results.
+Features were prioritized into must have, should have and future work, using the survey results. The last column shows where each one stands now.
 
-| Feature | Priority | Covered in the prototype |
+| Feature | Priority | Status in SecureTrade |
 |---|---|---|
-| Register and sign in | Must | Yes |
-| Trade request (send, accept, decline) | Must | Yes |
-| Escrow payment hold | Must | Yes |
-| Delivery and buyer confirmation | Must | Yes |
-| Dispute with evidence upload | Must | Yes |
-| Admin dispute review (refund or pay seller) | Must | Yes |
-| Transaction history and receipts | Should | Yes |
-| In-app chat | Should | Yes |
-| Partner finder with online/offline status | Should | Yes |
-| Auto-release after 2 hours | Should | Shown in the trade progress |
-| Seller ratings and reviews | Future work | Partly: ratings are shown in the partner finder |
-| Automatic refund when the seller does not deliver | Future work | Manual refund by the admin only |
-| ID verification and repeat-scammer bans | Future work | No |
+| Register and sign in | Must | Done (email PIN) |
+| Trade request (send, accept, decline) | Must | Done |
+| Escrow payment hold | Must | Done (payment simulated) |
+| Delivery and buyer confirmation | Must | Done |
+| Dispute with evidence upload | Must | Done |
+| Admin dispute review (refund or pay seller) | Must | Done |
+| Transaction history and receipts | Should | Done |
+| In-app chat | Should | Done |
+| Partner finder with online/offline status | Should | Done (plus Recent and Favorites) |
+| Auto-release after 2 hours | Should | Done |
+| Seller ratings and reviews | Future work | Done (anonymous reviews, report and delete) |
+| Automatic refund when the seller does not deliver | Future work | Partly: the seller can cancel and refund, and an admin can refund. No automatic refund yet. |
+| ID verification | Future work | Done (admin reviews ID and selfie) |
+| Ban repeat scammers | Future work | Partly: admins can suspend or ban accounts |
 
-**Key decision: one dashboard for both buyers and sellers.** Whoever creates a trade sends a request that appears on the partner's dashboard, where it can be accepted or declined. A user's role (buyer or seller) is set per trade, not per account, and the Active trades table can be filtered by All, Buying or Selling.
+**Key decision: one dashboard for both buyers and sellers.** Whoever creates a trade sends a request that appears at the top of the partner's dashboard, where it can be accepted or declined. A user's role (buyer or seller) is set per trade, not per account, and the Active trades table can be filtered by All, Buying or Selling. A "Find a trade partner" panel on the dashboard replaced the separate New trade page.
+
+**Key decision: 18 and older only.** The survey shows that 4 of 26 respondents (15%) are under 18, so many gamers are minors. SecureTrade is for users 18 and older because the app holds money and because contracts with minors are not reliable. This is enforced by a signup confirmation (checked on the server) and by the admin, who checks the ID during verification. Support for minors with parental consent is listed as future work.
+
+**Key decision: GCash only.** 88% of respondents prefer GCash, so the app accepts GCash only, which also keeps the later payment integration simple.
 
 ### 4. Prototype
 
-Low-fidelity wireframes were made first, then the high-fidelity pages were coded in HTML, CSS and JavaScript.
+Low-fidelity wireframes were made first, then the pages were coded in HTML, CSS and JavaScript.
 
 | Screen | File | Wireframe | Screenshot |
 |---|---|---|---|
-| Sign in / Create account | `login.html` | <img src=".//frontend/wireframes/01-login.png" width="320" alt="Login Screenshot"> | <img src=".//frontend/screenshots/01-login.png" width="320"> |
-| Dashboard | `dashboard.html` | <img src=".//frontend/wireframes/02-dashboard.png" width="320"> | <img src=".//frontend/screenshots/02-dashboard.png" width="320"> |
-| New trade | `create-transaction.html` | <img src=".//frontend/wireframes/03-new-trade.png" width="320"> | <img src=".//frontend/screenshots/03-new-trade.png" width="320"> |
-| Trade details | `transaction.html` | <img src=".//frontend/wireframes/04-trade-details.png" width="320"> | <img src=".//frontend/screenshots/04-trade-details.png" width="320"> |
-| Report a problem | `dispute.html` | <img src=".//frontend/wireframes/05-dispute.png" width="320"> | <img src=".//frontend/screenshots/image.png" width="320"> |
-| History and receipt | `history.html` | <img src=".//frontend/wireframes/06-history.png" width="320"> | <img src=".//frontend/screenshots/06-history.png" width="320"> |
-| Admin | `admin-dashboard.html` | <img src=".//frontend/wireframes/07-admin.png" width="320"> | <img src=".//frontend/screenshots/07-admin.png" width="320"> |
+| Sign in / Create account | `login.html` | <img src=".//frontend/wireframes/01-login.png" width="320" alt="Login wireframe"> | <img src=".//frontend/screenshots/01-login.png" width="320" alt="Login screenshot"> |
+| Dashboard | `dashboard.html` | <img src=".//frontend/wireframes/02-dashboard.png" width="320" alt="Dashboard wireframe"> | <img src=".//frontend/screenshots/02-dashboard.png" width="320" alt="Dashboard screenshot"> |
+| New trade (now a popup on the dashboard) | ~~`create-transaction.html`~~ | <img src=".//frontend/wireframes/03-new-trade.png" width="320" alt="New trade wireframe"> | <img src=".//frontend/screenshots/03-new-trade.png" width="320" alt="New trade screenshot"> |
+| Trade details | `transaction.html` | <img src=".//frontend/wireframes/04-trade-details.png" width="320" alt="Trade details wireframe"> | <img src=".//frontend/screenshots/04-trade-details.png" width="320" alt="Trade details screenshot"> |
+| Report a problem | `dispute.html` | <img src=".//frontend/wireframes/05-dispute.png" width="320" alt="Dispute wireframe"> | <img src=".//frontend/screenshots/image.png" width="320" alt="Dispute screenshot"> |
+| History and receipt | `history.html` | <img src=".//frontend/wireframes/06-history.png" width="320" alt="History wireframe"> | <img src=".//frontend/screenshots/06-history.png" width="320" alt="History screenshot"> |
+| Admin | `admin-dashboard.html` | <img src=".//frontend/wireframes/07-admin.png" width="320" alt="Admin wireframe"> | <img src=".//frontend/screenshots/07-admin.png" width="320" alt="Admin screenshot"> |
+
+Pages added after the first prototype (no wireframe yet): `profile.html` (profile, identity verification, my reviews) and `support.html` (chat with the admins).
 
 **Design choices**
 
 - A deep indigo and gold palette: indigo for a serious, trustworthy base, and gold for held funds and main actions.
 - Status is always shown with a text label as well as a colour, for example Online or Offline and Payment held.
 - The most important number on the dashboard is the amount currently held in escrow.
+- Trade requests are shown at the very top of the dashboard, one line each, and the card is hidden when there are none.
 - The side menu stays visible while scrolling, and the layout adapts to small screens.
 
 ### 5. Test
 
-Five people tried the prototype without help: Ruel, Jesso, Kristel, Tala and Jessel. They were left to explore it freely, with no set tasks. They liked it and said it was clear, easy to read, and less confusing than Binance. No one got stuck, so no changes were needed in this round.
+**Round 1 (UI prototype).** Five people tried the first prototype without help: Ruel, Jesso, Kristel, Tala and Jessel. They were left to explore it freely, with no set tasks. They liked it and said it was clear, easy to read, and less confusing than Binance. No one got stuck, so no changes were needed in that round.
 
-**Next improvements from the survey:** make seller ratings and automatic refunds real features, and add ID verification.
+**Round 2 (working app).** To be done with the working app. Suggested checks:
 
-## Changing names and sample data
+- Sign up with a PIN, verify an identity (admin approves and rejects), and trade between two accounts in two browsers.
+- Try the one-device rule (the "already logged in" warning), the idle sign-out, and sign out.
+- Run a full trade (pay, deliver, confirm, receipt, rate), a seller cancellation with refund, and a dispute decided by the admin.
+- Report an anonymous review and delete it as an admin.
+- Suspend a user and check that only Support works. Ban a user and check that sign-in is blocked.
+- Suspend a seller while a payment is held and refund the buyer from the admin panel.
 
-All names and sample data live in **`data.js`**: brand, team, users, trades, requests, history and admin numbers. Edit it there and every page updates.
+**Survey of users (in-app link).** A voluntary and anonymous Google Form is linked from the menu (Feedback). Results will be added here when responses are collected.
+
+## Future work and recommendations
+
+| Topic | Recommendation |
+|---|---|
+| Real payments | Use a licensed payment provider that holds the money and a payout service to GCash, with webhooks to confirm payments. Check with a lawyer or the regulator before holding other people's money. |
+| GCash name match | Match the GCash account name with the verified name before a payout (through the provider, or a screenshot reviewed by an admin). |
+| Identity checks | Use a third-party KYC provider instead of relying only on admin review. |
+| Data privacy | Comply with the Data Privacy Act (RA 10173): privacy policy, terms and consent, retention rules and a breach plan. |
+| Minors | Allow users under 18 only with parental consent, tighter limits and a verified guardian. |
+| Security | Rate limiting and lockout, security headers, restricted CORS, 2FA (required for admins), secure cookies instead of `localStorage`, Row Level Security on every Supabase table, security testing. |
+| Files | Move uploads to private cloud storage (for example Supabase Storage) with backups. |
+| Email | Send PINs through a real email provider (planned: Brevo) and remove `DEV_LOG_PIN`. |
+| Automation | Automatic refund when a seller does not deliver, and notifications for new requests, payments and status changes. |
+| Trust | Limits for new users (for example a lower amount until two trades are completed). |
+| Hosting | Host the backend and the frontend online, with environment variables set in the host. |
 
 ## Repository layout
 
@@ -131,17 +273,26 @@ SecureTrade/
 ├── frontend/
 │   ├── login.html
 │   ├── dashboard.html
-│   ├── create-transaction.html
+│   ├── profile.html
 │   ├── transaction.html
-│   ├── dispute.html
 │   ├── history.html
+│   ├── dispute.html
+│   ├── support.html
 │   ├── admin-dashboard.html
+│   ├── api.js
+│   ├── nav-badge.js
+│   ├── data.js
 │   ├── style.css
-│   └── data.js
+│   ├── wireframes/
+│   └── screenshots/
+├── backend/
+│   ├── server.js
+│   ├── package.json
+│   └── uploads/        (created automatically, not in Git)
 └── docs/
-    ├── wireframes/
-    └── screenshots/
 ```
+
+`backend/.env` and `backend/uploads/` are not committed.
 
 ## Team Alt-F4
 <b>Leader:</b> Almario, Jessen<br>

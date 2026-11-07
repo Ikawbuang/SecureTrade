@@ -64,7 +64,7 @@
       padding: .65rem .85rem; font: 1rem var(--font-body); color: var(--text);
       background: var(--white); border: 2px solid #d5d8ec; border-radius: var(--radius-s);
     }
-    .actions input { width: 14rem; }
+    .actions input { width: 16rem; max-width: 100%; }
     .actions input.wide { width: 18rem; max-width: 100%; }
     .actions input:focus, .actions select:focus { outline: none; border-color: var(--gold); }
     #action-error { margin-top: 1rem; }
@@ -190,7 +190,7 @@
     const me = getUser() || {};
     const tradeId = new URLSearchParams(location.search).get('id');
     const peso = ST.peso;
-    const methodNames = { gcash: 'GCash', maya: 'Maya', card: 'Card' };
+    const methodNames = { gcash: 'GCash' };
 
     const pageError = document.getElementById('page-error');
     const view = document.getElementById('trade-view');
@@ -216,9 +216,9 @@
     function showPageError(msg) { pageError.textContent = msg; pageError.hidden = !msg; }
     function showActionError(msg) { actionError.textContent = msg; actionError.hidden = !msg; }
 
-    // "GCash 09••••••123", or just "Card" when there is no number
+    // "GCash 09••••••123"
     function methodWithNumber(method, masked) {
-      return (methodNames[method] || method) + (masked ? ' ' + masked : '');
+      return (methodNames[method] || method || 'GCash') + (masked ? ' ' + masked : '');
     }
 
     // The game, item and details are saved together as: "Game – Item. Details"
@@ -259,12 +259,12 @@
             : { text: '@' + partner + ' sent you this request. Accept or decline it on your dashboard. It is cancelled automatically if nobody answers in 12 hours.' };
         case 'accepted':
           return role === 'buyer'
-            ? { text: 'Choose how you want to pay and which GCash or Maya number you are paying from. The money goes to SecureTrade, not to the seller, and stays there until you confirm the item arrived. Payments are simulated for now.' }
+            ? { text: 'Enter the GCash number you are paying from. The money goes to SecureTrade, not to the seller, and stays there until you confirm the item arrived. Payments are simulated for now.' }
             : { text: 'Waiting for the buyer to pay into escrow. Do not hand over the item until the payment is held.' };
         case 'paid':
           return role === 'buyer'
             ? { text: 'Your payment of ' + price + ' is safe in escrow. You can confirm once the seller marks the item as delivered. If the seller cancels, you are refunded in full.' }
-            : { text: 'The payment is safe in escrow. Hand over the item in-game. When you mark it as delivered, enter the GCash or Maya number where you want to receive your money. If you cannot deliver, you can cancel and the buyer is refunded in full.' };
+            : { text: 'The payment is safe in escrow. Hand over the item in-game. When you mark it as delivered, enter the GCash number where you want to receive your money. If you cannot deliver, you can cancel and the buyer is refunded in full.' };
         case 'delivered':
           return role === 'buyer'
             ? { text: 'Check your game account first. If you do nothing, payment releases to the seller automatically ' + hours + ' hours after delivery.' }
@@ -274,7 +274,7 @@
             ok: true,
             text: (role === 'buyer'
               ? 'Trade complete. ' + peso(net) + ' was sent to @' + partner + '.'
-              : 'Trade complete. ' + peso(net) + ' was sent to your payout account.')
+              : 'Trade complete. ' + peso(net) + ' was sent to your GCash.')
               + (d.receipt ? ' Receipt ' + d.receipt.receipt_number + '.' : '')
           };
         case 'disputed':
@@ -285,6 +285,13 @@
               text: (iCancelled ? 'You cancelled this trade. ' : 'The seller cancelled this trade. ')
                 + (role === 'buyer' ? 'Your payment of ' + price + ' was refunded in full.' : 'The buyer was refunded in full.')
                 + (d.cancel_reason ? ' Reason: ' + d.cancel_reason : '')
+            };
+          }
+          if (d.cancel_reason) {
+            return {
+              text: 'An admin refunded this trade. '
+                + (role === 'buyer' ? 'Your payment of ' + price + ' was returned in full.' : 'The buyer was refunded in full.')
+                + ' Reason: ' + d.cancel_reason
             };
           }
           return { text: 'This trade was refunded by an admin after a dispute.' };
@@ -324,19 +331,19 @@
       return b;
     }
 
-    // Buyer pays -> SecureTrade escrow -> Seller payout
+    // Buyer pays -> SecureTrade escrow -> Seller payout (GCash only)
     function renderMoney(d, role, price, net) {
       // 0 = nothing yet, 1 = waiting for the buyer's payment, 2 = held in escrow, 3 = paid out
       const stage = { accepted: 1, paid: 2, delivered: 2, disputed: 2, completed: 3 }[d.status] || 0;
 
       const buyerLine = d.payment
         ? methodWithNumber(d.payment.payment_method, d.payment.payer_masked) + ' · ' + peso(price)
-        : 'GCash, Maya, or card · ' + peso(price);
+        : 'GCash · ' + peso(price);
       const sellerLine = d.payout_method
         ? methodWithNumber(d.payout_method, d.payout_masked)
         : (role === 'seller'
-            ? 'You enter this when you mark the item as delivered'
-            : 'The seller adds it when delivering the item');
+            ? 'You enter your GCash number when you mark the item as delivered'
+            : 'The seller adds their GCash number when delivering the item');
 
       const boxes = [
         {
@@ -378,57 +385,32 @@
       });
     }
 
-    // Buyer: choose how to pay and which number to pay from
+    // Buyer: type the GCash number to pay from
     function addPayControls(price) {
-      const select = document.createElement('select');
-      select.setAttribute('aria-label', 'Payment method');
-      [['gcash', 'GCash'], ['maya', 'Maya'], ['card', 'Credit or debit card']].forEach(o => {
-        const opt = document.createElement('option');
-        opt.value = o[0];
-        opt.textContent = o[1];
-        select.appendChild(opt);
-      });
-
       const number = document.createElement('input');
       number.type = 'tel';
       number.inputMode = 'numeric';
       number.maxLength = 11;
-      number.setAttribute('aria-label', 'Mobile number you are paying from');
+      number.placeholder = 'GCash number 09XXXXXXXXX';
+      number.setAttribute('aria-label', 'GCash number you are paying from');
 
-      function syncNumberField() {
-        const needsNumber = select.value !== 'card';
-        number.hidden = !needsNumber;
-        number.placeholder = (select.value === 'maya' ? 'Maya' : 'GCash') + ' number 09XXXXXXXXX';
-      }
-      select.addEventListener('change', syncNumberField);
-      syncNumberField();
-
-      actions.append(select, number);
-      addButton('Pay ' + peso(price) + ' into escrow', btn =>
-        act('/pay', { method: select.value, number: select.value === 'card' ? '' : number.value }, btn));
+      actions.appendChild(number);
+      addButton('Pay ' + peso(price) + ' with GCash', btn =>
+        act('/pay', { method: 'gcash', number: number.value }, btn));
     }
 
-    // Seller: say where the money should be sent, then mark the item as delivered
+    // Seller: type the GCash number to receive the money, then mark the item as delivered
     function addDeliverControls() {
-      const select = document.createElement('select');
-      select.setAttribute('aria-label', 'Where to receive your money');
-      [['gcash', 'GCash'], ['maya', 'Maya']].forEach(o => {
-        const opt = document.createElement('option');
-        opt.value = o[0];
-        opt.textContent = o[1];
-        select.appendChild(opt);
-      });
-
       const number = document.createElement('input');
       number.type = 'tel';
       number.inputMode = 'numeric';
       number.maxLength = 11;
-      number.placeholder = 'Number to receive your money';
-      number.setAttribute('aria-label', 'Mobile number to receive your money');
+      number.placeholder = 'Your GCash number to receive the money';
+      number.setAttribute('aria-label', 'GCash number to receive your money');
 
-      actions.append(select, number);
+      actions.appendChild(number);
       addButton('I delivered the item', btn =>
-        act('/deliver', { method: select.value, number: number.value }, btn));
+        act('/deliver', { method: 'gcash', number: number.value }, btn));
     }
 
     // Cancel: the request (by the sender), the trade before payment (either person),
@@ -638,7 +620,8 @@
       h.textContent = 'Rate @' + partner;
       const hint = document.createElement('p');
       hint.className = 'hint';
-      hint.textContent = 'How was the trade? Your rating helps other gamers. You can rate once, and it cannot be changed.';
+      hint.textContent = 'How was the trade? Your rating helps other gamers. You can rate once, and it cannot be changed. '
+        + 'Your name is hidden from the public, but admins can see it. Do not write personal information.';
 
       const starsBox = document.createElement('div');
       starsBox.className = 'stars';
@@ -735,7 +718,7 @@
       showPageError('');
       view.hidden = false;
 
-      // Only redraw what changed, so typed numbers and payment choices are not reset
+      // Only redraw what changed, so typed numbers are not reset
       const signature = [
         data.status,
         data.payment ? data.payment.payment_status + (data.payment.payer_masked || '') : '',

@@ -22,7 +22,10 @@
     .page-head p { margin: .25rem 0 0; color: var(--text-soft); }
 
     .overview { display: grid; grid-template-columns: 1.3fr 1fr 1fr 1fr; gap: 1rem; margin-bottom: 1.75rem; }
+    .overview.attention { grid-template-columns: repeat(4, 1fr); margin-top: -.75rem; }
     .stat { background: var(--white); border: 1px solid #e0e3f2; border-radius: var(--radius-m); padding: 1.1rem 1.25rem; }
+    a.stat { display: block; text-decoration: none; color: inherit; }
+    a.stat:hover { border-color: var(--gold); }
     .stat p { margin: 0; }
     .stat .num { font: 700 1.8rem var(--font-display); line-height: 1.1; }
     .stat .cap { color: var(--text-soft); font-size: .9rem; margin-top: .25rem; }
@@ -39,6 +42,7 @@
     .link-btn { background: none; border: 0; padding: 0; font: 600 1rem var(--font-body); color: var(--gold-dark); text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
     .badge-active { background: #d6f4ee; color: #146b5a; }
     .badge-flag { background: #fbdcd9; color: #9c2a22; }
+    .chip { margin-left: .4rem; padding: .05rem .5rem; border-radius: 999px; background: var(--gold); color: var(--ink); font-size: .75rem; font-weight: 700; }
 
     .filters { display: flex; gap: .6rem; flex-wrap: wrap; margin-bottom: 1rem; }
     .filters input, .filters select {
@@ -113,6 +117,16 @@
     .chatlog b { font-weight: 600; }
     .chatlog small, .timeline small, .mini-list small { color: var(--text-soft); margin-left: .35rem; }
     .timeline small { display: block; margin: 0; }
+    .mini-list .quote { margin-top: .15rem; white-space: pre-wrap; word-break: break-word; }
+
+    /* Support chat with a user */
+    .support-log { max-height: 340px; overflow-y: auto; border: 1px solid #e6e8f5; border-radius: var(--radius-s); padding: .6rem .75rem; margin: 0 0 1rem; list-style: none; display: flex; flex-direction: column; gap: .5rem; }
+    .support-log li { max-width: 88%; padding: .5rem .75rem; border-radius: var(--radius-m); background: #eceef9; font-size: .93rem; word-break: break-word; white-space: pre-wrap; align-self: flex-start; }
+    .support-log li.admin { background: var(--ink); color: var(--text-on-dark); align-self: flex-end; }
+    .support-log small { display: block; color: var(--text-soft); font-size: .74rem; margin-bottom: .1rem; }
+    .support-log li.admin small { color: var(--text-on-dark-soft); }
+    .chat-reply textarea { width: 100%; padding: .65rem .85rem; font: 1rem var(--font-body); border: 2px solid #d5d8ec; border-radius: var(--radius-s); }
+    .chat-reply textarea:focus { outline: none; border-color: var(--gold); }
 
     .decision { margin-top: 1.4rem; padding-top: 1.1rem; border-top: 1px solid #e6e8f5; }
     .decision textarea { width: 100%; padding: .65rem .85rem; font: 1rem var(--font-body); border: 2px solid #d5d8ec; border-radius: var(--radius-s); }
@@ -136,11 +150,12 @@
     .match.diff { background: #fdecc8; color: #8a5a00; }
     .checklist { margin: 0 0 1rem; padding-left: 1.2rem; color: var(--text-soft); font-size: .9rem; }
     .checklist li { margin-bottom: .25rem; }
+    .checklist li.age { color: var(--text); }
 
-    @media (max-width: 1000px) { .overview { grid-template-columns: 1fr 1fr; } }
+    @media (max-width: 1000px) { .overview, .overview.attention { grid-template-columns: 1fr 1fr; } }
     @media (max-width: 800px) { .summary { grid-template-columns: 1fr 1fr; } .cols, .vpics { grid-template-columns: 1fr; } }
     @media (max-width: 520px) {
-      .overview, .summary { grid-template-columns: 1fr; }
+      .overview, .overview.attention, .summary { grid-template-columns: 1fr; }
       .meta { grid-template-columns: 1fr; }
       .tl li { grid-template-columns: 1fr; gap: .2rem; }
     }
@@ -154,7 +169,9 @@
       <span class="role-tag">Admin</span>
       <a href="#overview" aria-current="page">Overview</a>
       <a href="#verifications">Verifications <span class="count" id="nav-verif-count" hidden></span></a>
+      <a href="#messages">Messages <span class="count" id="nav-msg-count" hidden></span></a>
       <a href="#disputes">Disputes</a>
+      <a href="#reports">Reports <span class="count" id="nav-report-count" hidden></span></a>
       <a href="#transactions">Transactions</a>
       <a href="#users">Users</a>
       <div class="spacer">
@@ -171,7 +188,7 @@
 
         <header class="page-head" id="overview">
           <h1>Admin overview</h1>
-          <p>Review verifications and disputes first. Everything else is here for you to watch. Only disputes are decided by an admin.</p>
+          <p>Review verifications, messages, reported reviews, and disputes first. Everything else is here for you to watch.</p>
         </header>
 
         <div class="overview">
@@ -191,6 +208,13 @@
             <p class="num" id="fees">₱0</p>
             <p class="cap">Service fees earned</p>
           </div>
+        </div>
+
+        <div class="overview attention">
+          <a class="stat" href="#verifications"><p class="num" id="st-verif">0</p><p class="cap">Verifications waiting</p></a>
+          <a class="stat" href="#messages"><p class="num" id="st-msgs">0</p><p class="cap">Chats with unread messages</p></a>
+          <a class="stat" href="#reports"><p class="num" id="st-reports">0</p><p class="cap">Reported reviews</p></a>
+          <a class="stat" href="#transactions"><p class="num" id="st-needs">0</p><p class="cap">Trades needing your decision</p></a>
         </div>
 
         <!-- Verification requests -->
@@ -215,6 +239,23 @@
             </table>
           </div>
           <p class="empty" id="v-empty" hidden>No requests here.</p>
+        </section>
+
+        <!-- Support messages -->
+        <section class="card block" id="messages" aria-labelledby="m-title">
+          <div class="card-head">
+            <h2 id="m-title">Messages</h2>
+            <span>Support chats. The ones with unread messages come first.</span>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr><th>User</th><th>Account</th><th>Last message</th><th>When</th><th><span class="sr-only">Open</span></th></tr>
+              </thead>
+              <tbody id="m-rows"></tbody>
+            </table>
+          </div>
+          <p class="empty" id="m-empty" hidden>No messages yet. To start a chat, open a user in the Users list and press "Message this user".</p>
         </section>
 
         <!-- Disputes -->
@@ -249,11 +290,35 @@
           <p class="empty" id="d-empty" hidden>No disputes here.</p>
         </section>
 
+        <!-- Reported reviews -->
+        <section class="card block" id="reports" aria-labelledby="r-title">
+          <div class="card-head">
+            <h2 id="r-title">Reported reviews</h2>
+            <span>Only admins can see who wrote a review</span>
+          </div>
+          <div class="filters">
+            <label class="sr-only" for="r-status">Show</label>
+            <select id="r-status">
+              <option value="open">Waiting for review</option>
+              <option value="all">All reports</option>
+            </select>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr><th>Review</th><th>About</th><th>Written by</th><th>Reported by</th><th>Reason</th><th>Reported</th><th>Status</th><th><span class="sr-only">Open</span></th></tr>
+              </thead>
+              <tbody id="r-rows"></tbody>
+            </table>
+          </div>
+          <p class="empty" id="r-empty" hidden>No reports here.</p>
+        </section>
+
         <!-- Transactions -->
         <section class="card block" id="transactions" aria-labelledby="t-title">
           <div class="card-head">
             <h2 id="t-title">Transactions</h2>
-            <span>You can watch every trade, but only the buyer and seller move it forward</span>
+            <span>You can watch every trade. You step in when a payment is held and a person is suspended or banned, or in a dispute.</span>
           </div>
           <div class="filters">
             <label class="sr-only" for="t-search">Search trades</label>
@@ -261,6 +326,7 @@
             <label class="sr-only" for="t-status">Filter by status</label>
             <select id="t-status">
               <option value="process">On process</option>
+              <option value="needs_admin">Needs an admin decision</option>
               <option value="all">All trades</option>
               <option value="pending">Waiting for partner</option>
               <option value="accepted">Waiting for payment</option>
@@ -330,6 +396,7 @@
         <li>The selfie shows the same person as the ID, holding the ID next to their face.</li>
         <li>The paper in the selfie shows exactly this code.</li>
         <li>The name on the ID is the name they typed, and nothing on the ID looks edited (fonts, edges, lighting).</li>
+        <li class="age"><b>The ID shows that the person is 18 or older.</b> SecureTrade is for users 18 and older. Reject the request if the ID shows a younger person, or if the date of birth cannot be seen.</li>
       </ul>
 
       <div class="vcode"><div class="num" id="vd-code"></div><small>The code this person was given</small></div>
@@ -349,7 +416,8 @@
       <div class="decision" id="vd-decision">
         <label for="vd-reason"><b>Reason</b> (needed only when you reject)</label>
         <textarea id="vd-reason" rows="2" maxlength="300" placeholder="Example: the code on the paper does not match."></textarea>
-        <p class="warn">Approving replaces the full name with the name typed above, and the pictures are deleted.</p>
+        <p style="margin-top:.4rem"><button type="button" class="link-btn" id="vd-under18" style="font-size:.9rem">Use the "under 18" reason</button></p>
+        <p class="warn">Approving confirms that the person is 18 or older, replaces the name with the one typed above, and deletes the pictures.</p>
         <p class="form-error" id="vd-error" role="alert" hidden></p>
         <div class="decide">
           <button class="btn btn-primary" type="button" id="vd-approve">Approve</button>
@@ -361,6 +429,73 @@
       <div id="vd-decided" hidden>
         <p class="note-ok" id="vd-decided-text"></p>
         <div class="decide"><button class="btn btn-outline" type="button" id="vd-close2">Close</button></div>
+      </div>
+    </div>
+  </dialog>
+
+  <!-- Support chat with one user -->
+  <dialog class="review" id="chat-dialog" aria-labelledby="cd-title">
+    <div class="review-head head-row">
+      <span id="cd-avatar"></span>
+      <div>
+        <h2 id="cd-title">Chat</h2>
+        <p id="cd-sub"></p>
+      </div>
+    </div>
+    <div class="review-body">
+      <p class="warn" id="cd-warn" style="margin:0 0 1rem" hidden></p>
+      <ul class="support-log" id="cd-log"></ul>
+      <p class="hint" id="cd-none" hidden>No messages yet. Write the first one below.</p>
+
+      <form class="chat-reply" id="cd-form">
+        <textarea id="cd-input" rows="2" maxlength="1000" placeholder="Write to the user (Enter sends, Shift + Enter makes a new line)"></textarea>
+        <p class="form-error" id="cd-error" role="alert" hidden></p>
+        <div class="decide">
+          <button class="btn btn-primary" type="submit" id="cd-send">Send</button>
+          <button class="btn btn-outline" type="button" id="cd-user">View user</button>
+          <button class="btn btn-outline" type="button" id="cd-close">Close</button>
+        </div>
+      </form>
+    </div>
+  </dialog>
+
+  <!-- A reported review -->
+  <dialog class="review" id="report-dialog" aria-labelledby="rp-title">
+    <div class="review-head">
+      <h2 id="rp-title">Reported review</h2>
+      <p id="rp-sub"></p>
+    </div>
+    <div class="review-body">
+      <dl class="meta">
+        <div><dt>Rating</dt><dd id="rp-score"></dd></div>
+        <div><dt>About</dt><dd id="rp-subject"></dd></div>
+        <div><dt>Written by (only admins see this)</dt><dd id="rp-author"></dd></div>
+        <div><dt>Reported by</dt><dd id="rp-reporter"></dd></div>
+        <div><dt>Written</dt><dd id="rp-written"></dd></div>
+        <div><dt>Reported</dt><dd id="rp-reported"></dd></div>
+      </dl>
+
+      <h3>Comment</h3>
+      <p id="rp-comment"></p>
+      <h3>Reason for the report</h3>
+      <p id="rp-reason"></p>
+
+      <div class="decision" id="rp-decision">
+        <label for="rp-note"><b>Note</b> (needed to delete the review, saved in the log)</label>
+        <textarea id="rp-note" rows="2" maxlength="300" placeholder="Example: abusive language."></textarea>
+        <p class="warn">Deleting removes the review from the profile and from the average, and it cannot be undone. To act against the writer, open the writer and suspend or ban the account.</p>
+        <p class="form-error" id="rp-error" role="alert" hidden></p>
+      </div>
+
+      <div id="rp-closed" hidden style="margin-top:1.25rem">
+        <p class="note-ok" id="rp-closed-text"></p>
+      </div>
+
+      <div class="decide">
+        <button class="btn btn-danger" type="button" id="rp-delete">Delete the review</button>
+        <button class="btn btn-outline" type="button" id="rp-dismiss">Dismiss the report</button>
+        <button class="btn btn-outline" type="button" id="rp-author-btn">Open the writer</button>
+        <button class="btn btn-outline" type="button" id="rp-close">Close</button>
       </div>
     </div>
   </dialog>
@@ -406,14 +541,16 @@
     </div>
   </dialog>
 
-  <!-- One trade (read-only) -->
+  <!-- One trade -->
   <dialog class="review" id="trade-dialog" aria-labelledby="td-title">
     <div class="review-head">
       <h2 id="td-title">Trade</h2>
       <p id="td-sub"></p>
     </div>
     <div class="review-body">
-      <p class="readonly">You are watching this trade. Only the buyer and the seller can pay, deliver, or confirm. Disputes are the only thing an admin decides.</p>
+      <p class="readonly">Only the buyer and the seller move a trade forward. You step in when a payment is held and one of them is suspended or banned (you can refund the buyer), and you decide disputes.</p>
+
+      <p class="warn" id="td-warn" style="margin:0 0 1rem" hidden></p>
 
       <dl class="meta">
         <div><dt>Buyer</dt><dd id="td-buyer"></dd></div>
@@ -428,6 +565,16 @@
 
       <div id="td-dispute" hidden>
         <p class="warn">This trade has a dispute. <button type="button" class="link-btn" id="td-dispute-btn">Open the dispute</button></p>
+      </div>
+
+      <!-- Refund without a dispute (the payment is held) -->
+      <div class="decision" id="td-refund" hidden>
+        <label for="td-refund-note"><b>Refund the buyer</b> (the note is shown to both people)</label>
+        <textarea id="td-refund-note" rows="2" maxlength="300" placeholder="Example: the seller account was banned."></textarea>
+        <p class="form-error" id="td-refund-error" role="alert" hidden></p>
+        <div class="decide">
+          <button class="btn btn-danger" type="button" id="td-refund-btn">Refund the buyer in full</button>
+        </div>
       </div>
 
       <h3>What happened</h3>
@@ -470,6 +617,7 @@
       <div class="decision" id="ud-control" hidden>
         <label for="ud-note"><b>Note</b> (needed to suspend or ban)</label>
         <textarea id="ud-note" rows="2" maxlength="500" placeholder="Why are you changing this account?"></textarea>
+        <p class="hint" style="margin-top:.5rem"><b>Suspend:</b> the person can still sign in, but can only use Support (to appeal). <b>Ban:</b> the person cannot sign in.</p>
         <p class="warn" id="ud-warn" hidden></p>
         <p class="form-error" id="ud-error" role="alert" hidden></p>
         <div class="decide">
@@ -484,11 +632,16 @@
       <ul class="mini-list" id="ud-trades"></ul>
       <p class="hint" id="ud-trades-none" hidden>No trades yet.</p>
 
+      <h3>Reviews about this user <small style="font-weight:400">(only admins see who wrote them)</small></h3>
+      <ul class="mini-list" id="ud-reviews"></ul>
+      <p class="hint" id="ud-reviews-none" hidden>No reviews yet.</p>
+
       <h3>What this user did</h3>
       <ul class="timeline" id="ud-activity"></ul>
       <p class="hint" id="ud-activity-none" hidden>Nothing was recorded yet. New activity is recorded from now on.</p>
 
       <div class="decide">
+        <button class="btn btn-primary" type="button" id="ud-message">Message this user</button>
         <button class="btn btn-outline" type="button" id="ud-close">Close</button>
       </div>
     </div>
@@ -505,8 +658,14 @@
 
     const $ = id => document.getElementById(id);
     const peso = n => ST.pesoShort(Number(n));
-    const methodNames = { gcash: 'GCash', maya: 'Maya', card: 'Card' };
+    const methodNames = { gcash: 'GCash' };
 
+    function el(tag, cls, text) {
+      const e = document.createElement(tag);
+      if (cls) e.className = cls;
+      if (text !== undefined) e.textContent = text;
+      return e;
+    }
     function row(values) {
       const tr = el('tr');
       values.forEach(v => {
@@ -517,8 +676,12 @@
       return tr;
     }
     function setText(id, value) { $(id).textContent = value; }
+    function setMessage(id, msg) { $(id).textContent = msg; $(id).hidden = !msg; }
     function fmtDate(iso) {
       return new Date(iso).toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' });
+    }
+    function fmtTime(iso) {
+      return new Date(iso).toLocaleString('en-PH', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
     }
     // "5 min", "3 hr", "2 days"
     function duration(ms) {
@@ -535,8 +698,24 @@
       if (!u.last_seen) return 'Never';
       return duration(Date.now() - new Date(u.last_seen).getTime()) + ' ago';
     }
+    // A short one-line version of a longer text
+    function short(text, n) {
+      const t = String(text || '').replace(/\s+/g, ' ').trim();
+      return t.length > n ? t.slice(0, n - 1) + '…' : t;
+    }
+    function statusLabel(s) {
+      return s === 'active' ? 'Active' : (s === 'banned' ? 'Banned' : 'Suspended');
+    }
     function anyDialogOpen() {
-      return $('review').open || $('trade-dialog').open || $('user-dialog').open || $('verif-dialog').open;
+      return ['review', 'trade-dialog', 'user-dialog', 'verif-dialog', 'chat-dialog', 'report-dialog']
+        .some(id => $(id).open);
+    }
+    function netError(err) {
+      return err instanceof TypeError ? 'Cannot reach the server. Is the backend running?' : err.message;
+    }
+    // Open a dialog only if it is not open already
+    function openDialog(id) {
+      if (!$(id).open) $(id).showModal();
     }
 
     // ---------- Labels ----------
@@ -573,6 +752,12 @@
       if (status === 'approved') return el('span', 'badge badge-released', 'Approved');
       if (status === 'rejected') return el('span', 'badge badge-flag', 'Rejected');
       return el('span', 'badge badge-held', 'Waiting');
+    }
+    function reportBadge(r) {
+      if (r.deleted_at) return el('span', 'badge badge-flag', 'Review deleted');
+      if (r.status === 'resolved') return el('span', 'badge badge-released', 'Resolved');
+      if (r.status === 'dismissed') return el('span', 'badge badge-pending', 'Dismissed');
+      return el('span', 'badge badge-held', 'Open');
     }
 
     const OUTCOME_LABELS = {
@@ -613,6 +798,12 @@
       if (a.action === 'auto_released') return 'The payment was released automatically';
       if (a.action === 'request_expired') return 'The request expired: ' + (a.detail || 'nobody answered');
       if (a.action === 'dispute_resolved') return (showWho ? who + ' decided: ' : 'Admin decided: ') + (a.detail || '');
+      if (a.action === 'admin_refund') return (showWho ? who : 'Admin') + ' refunded the buyer in full: ' + (a.detail || '');
+      if (a.action === 'review_deleted') {
+        return showWho
+          ? 'A review written by ' + who + ' was deleted ' + (a.detail || '')
+          : 'A review they wrote was deleted ' + (a.detail || '');
+      }
       const text = describe(a);
       return showWho ? who + ' ' + text : text.charAt(0).toUpperCase() + text.slice(1);
     }
@@ -637,14 +828,24 @@
     let disputeTab = 'needs';
     const blobUrls = [];
 
+    function navCount(id, n) {
+      const e = $(id);
+      e.hidden = !n;
+      e.textContent = n;
+    }
+
     function renderOverview(o) {
       setText('open-count', o.open_disputes);
       setText('held', peso(o.held));
       setText('month', o.trades_month);
       setText('fees', peso(o.fees));
-      const nav = $('nav-verif-count');
-      nav.hidden = !o.pending_verifications;
-      nav.textContent = o.pending_verifications;
+      setText('st-verif', o.pending_verifications);
+      setText('st-msgs', o.unread_support);
+      setText('st-reports', o.open_reports);
+      setText('st-needs', o.needs_admin_trades);
+      navCount('nav-verif-count', o.pending_verifications);
+      navCount('nav-msg-count', o.unread_support);
+      navCount('nav-report-count', o.open_reports);
     }
 
     // ---------- Verification requests ----------
@@ -671,6 +872,69 @@
 
     async function loadVerifications() {
       renderVerifications(await apiFetch('/admin/verifications?status=' + encodeURIComponent($('v-status').value)));
+    }
+
+    // ---------- Support messages ----------
+    function renderSupport(list) {
+      const body = $('m-rows');
+      body.innerHTML = '';
+      list.forEach(c => {
+        const text = el('span');
+        text.append('@' + c.username);
+        if (c.unread) text.appendChild(el('span', 'chip', c.unread + ' new'));
+        const name = el('div', 'who-cell');
+        name.append(makeAvatar(c.username, c.avatar_file, 32), text);
+
+        const btn = el('button', 'link-btn', 'Open');
+        btn.type = 'button';
+        btn.addEventListener('click', () => openChat(c.user_id));
+
+        body.appendChild(row([
+          name,
+          accountBadge(c.account_status),
+          (c.last_from_admin ? 'Admin: ' : '') + short(c.last_content, 80),
+          fmtTime(c.last_at),
+          btn
+        ]));
+      });
+      $('m-empty').hidden = list.length > 0;
+    }
+
+    async function loadSupport() {
+      renderSupport(await apiFetch('/admin/support'));
+    }
+
+    // ---------- Reported reviews ----------
+    let allReports = [];
+
+    function renderReports(list) {
+      const body = $('r-rows');
+      body.innerHTML = '';
+      list.forEach(r => {
+        const btn = el('button', 'link-btn', r.status === 'open' && !r.deleted_at ? 'Review' : 'View');
+        btn.type = 'button';
+        btn.addEventListener('click', () => openReport(r));
+
+        const status = el('span');
+        status.appendChild(reportBadge(r));
+
+        body.appendChild(row([
+          '★ ' + r.score + (r.feedback ? ' ' + short(r.feedback, 50) : ''),
+          '@' + r.subject_username,
+          '@' + r.author_username,
+          '@' + r.reporter_username,
+          short(r.reason, 50) || '–',
+          fmtTime(r.created_at),
+          status,
+          btn
+        ]));
+      });
+      $('r-empty').hidden = list.length > 0;
+    }
+
+    async function loadReports() {
+      allReports = await apiFetch('/admin/reports?status=' + encodeURIComponent($('r-status').value));
+      renderReports(allReports);
     }
 
     // ---------- The dispute list: tabs, search, waiting time ----------
@@ -736,8 +1000,9 @@
         const btn = el('button', 'link-btn', 'Open');
         btn.type = 'button';
         btn.addEventListener('click', () => openTrade(t.transaction_id));
-        const status = el('span');
+        const status = el('div');
         status.appendChild(tradeBadge(t.status));
+        if (t.needs_admin) status.appendChild(el('span', 'reply-tag none', 'Needs your decision'));
         body.appendChild(row([
           '#' + t.transaction_id, t.item_description, '@' + t.buyer_username, '@' + t.seller_username,
           peso(t.amount), status, fmtDate(t.created_at), btn
@@ -773,14 +1038,19 @@
     }
 
     async function loadTrades() {
-      const q = '?status=' + encodeURIComponent($('t-status').value) + '&search=' + encodeURIComponent($('t-search').value.trim());
-      renderTrades(await apiFetch('/admin/transactions' + q));
+      const choice = $('t-status').value;
+      const needs = choice === 'needs_admin';
+      const q = '?status=' + encodeURIComponent(needs ? 'process' : choice) + '&search=' + encodeURIComponent($('t-search').value.trim());
+      let list = await apiFetch('/admin/transactions' + q);
+      if (needs) list = list.filter(t => t.needs_admin);
+      renderTrades(list);
     }
     async function loadUsers() {
       const q = '?status=' + encodeURIComponent($('u-status').value) + '&search=' + encodeURIComponent($('u-search').value.trim());
       renderUsers(await apiFetch('/admin/users' + q));
     }
 
+    let scrolledToHash = false;
     async function load() {
       try {
         const [overview, disputes] = await Promise.all([apiFetch('/admin/overview'), apiFetch('/admin/disputes')]);
@@ -789,7 +1059,16 @@
         renderOverview(overview);
         allDisputes = disputes;
         renderDisputes();
-        await Promise.all([loadVerifications(), loadTrades(), loadUsers()]);
+        await Promise.all([loadVerifications(), loadSupport(), loadReports(), loadTrades(), loadUsers()]);
+
+        // Opened from a link such as admin-dashboard.html#messages
+        if (!scrolledToHash) {
+          scrolledToHash = true;
+          if (location.hash) {
+            const target = document.getElementById(location.hash.slice(1));
+            if (target) target.scrollIntoView();
+          }
+        }
       } catch (err) {
         showError(err);
       }
@@ -802,10 +1081,17 @@
       filterTimer = setTimeout(() => fn().catch(showError), 250);
     }
     $('v-status').addEventListener('change', () => onFilter(loadVerifications));
+    $('r-status').addEventListener('change', () => onFilter(loadReports));
     $('t-search').addEventListener('input', () => onFilter(loadTrades));
     $('t-status').addEventListener('change', () => onFilter(loadTrades));
     $('u-search').addEventListener('input', () => onFilter(loadUsers));
     $('u-status').addEventListener('change', () => onFilter(loadUsers));
+
+    // The "Trades needing your decision" number opens that filter
+    $('st-needs').closest('a').addEventListener('click', () => {
+      $('t-status').value = 'needs_admin';
+      onFilter(loadTrades);
+    });
 
     // ---------- Shared pieces ----------
     function addThumbs(listEl, items) {
@@ -858,6 +1144,182 @@
       $(noneId).hidden = items.length > 0;
       list.hidden = items.length === 0;
     }
+
+    // ---------- Support chat with one user ----------
+    let chatUser = null;
+    let chatSig = '';
+
+    function drawChat(messages) {
+      const sig = messages.map(m => m.message_id).join('|');
+      if (sig === chatSig) return;
+      chatSig = sig;
+      const log = $('cd-log');
+      log.innerHTML = '';
+      messages.forEach(m => {
+        const li = el('li', m.from_admin ? 'admin' : '');
+        li.appendChild(el('small', '', (m.from_admin ? 'Admin' : '@' + chatUser.username) + ' · ' + fmtTime(m.sent_at)));
+        li.appendChild(document.createTextNode(m.content));
+        log.appendChild(li);
+      });
+      $('cd-none').hidden = messages.length > 0;
+      log.hidden = messages.length === 0;
+      log.scrollTop = log.scrollHeight;
+    }
+
+    async function openChat(userId) {
+      let d;
+      try {
+        d = await apiFetch('/admin/support/' + userId);
+      } catch (err) {
+        showError(err);
+        return;
+      }
+      chatUser = d.user;
+      chatSig = '';
+      $('cd-avatar').replaceChildren(makeAvatar(d.user.username, d.user.avatar_file, 48));
+      setText('cd-title', '@' + d.user.username);
+      setText('cd-sub', 'Account: ' + statusLabel(d.user.account_status));
+
+      const warn = $('cd-warn');
+      if (d.user.account_status === 'suspended') {
+        warn.textContent = 'This account is suspended. The person can only use Support, so this is where they can appeal.';
+        warn.hidden = false;
+      } else if (d.user.account_status === 'banned') {
+        warn.textContent = 'This account is banned. The person cannot sign in, so they cannot read your messages.';
+        warn.hidden = false;
+      } else {
+        warn.hidden = true;
+      }
+
+      $('cd-input').value = '';
+      setMessage('cd-error', '');
+      drawChat(d.messages);
+      openDialog('chat-dialog');
+      $('cd-input').focus();
+
+      // Opening the chat marks the user's messages as read, so the numbers change
+      load();
+    }
+
+    async function refreshChat() {
+      if (!chatUser) return;
+      try {
+        const d = await apiFetch('/admin/support/' + chatUser.user_id);
+        drawChat(d.messages);
+      } catch (err) { /* try again next time */ }
+    }
+
+    $('cd-form').addEventListener('submit', async e => {
+      e.preventDefault();
+      if (!chatUser) return;
+      setMessage('cd-error', '');
+      const content = $('cd-input').value.trim();
+      if (!content) return;
+      $('cd-send').disabled = true;
+      try {
+        await apiFetch('/admin/support/' + chatUser.user_id, { method: 'POST', body: JSON.stringify({ content }) });
+        $('cd-input').value = '';
+        await refreshChat();
+        loadSupport().catch(() => {});
+      } catch (err) {
+        setMessage('cd-error', netError(err));
+      }
+      $('cd-send').disabled = false;
+    });
+    $('cd-input').addEventListener('keydown', e => {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        $('cd-form').requestSubmit();
+      }
+    });
+    $('cd-user').addEventListener('click', () => {
+      if (!chatUser) return;
+      const id = chatUser.user_id;
+      $('chat-dialog').close();
+      openUser(id);
+    });
+    $('cd-close').addEventListener('click', () => $('chat-dialog').close());
+    $('chat-dialog').addEventListener('close', () => { chatUser = null; load(); });
+
+    // New messages appear while the chat is open
+    setInterval(() => { if ($('chat-dialog').open && !document.hidden) refreshChat(); }, 5000);
+
+    // ---------- Reported review ----------
+    let currentReport = null;
+
+    function openReport(r) {
+      currentReport = r;
+      setText('rp-sub', 'About @' + r.subject_username + ' · trade #' + r.transaction_id);
+      setText('rp-score', '★ ' + r.score);
+      setText('rp-subject', '@' + r.subject_username);
+      setText('rp-author', '@' + r.author_username);
+      setText('rp-reporter', '@' + r.reporter_username);
+      setText('rp-written', fmtTime(r.rated_at));
+      setText('rp-reported', fmtTime(r.created_at));
+      setText('rp-comment', r.feedback || '(no comment, only stars)');
+      setText('rp-reason', r.reason || '(no reason was given)');
+
+      const open = r.status === 'open' && !r.deleted_at;
+      $('rp-decision').hidden = !open;
+      $('rp-delete').hidden = !open;
+      $('rp-dismiss').hidden = !open;
+      $('rp-closed').hidden = open;
+      if (!open) {
+        setText('rp-closed-text', r.deleted_at
+          ? 'This review was deleted. It no longer shows on the profile or in the average.'
+          : (r.status === 'dismissed' ? 'This report was dismissed. The review stays.' : 'This report is closed.'));
+      }
+      $('rp-note').value = '';
+      setMessage('rp-error', '');
+      $('rp-delete').disabled = false;
+      $('rp-dismiss').disabled = false;
+      openDialog('report-dialog');
+    }
+
+    $('rp-delete').addEventListener('click', async () => {
+      if (!currentReport) return;
+      setMessage('rp-error', '');
+      const note = $('rp-note').value.trim();
+      if (note.length < 5) { setMessage('rp-error', 'Write a short note that explains why.'); return; }
+      if (!window.confirm('Delete this review? It stops counting in the average and cannot be restored.')) return;
+      $('rp-delete').disabled = true;
+      $('rp-dismiss').disabled = true;
+      try {
+        await apiFetch('/admin/reviews/' + currentReport.review_ref + '/delete', { method: 'POST', body: JSON.stringify({ note }) });
+        $('report-dialog').close();
+        currentReport = null;
+        await load();
+      } catch (err) {
+        setMessage('rp-error', netError(err));
+        $('rp-delete').disabled = false;
+        $('rp-dismiss').disabled = false;
+      }
+    });
+
+    $('rp-dismiss').addEventListener('click', async () => {
+      if (!currentReport) return;
+      setMessage('rp-error', '');
+      $('rp-delete').disabled = true;
+      $('rp-dismiss').disabled = true;
+      try {
+        await apiFetch('/admin/reports/' + currentReport.report_id + '/dismiss', { method: 'POST', body: JSON.stringify({}) });
+        $('report-dialog').close();
+        currentReport = null;
+        await load();
+      } catch (err) {
+        setMessage('rp-error', netError(err));
+        $('rp-delete').disabled = false;
+        $('rp-dismiss').disabled = false;
+      }
+    });
+
+    $('rp-author-btn').addEventListener('click', () => {
+      if (!currentReport) return;
+      const id = currentReport.author_id;
+      $('report-dialog').close();
+      openUser(id);
+    });
+    $('rp-close').addEventListener('click', () => $('report-dialog').close());
 
     // ---------- Verification review ----------
     let currentVerif = null;
@@ -924,8 +1386,12 @@
           ? 'Approved ' + fmtTime(v.decided_at) + '. The pictures were deleted.'
           : 'Rejected ' + fmtTime(v.decided_at) + '. Reason: ' + (v.reject_reason || '–') + ' The pictures were deleted.');
       }
-      $('verif-dialog').showModal();
+      openDialog('verif-dialog');
     }
+
+    $('vd-under18').addEventListener('click', () => {
+      $('vd-reason').value = 'The ID shows that you are under 18. SecureTrade is for users 18 and older.';
+    });
 
     async function decideVerification(decision) {
       if (!currentVerif) return;
@@ -936,7 +1402,7 @@
         return;
       }
       const question = decision === 'approve'
-        ? 'Approve @' + currentVerif.username + '? Their full name becomes "' + currentVerif.typed_name + '" and the pictures are deleted.'
+        ? 'Approve @' + currentVerif.username + '? You confirm the ID shows they are 18 or older. Their name becomes "' + currentVerif.typed_name + '" and the pictures are deleted.'
         : 'Reject @' + currentVerif.username + '? The pictures are deleted.';
       if (!window.confirm(question)) return;
 
@@ -1107,7 +1573,7 @@
         ? 'Paid with ' + (methodNames[d.payment.method] || d.payment.method) + (d.payment.payer_masked ? ' ' + d.payment.payer_masked : '') + ' · ' + d.payment.status
         : 'Has not paid yet';
       const payout = d.payout_method
-        ? 'Payout account: ' + methodNames[d.payout_method] + ' ' + d.payout_masked
+        ? 'Payout account: ' + (methodNames[d.payout_method] || d.payout_method) + ' ' + d.payout_masked
         : 'Payout account: not given yet (not delivered)';
       renderParty($('rv-buyer-card'), 'Buyer', d.buyer, d, paidWith);
       renderParty($('rv-seller-card'), 'Seller', d.seller, d, payout);
@@ -1130,7 +1596,7 @@
           hint.textContent = 'Paying the seller is not possible yet: the seller has not said where to receive the money (the item was not marked as delivered). You can refund the buyer.';
         }
       }
-      $('review').showModal();
+      openDialog('review');
     }
 
     async function decide(decision) {
@@ -1168,8 +1634,9 @@
     $('rv-close').addEventListener('click', () => $('review').close());
     $('rv-close2').addEventListener('click', () => $('review').close());
 
-    // ---------- One trade (read-only) ----------
+    // ---------- One trade ----------
     let openTradeDisputeId = null;
+    let currentTrade = null;
 
     async function openTrade(id) {
       let t;
@@ -1179,24 +1646,64 @@
         showError(err);
         return;
       }
+      currentTrade = t;
       setText('td-title', 'Trade #' + t.transaction_id);
       setText('td-sub', t.item_description);
-      setText('td-buyer', '@' + t.buyer_username);
-      setText('td-seller', '@' + t.seller_username);
+      setText('td-buyer', '@' + t.buyer_username + (t.buyer_status !== 'active' ? ' (' + statusLabel(t.buyer_status).toLowerCase() + ')' : ''));
+      setText('td-seller', '@' + t.seller_username + (t.seller_status !== 'active' ? ' (' + statusLabel(t.seller_status).toLowerCase() + ')' : ''));
       setText('td-amount', peso(t.amount) + ' (fee ' + peso(t.service_fee) + ')');
       setText('td-status', (TRADE_STATUS[t.status] || [0, t.status])[1]);
       setText('td-paid', t.payment ? (methodNames[t.payment.method] || t.payment.method) + (t.payment.payer_masked ? ' ' + t.payment.payer_masked : '') + ' · ' + t.payment.status : 'Not paid yet');
-      setText('td-payout', t.payout_method ? methodNames[t.payout_method] + ' ' + t.payout_masked : 'Not given yet');
+      setText('td-payout', t.payout_method ? (methodNames[t.payout_method] || t.payout_method) + ' ' + t.payout_masked : 'Not given yet');
       setText('td-started', fmtTime(t.created_at));
       setText('td-receipt', t.receipt_number || '–');
+
+      // A person is suspended or banned while the payment is held
+      const warn = $('td-warn');
+      const who = [];
+      if (t.buyer_status !== 'active') who.push('@' + t.buyer_username + ' (the buyer) is ' + t.buyer_status);
+      if (t.seller_status !== 'active') who.push('@' + t.seller_username + ' (the seller) is ' + t.seller_status);
+      if (who.length) {
+        warn.textContent = who.join(' and ') + '.' + (t.needs_admin
+          ? ' The payment stays held and it is not released automatically. An admin has to decide this trade.'
+          : '');
+        warn.hidden = false;
+      } else {
+        warn.hidden = true;
+      }
 
       openTradeDisputeId = t.dispute ? t.dispute.dispute_id : null;
       $('td-dispute').hidden = !t.dispute;
 
+      // Refund the buyer without a dispute
+      $('td-refund').hidden = !t.can_refund;
+      $('td-refund-note').value = '';
+      setMessage('td-refund-error', '');
+      $('td-refund-btn').disabled = false;
+
       fillTimeline('td-timeline', 'td-timeline-none', t.activity, true);
       fillChat('td-chat', 'td-chat-none', t.messages);
-      $('trade-dialog').showModal();
+      openDialog('trade-dialog');
     }
+
+    $('td-refund-btn').addEventListener('click', async () => {
+      if (!currentTrade) return;
+      setMessage('td-refund-error', '');
+      const note = $('td-refund-note').value.trim();
+      if (note.length < 5) { setMessage('td-refund-error', 'Write a short note that explains why.'); return; }
+      if (!window.confirm('Refund ' + peso(currentTrade.amount) + ' to @' + currentTrade.buyer_username + '? This cannot be undone.')) return;
+
+      $('td-refund-btn').disabled = true;
+      try {
+        await apiFetch('/admin/transactions/' + currentTrade.transaction_id + '/refund', { method: 'POST', body: JSON.stringify({ note }) });
+        $('trade-dialog').close();
+        currentTrade = null;
+        await load();
+      } catch (err) {
+        setMessage('td-refund-error', netError(err));
+        $('td-refund-btn').disabled = false;
+      }
+    });
 
     $('td-dispute-btn').addEventListener('click', () => {
       const id = openTradeDisputeId;
@@ -1207,6 +1714,40 @@
 
     // ---------- One user ----------
     let currentUser = null;
+
+    function fillReviews(list) {
+      const ul = $('ud-reviews');
+      ul.innerHTML = '';
+      list.forEach(r => {
+        const li = el('li');
+        li.append('★ ' + r.score + ' from ');
+        li.appendChild(el('b', '', '@' + r.author_username));
+        li.appendChild(el('small', '', 'trade #' + r.transaction_id + ' · ' + fmtDate(r.rated_at)));
+        if (r.feedback) li.appendChild(el('div', 'quote', r.feedback));
+
+        const del = el('button', 'link-btn', 'Delete this review');
+        del.type = 'button';
+        del.style.cssText = 'font-size:.85rem;display:block;margin-top:.2rem';
+        del.addEventListener('click', async () => {
+          const note = window.prompt('Why is this review being deleted? (at least 5 characters, saved in the log)');
+          if (note === null) return;
+          if (note.trim().length < 5) { window.alert('Write a short note that explains why.'); return; }
+          del.disabled = true;
+          try {
+            await apiFetch('/admin/reviews/' + r.review_ref + '/delete', { method: 'POST', body: JSON.stringify({ note: note.trim() }) });
+            await openUser(currentUser.user_id);
+            load();
+          } catch (err) {
+            window.alert(netError(err));
+            del.disabled = false;
+          }
+        });
+        li.appendChild(del);
+        ul.appendChild(li);
+      });
+      $('ud-reviews-none').hidden = list.length > 0;
+      ul.hidden = list.length === 0;
+    }
 
     async function openUser(id) {
       let u;
@@ -1222,7 +1763,7 @@
       setText('ud-title', '@' + u.username);
       setText('ud-sub', u.full_name + ' · ' + u.email);
       setText('ud-role', u.role === 'admin' ? 'Admin' : 'Member');
-      setText('ud-status', u.account_status === 'active' ? 'Active' : (u.account_status === 'banned' ? 'Banned' : 'Suspended'));
+      setText('ud-status', statusLabel(u.account_status));
       setText('ud-verified', u.role === 'admin' ? 'Admin' : (u.verified ? 'Verified' + (u.verified_at ? ' on ' + fmtDate(u.verified_at) : '') : 'Not verified'));
       setText('ud-joined', fmtDate(u.created_at));
       setText('ud-seen', seenText(u));
@@ -1245,9 +1786,12 @@
         const warn = $('ud-warn');
         warn.hidden = u.active_trades === 0;
         if (u.active_trades > 0) {
-          warn.textContent = 'This user has ' + u.active_trades + ' trade(s) on process. Those trades stay as they are. If something goes wrong, the partner can open a dispute and you decide it.';
+          warn.textContent = 'This user has ' + u.active_trades + ' trade(s) on process. Those trades stay as they are. A payment that is held is not released automatically while the user is suspended or banned. Open the trade to refund the buyer, or decide the dispute.';
         }
       }
+
+      // Messages
+      $('ud-message').hidden = u.role === 'admin';
 
       // Their trades
       const list = $('ud-trades');
@@ -1265,8 +1809,9 @@
       $('ud-trades-none').hidden = u.trades.length > 0;
       list.hidden = u.trades.length === 0;
 
+      fillReviews(u.reviews || []);
       fillTimeline('ud-activity', 'ud-activity-none', u.activity, false);
-      $('user-dialog').showModal();
+      openDialog('user-dialog');
     }
 
     async function changeStatus(status) {
@@ -1298,6 +1843,12 @@
     $('ud-suspend').addEventListener('click', () => changeStatus('suspended'));
     $('ud-ban').addEventListener('click', () => changeStatus('banned'));
     $('ud-activate').addEventListener('click', () => changeStatus('active'));
+    $('ud-message').addEventListener('click', () => {
+      if (!currentUser) return;
+      const id = currentUser.user_id;
+      $('user-dialog').close();
+      openChat(id);
+    });
     $('ud-close').addEventListener('click', () => $('user-dialog').close());
 
     // ---------- Start ----------

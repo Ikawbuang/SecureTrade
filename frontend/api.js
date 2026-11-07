@@ -18,8 +18,33 @@ function saveUser(patch) {
   return user;
 }
 
-// Sign out. The reason (if any) is shown on the login page.
-function logout(reason) {
+function onSupportPage() {
+  return location.pathname.split('/').pop() === 'support.html';
+}
+
+// A suspended account can only use the Support page
+function goToSupport() {
+  saveUser({ account_status: 'suspended' });
+  if (!onSupportPage()) window.location.href = 'support.html';
+}
+
+// Sign out. If no reason is given, the person chose to sign out, so the server also clears
+// this device's session (the next login on any device will not get the "already logged in" warning).
+// If a reason is given (idle, another device, suspended), the page goes back to login and shows it.
+async function logout(reason) {
+  const token = getToken();
+  if (token && !reason) {
+    try {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 2000);
+      await fetch(API + '/logout', {
+        method: 'POST',
+        headers: { Authorization: 'Bearer ' + token },
+        signal: controller.signal
+      });
+      clearTimeout(timer);
+    } catch (err) { /* the server session ends by itself when the account goes idle */ }
+  }
   localStorage.removeItem('st_token');
   localStorage.removeItem('st_user');
   localStorage.removeItem(ACTIVE_KEY);
@@ -28,8 +53,23 @@ function logout(reason) {
   window.location.href = 'login.html';
 }
 
-// Call the backend with the login token. If the server says we are signed out
-// (another device, idle, suspended), go back to login and show why.
+// Read the server's answer. If we are signed out (another device, idle), go back to login and show why.
+// If the account is suspended, go to Support.
+async function readReply(res) {
+  const data = await res.json().catch(() => ({}));
+  if (res.status === 401) {
+    logout(data.message);
+    throw new Error(data.message || 'Please log in again.');
+  }
+  if (res.status === 403 && data.code === 'SUSPENDED') {
+    goToSupport();
+    throw new Error(data.message || 'Your account is suspended.');
+  }
+  if (!res.ok) throw new Error(data.message || 'Something went wrong. Please try again.');
+  return data;
+}
+
+// Call the backend with the login token
 async function apiFetch(path, options = {}) {
   const token = getToken();
   if (!token) { window.location.href = 'login.html'; throw new Error('Not logged in'); }
@@ -42,16 +82,7 @@ async function apiFetch(path, options = {}) {
       ...(options.headers || {})
     }
   });
-
-  if (res.status === 401) {
-    const data = await res.json().catch(() => ({}));
-    logout(data.message);
-    throw new Error(data.message || 'Please log in again.');
-  }
-
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(data.message || 'Something went wrong. Please try again.');
-  return data;
+  return readReply(res);
 }
 
 // Send a file (FormData) to the backend with the login token
@@ -64,16 +95,7 @@ async function apiUpload(path, formData, method) {
     headers: { Authorization: 'Bearer ' + token },
     body: formData
   });
-
-  if (res.status === 401) {
-    const data = await res.json().catch(() => ({}));
-    logout(data.message);
-    throw new Error(data.message || 'Please log in again.');
-  }
-
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(data.message || 'Something went wrong. Please try again.');
-  return data;
+  return readReply(res);
 }
 
 // Fetch a private picture (it needs the login token) and give back a link the page can show
@@ -221,6 +243,14 @@ function startIdleWatch() {
     }
   }, 15000);
 }
+
+// A suspended account can only use Support, so every other page sends it there
+(function () {
+  const u = getUser();
+  if (getToken() && u && u.account_status === 'suspended' && !onSupportPage()) {
+    window.location.replace('support.html');
+  }
+})();
 
 startHeartbeat();
 startIdleWatch();
