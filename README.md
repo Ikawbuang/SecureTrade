@@ -216,17 +216,17 @@ Features were prioritized into must have, should have and future work, using the
 
 Low-fidelity wireframes were made first, then the pages were coded in HTML, CSS and JavaScript.
 
-| Screen | File | Wireframe | Screenshot |
-|---|---|---|---|
-| Sign in / Create account | `login.html` | <img src=".//frontend/wireframes/01-login.png" width="320" alt="Login wireframe"> | <img src=".//frontend/screenshots/01-login.png" width="320" alt="Login screenshot"> |
-| Dashboard | `dashboard.html` | <img src=".//frontend/wireframes/02-dashboard.png" width="320" alt="Dashboard wireframe"> | <img src=".//frontend/screenshots/02-dashboard.png" width="320" alt="Dashboard screenshot"> |
-| New trade (now a popup on the dashboard) | ~~`create-transaction.html`~~ | <img src=".//frontend/wireframes/03-new-trade.png" width="320" alt="New trade wireframe"> | <img src=".//frontend/screenshots/03-new-trade.png" width="320" alt="New trade screenshot"> |
-| Trade details | `transaction.html` | <img src=".//frontend/wireframes/04-trade-details.png" width="320" alt="Trade details wireframe"> | <img src=".//frontend/screenshots/04-trade-details.png" width="320" alt="Trade details screenshot"> |
-| Report a problem | `dispute.html` | <img src=".//frontend/wireframes/05-dispute.png" width="320" alt="Dispute wireframe"> | <img src=".//frontend/screenshots/image.png" width="320" alt="Dispute screenshot"> |
-| History and receipt | `history.html` | <img src=".//frontend/wireframes/06-history.png" width="320" alt="History wireframe"> | <img src=".//frontend/screenshots/06-history.png" width="320" alt="History screenshot"> |
-| Admin | `admin-dashboard.html` | <img src=".//frontend/wireframes/07-admin.png" width="320" alt="Admin wireframe"> | <img src=".//frontend/screenshots/07-admin.png" width="320" alt="Admin screenshot"> |
+| Screen | File |
+|---|---|
+| Sign in / Create account | `login.html` |
+| Dashboard | `dashboard.html` |
+| New trade (now a popup on the dashboard) | ~~`create-transaction.html`~~ |
+| Trade details | `transaction.html` |
+| Report a problem | `dispute.html` |
+| History and receipt | `history.html` |
+| Admin | `admin-dashboard.html` |
 
-Pages added after the first prototype (no wireframe yet): `profile.html` (profile, identity verification, my reviews) and `support.html` (chat with the admins).
+Pages added after the first prototype: `profile.html` (profile, identity verification, my reviews) and `support.html` (chat with the admins).
 
 **Design choices**
 
@@ -282,9 +282,7 @@ SecureTrade/
 │   ├── support.html
 │   ├── admin-dashboard.html
 │   ├── css/            (global.css, style.css)
-│   ├── js/             (data.js, api.js, nav-badge.js, and one file per page)
-│   ├── wireframes/
-│   └── screenshots/
+│   └── js/             (data.js, api.js, nav-badge.js, and one file per page)
 ├── backend/
 │   ├── server.js
 │   ├── package.json
