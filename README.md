@@ -97,7 +97,7 @@ Browser (HTML, CSS, JS)  ──►  Express REST API (backend/server.js)  ──
 
    Check `http://localhost:3000/api/health`. It should answer `{"status":"ok", ...}`.
 
-4. **Frontend:** open `frontend/login.html` in a browser (or use a local web server such as Live Server). The API address is `http://localhost:3000/api` (in `data.js`).
+4. **Frontend:** open `frontend/login.html` in a browser (or use a local web server such as Live Server). The API address is `http://localhost:3000/api` (in `js/data.js`).
 
 5. **First admin:** sign up normally, then in Supabase run:
 
@@ -279,11 +279,8 @@ SecureTrade/
 │   ├── dispute.html
 │   ├── support.html
 │   ├── admin-dashboard.html
-│   ├── api.js
-│   ├── nav-badge.js
-│   ├── data.js
-│   ├── global.css
-│   ├── style.css
+│   ├── css/            (global.css, style.css)
+│   ├── js/             (data.js, api.js, nav-badge.js, and one file per page)
 │   ├── wireframes/
 │   └── screenshots/
 ├── backend/

@@ -2,7 +2,7 @@
    data.js – shared names, settings, and small helpers.
    Edit a name here and every page updates.
    Load this file before each page's own script:
-     <script src="data.js"></script>
+     <script src="js/data.js"></script>
    The real data (users, trades, messages) comes from the database.
    ========================================================== */
 
