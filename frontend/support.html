@@ -8,38 +8,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=Figtree:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="global.css">
-  <style>
-    /* Page-specific styles (style.css stays unchanged) */
-    [hidden] { display: none !important; }
-    .sidebar .brand { display: block; margin-bottom: 2rem; padding-left: .85rem; }
-    .sidebar .spacer { margin-top: 2rem; padding-top: 1rem; border-top: 1px solid var(--ink-3); }
-
-    .page-head { margin-bottom: 1.5rem; }
-    .page-head h1 { margin: 0; font-size: 1.9rem; }
-    .page-head p { margin: .25rem 0 0; color: var(--text-soft); }
-
-    .notice-box { margin-bottom: 1.25rem; padding: .9rem 1.1rem; border-radius: var(--radius-m); border-left: 5px solid #d9534f; background: #fdecea; font-size: .95rem; }
-    .notice-box.ok { border-color: var(--teal); background: #e3f7f2; }
-    .notice-box strong { display: block; margin-bottom: .2rem; }
-    .notice-box .btn { margin-top: .6rem; }
-
-    .support-wrap { max-width: 760px; }
-    .chat { display: flex; flex-direction: column; height: 520px; }
-    .chat h2 { margin: 0 0 .25rem; }
-    .chat-note { margin: 0 0 .75rem; font-size: .85rem; color: var(--text-soft); }
-    .messages { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: .6rem; padding: .25rem .25rem 1rem; }
-    .msgrow { display: flex; align-items: flex-end; gap: .5rem; max-width: 92%; align-self: flex-start; }
-    .msgrow.me { align-self: flex-end; flex-direction: row-reverse; }
-    .msg { max-width: 100%; padding: .6rem .85rem; border-radius: var(--radius-m); background: #eceef9; font-size: .95rem; word-break: break-word; white-space: pre-wrap; }
-    .msg small { display: block; color: var(--text-soft); font-size: .75rem; margin-bottom: .1rem; }
-    .msg.me { background: var(--ink); color: var(--text-on-dark); }
-    .msg.me small { color: var(--text-on-dark-soft); }
-    .no-msgs { color: var(--text-soft); margin: auto; text-align: center; max-width: 30rem; }
-    .chat-form { display: flex; gap: .5rem; border-top: 1px solid #e6e8f5; padding-top: .85rem; }
-    .chat-form input { flex: 1; min-width: 0; padding: .65rem .85rem; font: 1rem var(--font-body); border: 2px solid #d5d8ec; border-radius: var(--radius-s); }
-    .chat-form input:focus { outline: none; border-color: var(--gold); }
-    #send-error { margin: .6rem 0 0; }
-  </style>
+  <link rel="stylesheet" href="style.css">
 </head>
 <body>
   <div class="app">
@@ -95,13 +64,8 @@
   <script src="api.js"></script>
   <script src="nav-badge.js"></script>
   <script>
-    ST.applyBrand();
+    startPage();
 
-    // Must be signed in to use this page
-    if (!getToken()) window.location.href = 'login.html';
-    document.getElementById('signout').addEventListener('click', e => { e.preventDefault(); logout(); });
-
-    const $ = id => document.getElementById(id);
     const me = getUser() || {};
 
     // Admins answer from the admin panel
@@ -141,8 +105,7 @@
       const box = $('messages');
       box.innerHTML = '';
       if (data.messages.length === 0) {
-        const p = el('p', 'no-msgs', 'No messages yet. Write to the admins and they will reply here.');
-        box.appendChild(p);
+        box.appendChild(el('p', 'no-msgs', 'No messages yet. Write to the admins and they will reply here.'));
         return;
       }
       data.messages.forEach(m => {
@@ -186,7 +149,7 @@
       if (!content) return;
       $('chat-send').disabled = true;
       try {
-        await apiFetch('/support', { method: 'POST', body: JSON.stringify({ content }) });
+        await postJson('/support', { content });
         $('chat-input').value = '';
         await load();
       } catch (err) {

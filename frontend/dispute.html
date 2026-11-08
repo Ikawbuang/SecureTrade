@@ -8,69 +8,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=Figtree:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="global.css">
-  <style>
-    /* Page-specific styles (style.css stays unchanged) */
-    [hidden] { display: none !important; }
-    .sidebar .brand { display: block; margin-bottom: 2rem; padding-left: .85rem; }
-    .sidebar .spacer { margin-top: 2rem; padding-top: 1rem; border-top: 1px solid var(--ink-3); }
-    .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
-
-    .page-head { margin-bottom: 1.75rem; }
-    .page-head h1 { margin: 0; font-size: 1.9rem; }
-    .page-head p { margin: .25rem 0 0; color: var(--text-soft); }
-
-    .layout { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr); gap: 1.5rem; align-items: start; }
-    .stack > * + * { margin-top: 1.5rem; }
-
-    /* The list of my disputes */
-    .table-wrap { overflow-x: auto; }
-    td a { font-weight: 600; }
-    .needs-reply { display: block; margin-top: .3rem; font-size: .78rem; font-weight: 600; color: #9c2a22; }
-    .empty-box { padding: 1.5rem .5rem; color: var(--text-soft); }
-    .empty-box p { margin: 0 0 .75rem; }
-
-    .trade-line { display: flex; justify-content: space-between; align-items: center; gap: 1rem; flex-wrap: wrap; padding: .9rem 1rem; background: var(--paper); border-radius: var(--radius-s); margin-bottom: 1.4rem; }
-    .trade-line strong { font-family: var(--font-display); }
-    .trade-line span { color: var(--text-soft); font-size: .9rem; }
-
-    fieldset.want { border: 0; padding: 0; margin: 0 0 1.1rem; }
-    fieldset.want legend { font-weight: 600; font-size: .9rem; margin-bottom: .5rem; padding: 0; }
-    fieldset.want label { display: flex; gap: .6rem; align-items: flex-start; padding: .7rem .85rem; border: 2px solid #d5d8ec; border-radius: var(--radius-s); margin-bottom: .5rem; cursor: pointer; }
-    fieldset.want label:has(input:checked) { border-color: var(--gold); background: #fff8e6; }
-    fieldset.want input { margin-top: .3rem; }
-    fieldset.want span { display: block; font-size: .85rem; color: var(--text-soft); }
-
-    .evidence input[type="file"] { width: 100%; padding: .7rem; border: 2px dashed #c3c7e3; border-radius: var(--radius-s); background: var(--paper); }
-    .files { list-style: none; margin: .75rem 0 0; padding: 0; font-size: .92rem; }
-    .files li { padding: .35rem 0; border-bottom: 1px solid #e6e8f5; }
-    .actions { display: flex; gap: .75rem; flex-wrap: wrap; margin-top: 1.25rem; }
-
-    .steps { margin: 0; padding-left: 1.2rem; color: var(--text-soft); font-size: .95rem; }
-    .steps li { margin-bottom: .6rem; }
-    .steps strong { color: var(--text); }
-
-    /* The dispute itself */
-    .thread-head { display: flex; justify-content: space-between; align-items: center; gap: 1rem; flex-wrap: wrap; margin-bottom: 1rem; }
-    .thread-head small { color: var(--text-soft); }
-    .facts { margin: 0 0 1.25rem; }
-    .facts .line { padding: .6rem 0; border-bottom: 1px solid #e6e8f5; }
-    .facts dt { color: var(--text-soft); font-size: .85rem; margin-bottom: .15rem; }
-    .facts dd { margin: 0; white-space: pre-wrap; word-break: break-word; }
-    .side-title { margin: 1.4rem 0 .5rem; font-size: 1.05rem; }
-    .side-title small { color: var(--text-soft); font-weight: 400; }
-    .thumbs { display: flex; flex-wrap: wrap; gap: .6rem; margin: .5rem 0 0; padding: 0; list-style: none; }
-    .thumbs button { display: block; width: 104px; height: 104px; padding: 0; border: 2px solid #d5d8ec; border-radius: var(--radius-s); background: #eceef9; overflow: hidden; cursor: pointer; }
-    .thumbs button:hover { border-color: var(--gold); }
-    .thumbs img { width: 100%; height: 100%; object-fit: cover; display: block; }
-    .reply-box { margin-top: 1.4rem; padding: 1rem 1.1rem; border: 2px dashed #c3c7e3; border-radius: var(--radius-m); }
-    .reply-box h3 { margin: 0 0 .5rem; font-size: 1.05rem; }
-    .reply-box p { margin: 0 0 .75rem; color: var(--text-soft); font-size: .92rem; }
-    .notice { margin: 1.25rem 0 0; padding: .85rem 1rem; background: #fff8e6; border-left: 4px solid var(--gold); border-radius: var(--radius-s); font-size: .92rem; }
-    .notice.ok { background: #e3f7f2; border-color: var(--teal); }
-    .form-ok { margin: .75rem 0 0; padding: .65rem .85rem; border-radius: 8px; background: #e3f7f2; color: #146b5a; font-size: .9rem; }
-
-    @media (max-width: 1000px) { .layout { grid-template-columns: 1fr; } }
-  </style>
+  <link rel="stylesheet" href="style.css">
 </head>
 <body>
   <div class="app">
@@ -248,42 +186,34 @@
   <script src="api.js"></script>
   <script src="nav-badge.js"></script>
   <script>
-    ST.applyBrand();
-
-    // Must be signed in to use this page
-    if (!getToken()) window.location.href = 'login.html';
-    document.getElementById('signout').addEventListener('click', e => { e.preventDefault(); logout(); });
+    startPage();
 
     const tradeId = new URLSearchParams(location.search).get('id');
     const MAX_FILES = 5;
     const MAX_BYTES = 5 * 1024 * 1024;
     const IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
-    const OUTCOME_LABELS = {
-      refund: 'Refund the buyer',
-      release: 'Release the payment to the seller',
-      fix: 'Ask the other person to fix it'
-    };
 
-    const $ = id => document.getElementById(id);
     let info = null;
     let lastSignature = '';
     const blobUrls = [];      // image previews, cleaned up when the page redraws
 
-    function showPageError(msg) { $('page-error').textContent = msg; $('page-error').hidden = !msg; }
-    function when(iso) {
+    function fmtDateTime(iso) {
       return new Date(iso).toLocaleString('en-PH', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' });
     }
 
     // ---------- The list of my disputes (no trade chosen) ----------
-    function listBadge(d) {
-      if (d.dispute_status === 'resolved') {
-        return d.trade_status === 'refunded'
-          ? el('span', 'badge badge-pending', 'Refunded to buyer')
-          : el('span', 'badge badge-released', 'Paid to seller');
-      }
-      return d.dispute_status === 'under_review'
-        ? el('span', 'badge badge-held', 'Under review')
-        : el('span', 'badge badge-dispute', 'Open');
+    function disputeRow(d) {
+      const status = el('div');
+      status.appendChild(ST.disputeBadge(d));
+      if (d.needs_my_reply) status.appendChild(el('span', 'needs-reply', 'Needs your reply'));
+
+      const open = el('a', '', 'Open');
+      open.href = 'dispute.html?id=' + d.transaction_id;
+
+      return tableRow([
+        '#' + d.dispute_id, d.item_description, d.my_role === 'buyer' ? 'Buyer' : 'Seller',
+        '@' + d.partner_username, ST.pesoShort(d.amount), status, open
+      ]);
     }
 
     async function loadList() {
@@ -291,34 +221,12 @@
       try {
         list = await apiFetch('/disputes');
       } catch (err) {
-        showPageError(err instanceof TypeError ? 'Cannot reach the server. Is the backend running?' : err.message);
+        setMessage('page-error', netError(err));
         return;
       }
-      showPageError('');
+      setMessage('page-error', '');
 
-      const rows = $('list-rows');
-      rows.innerHTML = '';
-      list.forEach(d => {
-        const tr = el('tr');
-        tr.appendChild(el('td', '', '#' + d.dispute_id));
-        tr.appendChild(el('td', '', d.item_description));
-        tr.appendChild(el('td', '', d.my_role === 'buyer' ? 'Buyer' : 'Seller'));
-        tr.appendChild(el('td', '', '@' + d.partner_username));
-        tr.appendChild(el('td', '', ST.pesoShort(d.amount)));
-
-        const status = el('td');
-        status.appendChild(listBadge(d));
-        if (d.needs_my_reply) status.appendChild(el('span', 'needs-reply', 'Needs your reply'));
-        tr.appendChild(status);
-
-        const open = el('td');
-        const a = el('a', '', 'Open');
-        a.href = 'dispute.html?id=' + d.transaction_id;
-        open.appendChild(a);
-        tr.appendChild(open);
-
-        rows.appendChild(tr);
-      });
+      $('list-rows').replaceChildren(...list.map(disputeRow));
 
       $('list-empty').hidden = list.length > 0;
       $('list-view').querySelector('.table-wrap').hidden = list.length === 0;
@@ -339,43 +247,13 @@
     function listFiles(input, listId) {
       const list = $(listId);
       list.innerHTML = '';
-      for (const f of input.files) {
-        const li = document.createElement('li');
-        li.textContent = f.name;
-        list.appendChild(li);
-      }
+      for (const f of input.files) list.appendChild(el('li', '', f.name));
     }
     $('proof').addEventListener('change', e => listFiles(e.target, 'files'));
     $('reply-proof').addEventListener('change', e => listFiles(e.target, 'reply-files'));
 
-    // Send a form with images (apiFetch is only for JSON)
-    async function sendForm(path, formData) {
-      return apiUpload(path, formData, 'POST');
-    }
-
-    // Evidence images need the login token, so they are fetched and shown as previews
-    function addThumbs(listEl, items) {
-      listEl.innerHTML = '';
-      items.forEach(item => {
-        const li = document.createElement('li');
-        const btn = document.createElement('button');
-        btn.type = 'button';
-        btn.title = item.name || 'Evidence';
-        const img = document.createElement('img');
-        img.alt = item.name || 'Evidence';
-        btn.appendChild(img);
-        li.appendChild(btn);
-        listEl.appendChild(li);
-
-        fetchPrivateImage('/evidence/' + item.evidence_id + '/file')
-          .then(url => {
-            blobUrls.push(url);
-            img.src = url;
-            btn.addEventListener('click', () => window.open(url, '_blank'));
-          })
-          .catch(() => { btn.textContent = 'Could not load'; });
-      });
-    }
+    const showThumbs = (listEl, items) =>
+      addEvidenceThumbs(listEl, items, blobUrls, item => item.name || 'Evidence');
 
     function renderTradeLine() {
       const t = info.trade;
@@ -396,27 +274,23 @@
       const reason = $('reason');
       reason.innerHTML = '<option value="">Choose a reason</option>';
       info.reasons.forEach(r => {
-        const opt = document.createElement('option');
+        const opt = el('option', '', r);
         opt.value = r;
-        opt.textContent = r;
         reason.appendChild(opt);
       });
 
       const box = $('outcomes');
       box.innerHTML = '';
       info.outcomes.forEach((o, i) => {
-        const label = document.createElement('label');
-        const input = document.createElement('input');
+        const input = el('input');
         input.type = 'radio';
         input.name = 'outcome';
         input.value = o.value;
         input.checked = i === 0;
-        const div = document.createElement('div');
-        div.append(o.label);
-        const span = document.createElement('span');
-        span.textContent = o.hint;
-        div.appendChild(span);
-        label.append(input, div);
+        const text = el('div');
+        text.append(o.label, el('span', '', o.hint));
+        const label = el('label');
+        label.append(input, text);
         box.appendChild(label);
       });
 
@@ -443,16 +317,16 @@
       badge.className = 'badge ' + b[0];
       badge.textContent = b[1];
 
-      $('thread-meta').textContent = 'Opened ' + when(d.opened_at) + ' by ' + (d.filed_by_me ? 'you' : '@' + d.filed_by_username);
+      $('thread-meta').textContent = 'Opened ' + fmtDateTime(d.opened_at) + ' by ' + (d.filed_by_me ? 'you' : '@' + d.filed_by_username);
       $('f-reason').textContent = d.reason;
       $('f-desc').textContent = d.description || '';
-      $('f-outcome').textContent = OUTCOME_LABELS[d.requested_outcome] || '';
+      $('f-outcome').textContent = ST.outcomeLabels[d.requested_outcome] || '';
 
       // The person who opened it
       const opener = d.filed_by_me ? 'you' : '@' + d.filed_by_username;
       $('ev-opener-title').textContent = 'Evidence from ' + opener;
       const openerEvidence = d.evidence.filter(e => e.submitted_by_username === d.filed_by_username);
-      addThumbs($('ev-opener'), openerEvidence);
+      showThumbs($('ev-opener'), openerEvidence);
       $('ev-opener-none').hidden = openerEvidence.length > 0;
 
       // The other person's reply
@@ -463,7 +337,7 @@
       $('reply-waiting').hidden = true;
       if (d.reply) {
         $('reply-text').textContent = d.reply;
-        addThumbs($('ev-reply'), replyEvidence);
+        showThumbs($('ev-reply'), replyEvidence);
       } else if (d.dispute_status !== 'resolved') {
         $('reply-waiting').textContent = d.filed_by_me
           ? 'Waiting for @' + partner + ' to reply.'
@@ -508,11 +382,11 @@
         info = await apiFetch('/transactions/' + tradeId + '/dispute');
       } catch (err) {
         if (!info) {
-          showPageError(err instanceof TypeError ? 'Cannot reach the server. Is the backend running?' : err.message);
+          setMessage('page-error', netError(err));
         }
         return;
       }
-      showPageError('');
+      setMessage('page-error', '');
 
       // Only redraw when something changed, so a reply being typed is not lost
       const d = info.dispute;
@@ -546,11 +420,11 @@
       const btn = e.target.querySelector('button[type="submit"]');
       btn.disabled = true;
       try {
-        await sendForm('/transactions/' + tradeId + '/dispute', form);
+        await apiUpload('/transactions/' + tradeId + '/dispute', form);
         lastSignature = '';
         await load();
       } catch (err) {
-        setMessage('form-error', err instanceof TypeError ? 'Cannot reach the server. Is the backend running?' : err.message);
+        setMessage('form-error', netError(err));
       }
       btn.disabled = false;
     });
@@ -571,12 +445,12 @@
       const btn = $('reply-submit');
       btn.disabled = true;
       try {
-        await sendForm('/transactions/' + tradeId + '/dispute/reply', form);
+        await apiUpload('/transactions/' + tradeId + '/dispute/reply', form);
         lastSignature = '';
         await load();
         setMessage('reply-ok', 'Your reply was sent.');
       } catch (err) {
-        setMessage('reply-error', err instanceof TypeError ? 'Cannot reach the server. Is the backend running?' : err.message);
+        setMessage('reply-error', netError(err));
       }
       btn.disabled = false;
     });
@@ -587,7 +461,7 @@
       loadList();
       setInterval(loadList, 30000);
     } else if (!/^\d+$/.test(String(tradeId))) {
-      showPageError('That trade link is not valid. Open a dispute from the list below.');
+      setMessage('page-error', 'That trade link is not valid. Open a dispute from the list below.');
       loadList();
     } else {
       load();

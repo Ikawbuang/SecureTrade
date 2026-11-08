@@ -13,7 +13,7 @@
 
   const user = getUser() || {};
   const suspended = user.account_status === 'suspended';
-  const onSupport = location.pathname.split('/').pop() === 'support.html';
+  const onSupport = onSupportPage();
   const spacer = sidebar.querySelector('.spacer');
 
   const style = document.createElement('style');

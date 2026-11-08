@@ -8,154 +8,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=Figtree:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="global.css">
-  <style>
-    /* Page-specific styles (kept here so style.css stays unchanged) */
-    [hidden] { display: none !important; }
-    .sidebar .brand { display: block; margin-bottom: 2rem; padding-left: .85rem; }
-    .sidebar .spacer { margin-top: 2rem; padding-top: 1rem; border-top: 1px solid var(--ink-3); }
-    .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
-
-    .page-head { display: flex; justify-content: space-between; align-items: center; gap: 1rem; flex-wrap: wrap; margin-bottom: 1.25rem; }
-    .page-head h1 { margin: 0; font-size: 1.9rem; }
-    .page-head p { margin: .25rem 0 0; color: var(--text-soft); }
-
-    /* Incoming trade requests: at the very top, one line each, only shown when there is one */
-    .requests { border-left: 5px solid var(--gold); margin-bottom: 1.25rem; }
-    .requests .card-head { margin-bottom: .25rem; }
-    .request { display: flex; align-items: center; gap: 1rem; flex-wrap: wrap; padding: .7rem 0; border-top: 1px solid #e6e8f5; }
-    .request:first-of-type { border-top: 0; }
-    .request .line { flex: 1 1 0; min-width: 0; margin: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .request .line strong { font-weight: 700; }
-    .request .line .rest { color: var(--text-soft); font-size: .92rem; }
-    .request .btns { display: flex; gap: .5rem; flex-shrink: 0; }
-    .request .form-error { flex-basis: 100%; margin: 0; }
-    .request .form-error a { font-weight: 700; }
-    .btn-small { padding: .5rem .9rem; font-size: .92rem; }
-    @media (max-width: 640px) {
-      .request .line { flex-basis: 100%; white-space: normal; overflow: visible; }
-    }
-
-    /* Verification banner */
-    .banner { display: flex; justify-content: space-between; align-items: center; gap: 1rem; flex-wrap: wrap; margin-bottom: 1.25rem; padding: .9rem 1.1rem; border-radius: var(--radius-m); border-left: 5px solid var(--gold); background: #fff8e6; }
-    .banner.bad { border-color: #d9534f; background: #fdecea; }
-    .banner p { margin: 0; font-size: .95rem; }
-    .banner strong { display: block; }
-
-    /* Reminder to rate a finished trade */
-    .remind { margin-bottom: 1.25rem; padding: .9rem 1.1rem; border-radius: var(--radius-m); border-left: 5px solid var(--teal); background: #e3f7f2; }
-    .remind-row { display: flex; justify-content: space-between; align-items: center; gap: 1rem; flex-wrap: wrap; padding: .35rem 0; }
-    .remind-row + .remind-row { border-top: 1px solid #c8ebe3; }
-    .remind-row p { margin: 0; font-size: .95rem; }
-    .remind-row small { color: var(--text-soft); }
-    .remind-btns { display: flex; gap: .5rem; flex-wrap: wrap; }
-
-    /* My profile summary */
-    .me-card { display: flex; align-items: center; gap: 1.25rem; flex-wrap: wrap; margin-bottom: 1.5rem; }
-    .me-card .who { flex: 1; min-width: 220px; }
-    .me-card h2 { margin: 0; font-size: 1.35rem; word-break: break-all; }
-    .me-card .full { margin: .15rem 0 0; font-weight: 600; }
-    .me-card .small { margin: .15rem 0 0; color: var(--text-soft); font-size: .88rem; word-break: break-all; }
-    .me-stats { display: flex; gap: 1.5rem; flex-wrap: wrap; }
-    .me-stats div p { margin: 0; }
-    .me-stats .num { font: 700 1.3rem var(--font-display); }
-    .me-stats .cap { color: var(--text-soft); font-size: .8rem; }
-
-    /* Two columns: my trades on the left, the people on the right */
-    .dash-grid { display: grid; grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr); gap: 1.5rem; align-items: start; }
-    .col > * + * { margin-top: 1.5rem; }
-    @media (max-width: 1100px) { .dash-grid { grid-template-columns: 1fr; } }
-
-    /* The held-funds figure is the main thing on this page */
-    .vault {
-      background: var(--ink);
-      color: var(--text-on-dark);
-      border-radius: var(--radius-l);
-      padding: 1.5rem 1.75rem;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      gap: 1.5rem;
-      flex-wrap: wrap;
-    }
-    .vault .label { color: var(--text-on-dark-soft); margin: 0 0 .25rem; }
-    .vault .amount { font: 700 2.4rem var(--font-display); color: var(--gold); margin: 0; line-height: 1; }
-    .vault .note { color: var(--text-on-dark-soft); margin: .5rem 0 0; font-size: .92rem; }
-    .vault-side { display: flex; gap: 1.5rem; }
-    .vault-side div p { margin: 0; }
-    .vault-side .num { font: 700 1.5rem var(--font-display); color: var(--white); }
-    .vault-side .cap { color: var(--text-on-dark-soft); font-size: .88rem; }
-
-    .card-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; gap: 1rem; flex-wrap: wrap; }
-    .card-head h2 { margin: 0; }
-    .table-wrap { overflow-x: auto; }
-    td a { font-weight: 600; }
-    .role { color: var(--text-soft); font-size: .9rem; }
-
-    /* Buying / Selling tabs */
-    .filter-tabs { display: inline-flex; background: #e4e6f6; border-radius: var(--radius-s); padding: 4px; }
-    .filter-tabs button { padding: .45rem .9rem; font: 600 .9rem var(--font-body); color: var(--text-soft); background: transparent; border: 0; border-radius: 4px; cursor: pointer; }
-    .filter-tabs button[aria-selected="true"] { background: var(--white); color: var(--text); }
-    .empty { color: var(--text-soft); padding: 1rem .5rem 0; }
-
-    /* Find a trade partner */
-    .finder h2 { font-size: 1.2rem; margin-bottom: .75rem; }
-    .seg { display: grid; grid-template-columns: repeat(5, 1fr); background: #e4e6f6; border-radius: var(--radius-s); padding: 4px; margin-bottom: .75rem; }
-    .seg button { padding: .45rem .2rem; font: 600 .82rem var(--font-body); color: var(--text-soft); background: transparent; border: 0; border-radius: 4px; cursor: pointer; }
-    .seg button[aria-pressed="true"] { background: var(--white); color: var(--text); }
-    .finder-search { width: 100%; padding: .65rem .85rem; margin-bottom: .75rem; font: 1rem var(--font-body); color: var(--text); background: var(--white); border: 2px solid #d5d8ec; border-radius: var(--radius-s); }
-    .finder-search:focus { outline: none; border-color: var(--gold); }
-    .people { list-style: none; margin: 0; padding: 0; border-top: 1px solid #e6e8f5; }
-    .person { display: flex; justify-content: space-between; align-items: center; gap: .6rem; padding: .7rem .25rem; border-bottom: 1px solid #e6e8f5; flex-wrap: wrap; }
-    .person .lead { display: flex; align-items: center; gap: .7rem; min-width: 0; flex: 1; }
-    .person strong { display: inline; font-family: var(--font-display); font-size: .98rem; word-break: break-all; }
-    .person small { display: block; color: var(--text-soft); font-size: .8rem; }
-    .person .acts { display: flex; align-items: center; gap: .35rem; flex-shrink: 0; }
-    .person .btn { padding: .38rem .75rem; font-size: .88rem; }
-    .btn.dim { opacity: .6; }
-    .presence { display: inline-flex; align-items: center; gap: .35rem; font-size: .8rem; font-weight: 600; margin-left: .35rem; }
-    .presence::before { content: ""; width: 9px; height: 9px; border-radius: 50%; background: #aab0cf; }
-    .presence.online { color: #146b5a; }
-    .presence.online::before { background: var(--teal); }
-    .presence.offline { color: var(--text-soft); }
-    .no-people { color: var(--text-soft); margin: .75rem 0 0; }
-    .more-wrap { margin-top: .75rem; text-align: center; }
-
-    /* Dialogs: profile card, the trade form, and the "cannot trade yet" notice */
-    dialog { border: 0; border-radius: var(--radius-m); padding: 0; width: calc(100% - 2rem); max-width: 480px; max-height: 92vh; }
-    dialog::backdrop { background: rgba(10, 14, 40, .55); }
-    .dlg { padding: 1.5rem; }
-    .dlg h2 { margin: 0; font-size: 1.35rem; word-break: break-word; }
-    .dlg-top { display: flex; align-items: center; gap: 1rem; margin-bottom: .5rem; }
-    .dlg-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: .6rem; margin: 1rem 0; }
-    .dlg-stats div { background: #f3f4fb; border-radius: var(--radius-s); padding: .6rem .75rem; }
-    .dlg-stats dt { color: var(--text-soft); font-size: .78rem; }
-    .dlg-stats dd { margin: .15rem 0 0; font: 700 1.05rem var(--font-display); }
-    .dlg h3 { font-size: 1rem; margin: 1rem 0 .4rem; }
-    .reviews { list-style: none; margin: 0 0 .5rem; padding: 0; }
-    .reviews li { padding: .5rem 0; border-bottom: 1px solid #e6e8f5; font-size: .92rem; }
-    .reviews .by { color: var(--text-soft); }
-    .reviews .text { margin-top: .2rem; white-space: pre-wrap; word-break: break-word; }
-    .link-btn { background: none; border: 0; padding: 0; font: inherit; font-weight: 600; color: var(--gold-dark); text-decoration: underline; cursor: pointer; }
-    .rev-report { margin-top: .3rem; font-size: .85rem; }
-    .rev-report .row { display: flex; gap: .4rem; flex-wrap: wrap; margin-top: .35rem; }
-    .rev-report input { flex: 1; min-width: 140px; padding: .4rem .65rem; font: .9rem var(--font-body); border: 2px solid #d5d8ec; border-radius: var(--radius-s); }
-    .rev-report input:focus { outline: none; border-color: var(--gold); }
-    .note-box textarea { width: 100%; padding: .55rem .75rem; font: .95rem var(--font-body); border: 2px solid #d5d8ec; border-radius: var(--radius-s); }
-    .note-box textarea:focus { outline: none; border-color: var(--gold); }
-    .dlg-actions { display: flex; gap: .6rem; flex-wrap: wrap; align-items: center; margin-top: 1.1rem; }
-    .form-ok { margin: .6rem 0 0; padding: .55rem .8rem; border-radius: 8px; background: #e3f7f2; color: #146b5a; font-size: .88rem; }
-
-    .role-pick { display: grid; grid-template-columns: 1fr 1fr; gap: .6rem; margin: 1rem 0; border: 0; padding: 0; }
-    .role-pick legend { font-weight: 600; font-size: .9rem; margin-bottom: .4rem; padding: 0; }
-    .role-pick label { display: block; padding: .7rem .85rem; border: 2px solid #d5d8ec; border-radius: var(--radius-m); cursor: pointer; }
-    .role-pick input { position: absolute; opacity: 0; }
-    .role-pick strong { display: block; font-family: var(--font-display); }
-    .role-pick span { font-size: .8rem; color: var(--text-soft); }
-    .role-pick label:has(input:checked) { border-color: var(--gold); background: #fff8e6; }
-    .row-2 { display: grid; grid-template-columns: 1fr 1fr; gap: .8rem; }
-    .fee-line { display: flex; justify-content: space-between; font-size: .9rem; padding: .3rem 0; border-bottom: 1px solid #e6e8f5; }
-    .fee-line.total { font-weight: 700; border-bottom: 0; }
-  </style>
+  <link rel="stylesheet" href="style.css">
 </head>
 <body>
   <div class="app">
@@ -395,32 +248,17 @@
   <script src="api.js"></script>
   <script src="nav-badge.js"></script>
   <script>
-    ST.applyBrand();
+    startPage();
 
-    // Must be signed in to use this page
-    if (!getToken()) window.location.href = 'login.html';
-    document.getElementById('signout').addEventListener('click', e => { e.preventDefault(); logout(); });
-
-    const $ = id => document.getElementById(id);
     const me = getUser() || {};
     $('me-first').textContent = me.username || (me.full_name || '').split(' ')[0] || 'there';
     if (me.role === 'admin') $('admin-link').hidden = false;
 
     let meVerified = !!me.verified || me.role === 'admin';
 
-    function el(tag, cls, text) {
-      const e = document.createElement(tag);
-      if (cls) e.className = cls;
-      if (text !== undefined) e.textContent = text;
-      return e;
-    }
-    function netError(err) {
-      return err instanceof TypeError ? 'Cannot reach the server. Is the backend running?' : err.message;
-    }
     // A message at the top of the page. It scrolls up so it is always seen.
     function showPageError(msg) {
-      $('page-error').textContent = msg;
-      $('page-error').hidden = !msg;
+      setMessage('page-error', msg);
       if (msg) window.scrollTo({ top: 0, behavior: 'smooth' });
     }
 
@@ -438,15 +276,10 @@
       return 'Last seen ' + days + (days === 1 ? ' day ago' : ' days ago');
     }
 
-    // The game, item and details are saved together as: "Game – Item. Details"
-    function splitDescription(desc) {
-      const text = String(desc || '');
-      const i = text.indexOf(' – ');
-      if (i < 0) return { game: '', title: text };
-      const game = text.slice(0, i);
-      const rest = text.slice(i + 3);
-      const j = rest.indexOf('. ');
-      return { game, title: j < 0 ? rest : rest.slice(0, j) };
+    // The tooltip of a Trade button
+    function tradeButtonTitle(verified) {
+      if (!meVerified) return 'Verify your identity first';
+      return verified ? '' : 'This user is not verified yet. Click to see why.';
     }
 
     // ---------- My profile and the verification banner ----------
@@ -454,7 +287,7 @@
       try {
         const p = await apiFetch('/profile');
         meVerified = p.verified;
-        saveUser({ username: p.username, email: p.email, avatar_file: p.avatar_file, verified: p.verified, full_name: p.full_name });
+        rememberProfile(p);
 
         $('me-first').textContent = p.username;
         $('me-avatar').replaceChildren(makeAvatar(p.username, p.avatar_file, 72));
@@ -462,7 +295,7 @@
         if (p.verified) $('me-username').appendChild(verifiedBadge());
         $('me-full').textContent = p.full_name;
         $('me-email').textContent = p.email;
-        $('me-joined').textContent = 'Member since ' + new Date(p.created_at).toLocaleDateString('en-PH', { month: 'long', year: 'numeric' });
+        $('me-joined').textContent = 'Member since ' + fmtMonthYear(p.created_at);
         $('me-completed').textContent = p.completed_trades;
         $('me-rating').textContent = p.avg_rating === null ? '–' : '★ ' + p.avg_rating.toFixed(1);
         $('me-rating-cap').textContent = p.rating_count
@@ -523,12 +356,10 @@
           const now = el('a', 'btn btn-primary btn-small', 'Rate now');
           now.href = 'transaction.html?id=' + h.transaction_id;
 
-          const later = el('button', 'btn btn-outline btn-small', 'Rate later');
-          later.type = 'button';
-          later.addEventListener('click', async () => {
+          const later = makeButton('btn btn-outline btn-small', 'Rate later', async () => {
             later.disabled = true;
             try {
-              await apiFetch('/transactions/' + h.transaction_id + '/rate-later', { method: 'POST', body: JSON.stringify({}) });
+              await postJson('/transactions/' + h.transaction_id + '/rate-later');
               row.remove();
               if (!box.querySelector('.remind-row')) box.hidden = true;
             } catch (err) {
@@ -550,23 +381,21 @@
 
     async function showBlock(kind, user) {
       $('bk-ok').hidden = true;
-      if (kind === 'me') {
-        $('bk-title').textContent = 'Verify your identity first';
-        $('bk-text').textContent = 'You can start or accept trades only after an admin verifies your identity. It takes a few minutes: an ID and a selfie holding it. Both people in a trade must be verified.';
-        $('bk-verify').hidden = false;
-      } else {
-        $('bk-title').textContent = '@' + user.username + ' is not verified yet';
-        $('bk-text').textContent = 'Both people must be verified before they can trade. Ask @' + user.username + ' to verify their identity in My profile, then try again.';
-        $('bk-verify').hidden = true;
-      }
+      const isMe = kind === 'me';
+      setTexts({
+        'bk-title': isMe ? 'Verify your identity first' : '@' + user.username + ' is not verified yet',
+        'bk-text': isMe
+          ? 'You can start or accept trades only after an admin verifies your identity. It takes a few minutes: an ID and a selfie holding it. Both people in a trade must be verified.'
+          : 'Both people must be verified before they can trade. Ask @' + user.username + ' to verify their identity in My profile, then try again.'
+      });
+      $('bk-verify').hidden = !isMe;
       bkDialog.showModal();
 
       // Tell the other person that someone wanted to trade with them
       if (kind === 'them') {
         try {
-          await apiFetch('/trade-attempts', { method: 'POST', body: JSON.stringify({ username: user.username }) });
-          $('bk-ok').textContent = 'We told @' + user.username + ' that you wanted to trade, so they know to verify.';
-          $('bk-ok').hidden = false;
+          await postJson('/trade-attempts', { username: user.username });
+          setMessage('bk-ok', 'We told @' + user.username + ' that you wanted to trade, so they know to verify.');
         } catch (err) { /* the notice above is enough */ }
       }
     }
@@ -604,16 +433,11 @@
         const acts = el('div', 'acts');
         acts.appendChild(makeStar(u.username, u.is_favorite, () => { if (finder.status === 'favorites') loadPeople(); }));
 
-        const view = el('button', 'btn btn-outline', 'Profile');
-        view.type = 'button';
-        view.addEventListener('click', () => openProfile(u.username));
-        acts.appendChild(view);
+        acts.appendChild(makeButton('btn btn-outline', 'Profile', () => openProfile(u.username)));
 
         const blocked = !meVerified || !u.verified;
-        const trade = el('button', 'btn btn-primary' + (blocked ? ' dim' : ''), 'Trade');
-        trade.type = 'button';
-        trade.title = !meVerified ? 'Verify your identity first' : (!u.verified ? 'This user is not verified yet. Click to see why.' : '');
-        trade.addEventListener('click', () => tryTrade(u));
+        const trade = makeButton('btn btn-primary' + (blocked ? ' dim' : ''), 'Trade', () => tryTrade(u));
+        trade.title = tradeButtonTitle(u.verified);
         acts.appendChild(trade);
 
         li.append(lead, acts);
@@ -647,13 +471,10 @@
       renderPeople();
     }
 
-    document.querySelectorAll('.seg button').forEach(b => {
-      b.addEventListener('click', () => {
-        finder.status = b.dataset.status;
-        finder.limit = 20;
-        document.querySelectorAll('.seg button').forEach(x => x.setAttribute('aria-pressed', x === b));
-        loadPeople();
-      });
+    bindTabs('.seg button', 'aria-pressed', b => {
+      finder.status = b.dataset.status;
+      finder.limit = 20;
+      loadPeople();
     });
     let searchTimer;
     $('people-search').addEventListener('input', () => {
@@ -672,7 +493,7 @@
       const li = el('li');
       li.appendChild(el('strong', '', '★ ' + r.score));
       li.appendChild(el('span', 'by', ' · from the ' + r.as_role.toLowerCase() + ' · '
-        + new Date(r.rated_at).toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' })));
+        + fmtDate(r.rated_at)));
       if (r.feedback) li.appendChild(el('div', 'text', r.feedback));
 
       // You cannot report your own review
@@ -684,39 +505,17 @@
       if (r.reported_by_me) {
         box.appendChild(el('span', 'by', 'You reported this review.'));
       } else {
-        const open = el('button', 'link-btn', 'Report');
-        open.type = 'button';
-        const row = el('div', 'row');
-        row.hidden = true;
-        const reason = el('input');
-        reason.type = 'text';
-        reason.maxLength = 300;
-        reason.placeholder = 'Why? (abusive, false, personal information)';
-        reason.setAttribute('aria-label', 'Reason for reporting');
-        const send = el('button', 'btn btn-primary btn-small', 'Send report');
-        send.type = 'button';
-        const cancel = el('button', 'btn btn-outline btn-small', 'Cancel');
-        cancel.type = 'button';
-        row.append(reason, send, cancel);
-        box.append(open, row);
-
-        open.addEventListener('click', () => { row.hidden = false; open.hidden = true; reason.focus(); });
-        cancel.addEventListener('click', () => { row.hidden = true; open.hidden = false; });
-        send.addEventListener('click', async () => {
-          $('pd-rev-ok').hidden = true;
-          $('pd-rev-error').hidden = true;
-          send.disabled = true;
-          try {
-            await apiFetch('/reviews/' + r.review_ref + '/report', { method: 'POST', body: JSON.stringify({ reason: reason.value }) });
+        box.append(...makeReportControls({
+          openText: 'Report',
+          panelClass: 'row',
+          reviewRef: r.review_ref,
+          onStart: () => { setMessage('pd-rev-ok', ''); setMessage('pd-rev-error', ''); },
+          onSent: () => {
             box.replaceChildren(el('span', 'by', 'You reported this review.'));
-            $('pd-rev-ok').textContent = 'Thank you. An admin will look at this review.';
-            $('pd-rev-ok').hidden = false;
-          } catch (err) {
-            $('pd-rev-error').textContent = netError(err);
-            $('pd-rev-error').hidden = false;
-            send.disabled = false;
-          }
-        });
+            setMessage('pd-rev-ok', 'Thank you. An admin will look at this review.');
+          },
+          onError: message => setMessage('pd-rev-error', message)
+        }));
       }
       li.appendChild(box);
       return li;
@@ -735,7 +534,7 @@
         status.replaceChildren(presenceTag(p.online));
         if (!p.online) status.append(' · ' + lastSeenText(p.last_seen));
 
-        $('pd-joined').textContent = 'Member since ' + new Date(p.joined).toLocaleDateString('en-PH', { month: 'long', year: 'numeric' });
+        $('pd-joined').textContent = 'Member since ' + fmtMonthYear(p.joined);
         $('pd-trades').textContent = p.completed_trades;
         $('pd-rating').textContent = p.avg_rating === null ? '–' : '★ ' + p.avg_rating.toFixed(1) + ' (' + p.rating_count + ')';
         $('pd-together').textContent = p.trades_together;
@@ -761,7 +560,7 @@
         const trade = $('pd-trade');
         const blocked = !(meVerified && p.verified);
         trade.classList.toggle('dim', blocked);
-        trade.title = !meVerified ? 'Verify your identity first' : (!p.verified ? 'This user is not verified yet. Click to see why.' : '');
+        trade.title = tradeButtonTitle(p.verified);
 
         pdDialog.showModal();
       } catch (err) {
@@ -790,18 +589,13 @@
     $('tf-fee-pct').textContent = (ST.feeRate * 100) + '%';
 
     function updateFee() {
-      const p = parseFloat($('tf-price').value) || 0;
-      const fee = p * ST.feeRate;
-      const money = n => '₱' + n.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-      $('tf-s-price').textContent = money(p);
-      $('tf-s-fee').textContent = money(fee);
-      $('tf-s-net').textContent = money(p - fee);
+      const price = parseFloat($('tf-price').value) || 0;
+      const fee = price * ST.feeRate;
+      setTexts({ 'tf-s-price': ST.peso(price), 'tf-s-fee': ST.peso(fee), 'tf-s-net': ST.peso(price - fee) });
     }
     $('tf-price').addEventListener('input', updateFee);
 
     function openTradeForm(user) {
-      if (!meVerified) { showBlock('me', user); return; }
-      if (!user.verified) { showBlock('them', user); return; }
       tfPartner = user;
       $('trade-form').reset();
       $('tf-avatar').replaceChildren(makeAvatar(user.username, user.avatar_file, 52));
@@ -825,20 +619,16 @@
 
       $('tf-send').disabled = true;
       try {
-        const trade = await apiFetch('/transactions', {
-          method: 'POST',
-          body: JSON.stringify({
-            partner_username: tfPartner.username,
-            my_role: role,
-            item_description: description,
-            amount: parseFloat($('tf-price').value)
-          })
+        const trade = await postJson('/transactions', {
+          partner_username: tfPartner.username,
+          my_role: role,
+          item_description: description,
+          amount: parseFloat($('tf-price').value)
         });
         // Go straight to the trade page: the process starts there
         window.location.href = 'transaction.html?id=' + trade.transaction_id;
       } catch (err) {
-        $('tf-error').textContent = netError(err);
-        $('tf-error').hidden = false;
+        setMessage('tf-error', netError(err));
         $('tf-send').disabled = false;
       }
     });
@@ -846,7 +636,6 @@
     // ---------- My trades and requests ----------
     const body = $('trade-rows');
     const reqList = $('request-list');
-    const reqBadge = $('req-badge');
 
     let trades = [];      // all my trades, from the database
     let requests = [];    // requests other users sent me
@@ -878,25 +667,21 @@
         : 'transaction.html?id=' + t.id;
     }
 
+    function tradeRow(t) {
+      const open = el('a', '', 'Open');
+      open.href = tradeLink(t);
+      return tableRow([
+        t.item, el('td', 'role', t.role === 'buyer' ? 'Buyer' : 'Seller'), t.partner,
+        ST.pesoShort(t.amount), badgeFor(t), open
+      ]);
+    }
+
     // Summary numbers + the trades table
     function renderTrades() {
-      body.innerHTML = '';
       const active = trades.filter(t => ACTIVE.includes(t.status));
-      let shown = 0;
-
-      active.forEach(t => {
-        if (filter !== 'all' && t.role !== filter) return;
-        shown++;
-        const tr = el('tr');
-        tr.appendChild(el('td', '', t.item));
-        tr.appendChild(el('td', 'role', t.role === 'buyer' ? 'Buyer' : 'Seller'));
-        tr.appendChild(el('td', '', t.partner));
-        tr.appendChild(el('td', '', ST.pesoShort(t.amount)));
-        const status = el('td'); status.appendChild(badgeFor(t)); tr.appendChild(status);
-        const open = el('td'); const a = el('a', '', 'Open'); a.href = tradeLink(t); open.appendChild(a); tr.appendChild(open);
-        body.appendChild(tr);
-      });
-      $('empty').hidden = shown > 0;
+      const shown = active.filter(t => filter === 'all' || t.role === filter);
+      body.replaceChildren(...shown.map(tradeRow));
+      $('empty').hidden = shown.length > 0;
 
       const held = trades.filter(t => HELD.includes(t.status)).reduce((sum, t) => sum + t.amount, 0);
       $('held-amount').textContent = ST.pesoShort(held);
@@ -912,7 +697,7 @@
       showPageError('');
       errLine.hidden = true;
       try {
-        await apiFetch('/transactions/' + id + '/respond', { method: 'POST', body: JSON.stringify({ action }) });
+        await postJson('/transactions/' + id + '/respond', { action });
         if (action === 'accept') { window.location.href = 'transaction.html?id=' + id; return; }
         await load();
       } catch (err) {
@@ -936,7 +721,7 @@
         const who = r.my_role === 'seller'
           ? '@' + r.from_username + ' wants to buy from you'
           : '@' + r.from_username + ' wants to sell to you';
-        const parts = splitDescription(r.item_description);
+        const parts = ST.splitDescription(r.item_description);
         const rest = [parts.game, parts.title].filter(Boolean).join(' | ')
           + ' | ' + ST.pesoShort(Number(r.amount)) + ' | You would be the ' + r.my_role;
 
@@ -948,10 +733,8 @@
         errLine.hidden = true;
 
         const btns = el('div', 'btns');
-        const accept = el('button', 'btn btn-primary btn-small', 'Accept'); accept.type = 'button';
-        const decline = el('button', 'btn btn-outline btn-small', 'Decline'); decline.type = 'button';
-        accept.addEventListener('click', () => answer(r.transaction_id, 'accept', [accept, decline], errLine));
-        decline.addEventListener('click', () => answer(r.transaction_id, 'decline', [accept, decline], errLine));
+        const accept = makeButton('btn btn-primary btn-small', 'Accept', () => answer(r.transaction_id, 'accept', [accept, decline], errLine));
+        const decline = makeButton('btn btn-outline btn-small', 'Decline', () => answer(r.transaction_id, 'decline', [accept, decline], errLine));
         btns.append(accept, decline);
 
         row.append(line, btns, errLine);
@@ -960,7 +743,7 @@
 
       // No requests: the whole card is hidden
       $('requests').hidden = requests.length === 0;
-      reqBadge.textContent = requests.length + ' new';
+      $('req-badge').textContent = requests.length + ' new';
       if (window.setNavRequestCount) window.setNavRequestCount(requests.length);
     }
 
@@ -994,12 +777,9 @@
     }
 
     // Buying / Selling / All tabs
-    document.querySelectorAll('[data-filter]').forEach(btn => {
-      btn.addEventListener('click', () => {
-        filter = btn.dataset.filter;
-        document.querySelectorAll('[data-filter]').forEach(b => b.setAttribute('aria-selected', b === btn));
-        renderTrades();
-      });
+    bindTabs('[data-filter]', 'aria-selected', btn => {
+      filter = btn.dataset.filter;
+      renderTrades();
     });
 
     loadMe();

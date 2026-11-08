@@ -12,7 +12,7 @@ SecureTrade is an escrow platform for gamers who buy and sell in-game items, acc
 
 | Layer | Technology |
 |---|---|
-| Frontend | HTML5, CSS3 (one shared `style.css`), plain JavaScript, Google Fonts (Chakra Petch, Figtree) |
+| Frontend | HTML5, CSS3 (`global.css` and `style.css`), plain JavaScript, Google Fonts (Chakra Petch, Figtree) |
 | Backend | Node.js and Express (REST API) |
 | Database | PostgreSQL on Supabase |
 | Authentication | JSON Web Tokens, bcrypt password hashing |
@@ -97,7 +97,7 @@ Browser (HTML, CSS, JS)  ──►  Express REST API (backend/server.js)  ──
 
    Check `http://localhost:3000/api/health`. It should answer `{"status":"ok", ...}`.
 
-4. **Frontend:** open `frontend/login.html` in a browser (or use a local web server such as Live Server). The API address is `http://localhost:3000/api` (in `api.js` and `login.html`).
+4. **Frontend:** open `frontend/login.html` in a browser (or use a local web server such as Live Server). The API address is `http://localhost:3000/api` (in `data.js`).
 
 5. **First admin:** sign up normally, then in Supabase run:
 
@@ -282,6 +282,7 @@ SecureTrade/
 │   ├── api.js
 │   ├── nav-badge.js
 │   ├── data.js
+│   ├── global.css
 │   ├── style.css
 │   ├── wireframes/
 │   └── screenshots/

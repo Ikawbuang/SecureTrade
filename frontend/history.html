@@ -8,71 +8,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=Figtree:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="global.css">
-  <style>
-    /* Page-specific styles (style.css stays unchanged) */
-    [hidden] { display: none !important; }
-    .sidebar .brand { display: block; margin-bottom: 2rem; padding-left: .85rem; }
-    .sidebar .spacer { margin-top: 2rem; padding-top: 1rem; border-top: 1px solid var(--ink-3); }
-    .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
-
-    .page-head { margin-bottom: 1.5rem; }
-    .page-head h1 { margin: 0; font-size: 1.9rem; }
-    .page-head p { margin: .25rem 0 0; color: var(--text-soft); }
-
-    .filters { display: flex; gap: .75rem; flex-wrap: wrap; margin-bottom: 1.25rem; }
-    .filters input, .filters select {
-      padding: .65rem .85rem; font: 1rem var(--font-body); color: var(--text);
-      background: var(--white); border: 2px solid #d5d8ec; border-radius: var(--radius-s);
-    }
-    .filters input { flex: 1; min-width: 200px; }
-    .filters input:focus, .filters select:focus { outline: none; border-color: var(--gold); }
-
-    .table-wrap { overflow-x: auto; }
-    .role { color: var(--text-soft); font-size: .9rem; }
-    .link-btn { background: none; border: 0; padding: 0; font: 600 1rem var(--font-body); color: var(--gold-dark); text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
-    td a { font-weight: 600; }
-    .partner-cell { display: inline-flex; align-items: center; gap: .2rem; }
-    .row-actions { display: flex; gap: .9rem; flex-wrap: wrap; align-items: center; white-space: nowrap; }
-    .rated { color: var(--text-soft); font-size: .9rem; white-space: nowrap; }
-    .dispute-tag { display: block; margin-top: .3rem; font-size: .78rem; font-weight: 600; color: #9c2a22; }
-    .empty { padding: 1.5rem .5rem; color: var(--text-soft); }
-
-    /* Receipt dialog */
-    dialog.receipt { border: 0; border-radius: var(--radius-l); padding: 0; width: min(92vw, 420px); }
-    dialog.receipt::backdrop { background: rgba(23, 26, 51, .6); }
-    .receipt-top { background: var(--ink); color: var(--text-on-dark); padding: 1.5rem; border-radius: var(--radius-l) var(--radius-l) 0 0; }
-    .receipt-top .brand { font-size: 1.15rem; }
-    .receipt-top p { margin: .5rem 0 0; color: var(--text-on-dark-soft); font-size: .9rem; }
-    .receipt-body { padding: 1.25rem 1.5rem 1.5rem; }
-    .receipt-body .line { display: flex; justify-content: space-between; gap: 1rem; padding: .5rem 0; border-bottom: 1px dashed #d5d8ec; }
-    .receipt-body dt { color: var(--text-soft); }
-    .receipt-body dd { margin: 0; font-weight: 600; text-align: right; word-break: break-word; }
-    .receipt-body .total dd { font: 700 1.2rem var(--font-display); color: var(--gold-dark); }
-    .receipt-body dl { margin: 0 0 1.25rem; }
-    .receipt-actions { display: flex; gap: .75rem; }
-    .receipt-actions .btn { flex: 1; }
-
-    /* Rating dialog */
-    dialog.rate { border: 0; border-radius: var(--radius-l); padding: 0; width: min(92vw, 420px); }
-    dialog.rate::backdrop { background: rgba(23, 26, 51, .6); }
-    .rate-body { padding: 1.5rem; }
-    .rate-body h2 { margin: 0 0 .25rem; font-size: 1.3rem; word-break: break-all; }
-    .rate-body .hint { margin: 0 0 1rem; }
-    .stars { display: flex; gap: .35rem; margin-bottom: 1rem; }
-    .stars button { background: none; border: 0; padding: 0 .1rem; font-size: 2.2rem; line-height: 1; color: #c9cde6; cursor: pointer; }
-    .stars button.on { color: var(--gold); }
-    .stars button:focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; border-radius: 4px; }
-    .rate-body textarea { width: 100%; padding: .65rem .85rem; font: 1rem var(--font-body); border: 2px solid #d5d8ec; border-radius: var(--radius-s); margin: .35rem 0 1rem; }
-    .rate-body textarea:focus { outline: none; border-color: var(--gold); }
-
-    /* Printing: only the receipt */
-    @media print {
-      .app { display: none !important; }
-      dialog.receipt { position: static; width: 100%; box-shadow: none; }
-      dialog.receipt::backdrop { display: none; }
-      .receipt-actions { display: none; }
-    }
-  </style>
+  <link rel="stylesheet" href="style.css">
 </head>
 <body>
   <div class="app">
@@ -190,20 +126,10 @@
   <script src="api.js"></script>
   <script src="nav-badge.js"></script>
   <script>
-    ST.applyBrand();
+    startPage();
 
-    // Must be signed in to use this page
-    if (!getToken()) window.location.href = 'login.html';
-    document.getElementById('signout').addEventListener('click', e => { e.preventDefault(); logout(); });
 
-    const $ = id => document.getElementById(id);
-    const methodNames = { gcash: 'GCash', maya: 'Maya', card: 'Card' };
-
-    let history = [];
-
-    function fmtDate(iso) {
-      return new Date(iso).toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' });
-    }
+    let pastTrades = [];
 
     // ---------- The table ----------
     function matches(h) {
@@ -216,63 +142,50 @@
       );
     }
 
+    function actionsCell(h) {
+      const box = el('div', 'row-actions');
+
+      const details = el('a', '', h.had_dispute ? 'View dispute' : 'Details');
+      details.href = (h.had_dispute ? 'dispute.html?id=' : 'transaction.html?id=') + h.transaction_id;
+      box.appendChild(details);
+
+      if (h.status === 'completed') {
+        box.appendChild(makeButton('link-btn', 'Receipt', () => showReceipt(h)));
+        box.appendChild(h.my_score
+          ? el('span', 'rated', 'Rated ★ ' + h.my_score)
+          : makeButton('link-btn', 'Rate', () => openRate(h)));
+      }
+      return box;
+    }
+
+    function tradeRow(h) {
+      // The partner, with a star to save them as a favorite
+      const partner = el('span', 'partner-cell');
+      partner.append('@' + h.partner_username, makeStar(h.partner_username, h.partner_is_favorite));
+
+      // Status badge, and a small tag if the trade went through a dispute
+      const status = el('div');
+      status.appendChild(ST.badge(h.status));
+      if (h.had_dispute) status.appendChild(el('span', 'dispute-tag', 'Had a dispute'));
+
+      return tableRow([
+        fmtDate(h.date),
+        h.item_description,
+        el('td', 'role', h.my_role === 'buyer' ? 'Buyer' : 'Seller'),
+        partner,
+        ST.pesoShort(h.amount),
+        status,
+        actionsCell(h)
+      ]);
+    }
+
     function render() {
-      const body = $('rows');
-      body.innerHTML = '';
-      const shown = history.filter(matches);
-
-      shown.forEach(h => {
-        const tr = el('tr');
-        tr.appendChild(el('td', '', fmtDate(h.date)));
-        tr.appendChild(el('td', '', h.item_description));
-        tr.appendChild(el('td', 'role', h.my_role === 'buyer' ? 'Buyer' : 'Seller'));
-
-        // The partner, with a star to save them as a favorite
-        const partner = el('td');
-        const cell = el('span', 'partner-cell');
-        cell.append('@' + h.partner_username, makeStar(h.partner_username, h.partner_is_favorite));
-        partner.appendChild(cell);
-        tr.appendChild(partner);
-
-        tr.appendChild(el('td', '', ST.pesoShort(h.amount)));
-
-        // Status badge, and a small tag if the trade went through a dispute
-        const status = el('td');
-        status.appendChild(ST.badge(h.status));
-        if (h.had_dispute) status.appendChild(el('span', 'dispute-tag', 'Had a dispute'));
-        tr.appendChild(status);
-
-        const actions = el('td');
-        const box = el('div', 'row-actions');
-
-        const details = el('a', '', h.had_dispute ? 'View dispute' : 'Details');
-        details.href = (h.had_dispute ? 'dispute.html?id=' : 'transaction.html?id=') + h.transaction_id;
-        box.appendChild(details);
-
-        if (h.status === 'completed') {
-          const receipt = el('button', 'link-btn', 'Receipt');
-          receipt.type = 'button';
-          receipt.addEventListener('click', () => showReceipt(h));
-          box.appendChild(receipt);
-
-          if (h.my_score) {
-            box.appendChild(el('span', 'rated', 'Rated ★ ' + h.my_score));
-          } else {
-            const rate = el('button', 'link-btn', 'Rate');
-            rate.type = 'button';
-            rate.addEventListener('click', () => openRate(h));
-            box.appendChild(rate);
-          }
-        }
-
-        actions.appendChild(box);
-        tr.appendChild(actions);
-        body.appendChild(tr);
-      });
+      const shown = pastTrades.filter(matches);
+      $('rows').replaceChildren(...shown.map(tradeRow));
 
       const empty = $('empty');
       empty.hidden = shown.length > 0;
-      empty.textContent = history.length === 0
+      empty.textContent = pastTrades.length === 0
         ? 'No finished trades yet. Completed, refunded, and cancelled trades will show up here.'
         : 'No trades match your search. Try a different word or status.';
     }
@@ -283,59 +196,42 @@
 
     async function load() {
       try {
-        history = await apiFetch('/history');
+        pastTrades = await apiFetch('/history');
         setMessage('page-error', '');
         render();
       } catch (err) {
-        setMessage('page-error', err instanceof TypeError ? 'Cannot reach the server. Is the backend running?' : err.message);
+        setMessage('page-error', netError(err));
       }
     }
 
     // ---------- Receipt ----------
     function showReceipt(h) {
-      const fee = h.service_fee;
-      $('r-number').textContent = h.receipt_number || '–';
-      $('r-id').textContent = '#' + h.transaction_id;
-      $('r-date').textContent = fmtDate(h.date);
-      $('r-item').textContent = h.item_description;
-      $('r-buyer').textContent = '@' + h.buyer_username + (h.my_role === 'buyer' ? ' (you)' : '');
-      $('r-seller').textContent = '@' + h.seller_username + (h.my_role === 'seller' ? ' (you)' : '');
-      $('r-paid').textContent = h.payment_method
-        ? (methodNames[h.payment_method] || h.payment_method) + (h.payer_masked ? ' ' + h.payer_masked : '')
-        : '–';
-      $('r-payout').textContent = h.payout_method
-        ? (methodNames[h.payout_method] || h.payout_method) + (h.payout_masked ? ' ' + h.payout_masked : '')
-        : '–';
-      $('r-price').textContent = ST.peso(h.amount);
-      $('r-fee').textContent = ST.peso(fee);
-      $('r-net').textContent = ST.peso(h.amount - fee);
+      const paymentText = (method, masked) => method ? ST.methodLabel(method, masked) : '–';
+      setTexts({
+        'r-number': h.receipt_number || '–',
+        'r-id': '#' + h.transaction_id,
+        'r-date': fmtDate(h.date),
+        'r-item': h.item_description,
+        'r-buyer': '@' + h.buyer_username + (h.my_role === 'buyer' ? ' (you)' : ''),
+        'r-seller': '@' + h.seller_username + (h.my_role === 'seller' ? ' (you)' : ''),
+        'r-paid': paymentText(h.payment_method, h.payer_masked),
+        'r-payout': paymentText(h.payout_method, h.payout_masked),
+        'r-price': ST.peso(h.amount),
+        'r-fee': ST.peso(h.service_fee),
+        'r-net': ST.peso(h.amount - h.service_fee)
+      });
       $('receipt').showModal();
     }
     $('r-close').addEventListener('click', () => $('receipt').close());
     $('r-print').addEventListener('click', () => window.print());
 
     // ---------- Rating ----------
-    let rating = 0;
+    const stars = makeStarRating($('stars'));
     let rateTrade = null;
-    const starsBox = $('stars');
-
-    function drawStars() {
-      starsBox.innerHTML = '';
-      for (let i = 1; i <= 5; i++) {
-        const b = el('button', i <= rating ? 'on' : '', '★');
-        b.type = 'button';
-        b.setAttribute('role', 'radio');
-        b.setAttribute('aria-checked', i === rating);
-        b.setAttribute('aria-label', i + (i === 1 ? ' star' : ' stars'));
-        b.addEventListener('click', () => { rating = i; drawStars(); });
-        starsBox.appendChild(b);
-      }
-    }
 
     function openRate(h) {
       rateTrade = h;
-      rating = 0;
-      drawStars();
+      stars.set(0);
       $('rate-title').textContent = 'Rate @' + h.partner_username;
       $('rate-sub').textContent = 'Trade #' + h.transaction_id + ' · ' + h.item_description;
       $('rate-feedback').value = '';
@@ -349,17 +245,14 @@
     $('rate-form').addEventListener('submit', async e => {
       e.preventDefault();
       setMessage('rate-error', '');
-      if (!rating) { setMessage('rate-error', 'Choose 1 to 5 stars.'); return; }
+      if (!stars.value) { setMessage('rate-error', 'Choose 1 to 5 stars.'); return; }
       $('rate-save').disabled = true;
       try {
-        await apiFetch('/transactions/' + rateTrade.transaction_id + '/rating', {
-          method: 'POST',
-          body: JSON.stringify({ score: rating, feedback: $('rate-feedback').value })
-        });
+        await postJson('/transactions/' + rateTrade.transaction_id + '/rating', { score: stars.value, feedback: $('rate-feedback').value });
         $('rate').close();
         await load();
       } catch (err) {
-        setMessage('rate-error', err instanceof TypeError ? 'Cannot reach the server. Is the backend running?' : err.message);
+        setMessage('rate-error', netError(err));
         $('rate-save').disabled = false;
       }
     });

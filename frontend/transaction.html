@@ -8,104 +8,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=Figtree:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="global.css">
-  <style>
-    /* Page-specific styles (style.css stays unchanged) */
-    .sidebar .brand { display: block; margin-bottom: 2rem; padding-left: .85rem; }
-    .sidebar .spacer { margin-top: 2rem; padding-top: 1rem; border-top: 1px solid var(--ink-3); }
-    [hidden] { display: none !important; }
-
-    .page-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem; flex-wrap: wrap; margin-bottom: 1.5rem; }
-    .page-head h1 { margin: 0; font-size: 1.9rem; }
-    .page-head p { margin: .25rem 0 0; color: var(--text-soft); }
-
-    .layout { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr); gap: 1.5rem; align-items: start; }
-    .stack > * + * { margin-top: 1.5rem; }
-
-    /* Status tracker */
-    .tracker { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(4, 1fr); gap: .5rem; }
-    .tracker li { position: relative; padding-top: 2.4rem; font-size: .88rem; color: var(--text-soft); }
-    .tracker li::before {
-      content: attr(data-n);
-      position: absolute; top: 0; left: 0;
-      width: 30px; height: 30px; border-radius: 50%;
-      display: grid; place-items: center;
-      font: 700 .85rem var(--font-display);
-      background: #e4e6f6; color: var(--text-soft);
-      z-index: 1;
-    }
-    .tracker li::after {
-      content: "";
-      position: absolute; top: 14px; left: 34px; right: -.5rem;
-      height: 2px; background: #e4e6f6;
-    }
-    .tracker li:last-child::after { display: none; }
-    .tracker strong { display: block; color: var(--text); font-family: var(--font-display); font-size: .95rem; }
-    .tracker li.done::before { content: "✓"; background: var(--teal); color: var(--white); }
-    .tracker li.done::after { background: var(--teal); }
-    .tracker li.current::before { background: var(--gold); color: var(--ink); }
-
-    /* Where the money goes */
-    .money-title { margin: 1.5rem 0 .6rem; font-size: 1rem; }
-    .money { display: grid; grid-template-columns: 1fr auto 1fr auto 1fr; gap: .5rem; align-items: stretch; }
-    .money .box { padding: .75rem .85rem; border: 2px solid #e4e6f6; border-radius: var(--radius-m); font-size: .86rem; color: var(--text-soft); }
-    .money .box strong { display: block; color: var(--text); font-family: var(--font-display); font-size: .95rem; margin-bottom: .15rem; }
-    .money .box.active { border-color: var(--gold); background: #fff8e6; }
-    .money .box.done { border-color: var(--teal); background: #e3f7f2; }
-    .money .arrow { align-self: center; color: var(--text-soft); font-weight: 700; }
-    @media (max-width: 700px) {
-      .money { grid-template-columns: 1fr; }
-      .money .arrow { justify-self: center; transform: rotate(90deg); }
-    }
-
-    .notice { margin: 1.25rem 0 0; padding: .85rem 1rem; background: #fff8e6; border-left: 4px solid var(--gold); border-radius: var(--radius-s); font-size: .92rem; }
-    .notice.ok { background: #e3f7f2; border-color: var(--teal); }
-    .actions { display: flex; gap: .75rem; flex-wrap: wrap; align-items: center; margin-top: 1.25rem; }
-    .actions select, .actions input {
-      padding: .65rem .85rem; font: 1rem var(--font-body); color: var(--text);
-      background: var(--white); border: 2px solid #d5d8ec; border-radius: var(--radius-s);
-    }
-    .actions input { width: 16rem; max-width: 100%; }
-    .actions input.wide { width: 18rem; max-width: 100%; }
-    .actions input:focus, .actions select:focus { outline: none; border-color: var(--gold); }
-    #action-error { margin-top: 1rem; }
-
-    /* Rating box (after a completed trade) */
-    .rate-card { border-left: 5px solid var(--gold); }
-    .rate-card h2 { margin: 0 0 .25rem; font-size: 1.2rem; word-break: break-all; }
-    .rate-card .hint { margin: 0 0 1rem; }
-    .stars { display: flex; gap: .35rem; margin-bottom: 1rem; }
-    .stars button { background: none; border: 0; padding: 0 .1rem; font-size: 2.2rem; line-height: 1; color: #c9cde6; cursor: pointer; }
-    .stars button.on { color: var(--gold); }
-    .stars button:focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; border-radius: 4px; }
-    .rate-card textarea { width: 100%; padding: .65rem .85rem; font: 1rem var(--font-body); border: 2px solid #d5d8ec; border-radius: var(--radius-s); margin: .35rem 0 1rem; }
-    .rate-card textarea:focus { outline: none; border-color: var(--gold); }
-    .rate-actions { display: flex; gap: .6rem; flex-wrap: wrap; align-items: center; }
-    .rated-line { margin: 0; font-weight: 600; }
-
-    .details { margin: 0; }
-    .details .line { display: flex; justify-content: space-between; align-items: center; gap: 1rem; padding: .55rem 0; border-bottom: 1px solid #e6e8f5; }
-    .details dt { color: var(--text-soft); }
-    .details dd { margin: 0; font-weight: 600; text-align: right; word-break: break-word; }
-    .details .person-cell { display: inline-flex; align-items: center; gap: .4rem; flex-wrap: wrap; justify-content: flex-end; }
-
-    .chat { display: flex; flex-direction: column; height: 400px; }
-    .chat h2 { display: flex; align-items: center; gap: .6rem; }
-    .chat-note { margin: -.35rem 0 .6rem; font-size: .8rem; color: var(--text-soft); }
-    .messages { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: .6rem; padding: .25rem .25rem 1rem; }
-    .msgrow { display: flex; align-items: flex-end; gap: .5rem; max-width: 92%; align-self: flex-start; }
-    .msgrow.me { align-self: flex-end; flex-direction: row-reverse; }
-    .msg { max-width: 100%; padding: .6rem .85rem; border-radius: var(--radius-m); background: #eceef9; font-size: .95rem; word-break: break-word; }
-    .msg small { display: block; color: var(--text-soft); font-size: .75rem; margin-bottom: .1rem; }
-    .msg.me { background: var(--ink); color: var(--text-on-dark); }
-    .msg.me small { color: var(--text-on-dark-soft); }
-    .no-msgs { color: var(--text-soft); margin: auto; }
-    .chat-form { display: flex; gap: .5rem; border-top: 1px solid #e6e8f5; padding-top: .85rem; }
-    .chat-form input { flex: 1; min-width: 0; padding: .65rem .85rem; font: 1rem var(--font-body); border: 2px solid #d5d8ec; border-radius: var(--radius-s); }
-    .chat-form input:focus { outline: none; border-color: var(--gold); }
-
-    @media (max-width: 1000px) { .layout { grid-template-columns: 1fr; } }
-    @media (max-width: 560px) { .tracker { grid-template-columns: 1fr 1fr; row-gap: 1.25rem; } .tracker li::after { display: none; } }
-  </style>
+  <link rel="stylesheet" href="style.css">
 </head>
 <body>
   <div class="app">
@@ -181,26 +84,19 @@
   <script src="api.js"></script>
   <script src="nav-badge.js"></script>
   <script>
-    ST.applyBrand();
-
-    // Must be signed in to use this page
-    if (!getToken()) window.location.href = 'login.html';
-    document.getElementById('signout').addEventListener('click', e => { e.preventDefault(); logout(); });
+    startPage();
 
     const me = getUser() || {};
     const tradeId = new URLSearchParams(location.search).get('id');
     const peso = ST.peso;
-    const methodNames = { gcash: 'GCash' };
 
-    const pageError = document.getElementById('page-error');
-    const view = document.getElementById('trade-view');
-    const tracker = document.getElementById('tracker');
-    const moneyBox = document.getElementById('money');
-    const notice = document.getElementById('notice');
-    const actions = document.getElementById('actions');
-    const actionError = document.getElementById('action-error');
-    const box = document.getElementById('messages');
-    const rateCard = document.getElementById('rate-card');
+    const view = $('trade-view');
+    const tracker = $('tracker');
+    const moneyBox = $('money');
+    const notice = $('notice');
+    const actions = $('actions');
+    const box = $('messages');
+    const rateCard = $('rate-card');
 
     let data = null;
     let lastSignature = '';
@@ -211,26 +107,13 @@
     let rateLoaded = false;     // did we already check whether I rated?
     let rateSkipped = false;    // "Skip for now" hides the box until the page is reloaded
     let rateDrawnKey = '';      // what the rating box is showing now, so typing is not reset
-    let rateStars = 0;
 
-    function showPageError(msg) { pageError.textContent = msg; pageError.hidden = !msg; }
-    function showActionError(msg) { actionError.textContent = msg; actionError.hidden = !msg; }
+    const showPageError = msg => setMessage('page-error', msg);
+    const showActionError = msg => setMessage('action-error', msg);
 
     // "GCash 09••••••123"
     function methodWithNumber(method, masked) {
-      return (methodNames[method] || method || 'GCash') + (masked ? ' ' + masked : '');
-    }
-
-    // The game, item and details are saved together as: "Game – Item. Details"
-    function splitDescription(desc) {
-      const i = desc.indexOf(' – ');
-      if (i < 0) return { game: '', title: desc, details: '' };
-      const game = desc.slice(0, i);
-      const rest = desc.slice(i + 3);
-      const j = rest.indexOf('. ');
-      return j < 0
-        ? { game, title: rest, details: '' }
-        : { game, title: rest.slice(0, j), details: rest.slice(j + 2) };
+      return ST.methodLabel(method || 'gcash', masked);
     }
 
     function badgeFor(d, role) {
@@ -313,7 +196,7 @@
       showActionError('');
       button.disabled = true;
       try {
-        await apiFetch('/transactions/' + tradeId + path, { method: 'POST', body: JSON.stringify(body || {}) });
+        await postJson('/transactions/' + tradeId + path, body || {});
         await load();
       } catch (err) {
         showActionError(err.message);
@@ -322,13 +205,15 @@
     }
 
     function addButton(text, onClick) {
-      const b = document.createElement('button');
-      b.type = 'button';
-      b.className = 'btn btn-primary';
-      b.textContent = text;
-      b.addEventListener('click', () => onClick(b));
+      const b = makeButton('btn btn-primary', text, onClick);
       actions.appendChild(b);
       return b;
+    }
+
+    function addLink(text, href) {
+      const link = el('a', 'btn btn-outline', text);
+      link.href = href;
+      actions.appendChild(link);
     }
 
     // Buyer pays -> SecureTrade escrow -> Seller payout (GCash only)
@@ -365,50 +250,36 @@
 
       moneyBox.innerHTML = '';
       boxes.forEach((b, i) => {
-        if (i > 0) {
-          const arrow = document.createElement('div');
-          arrow.className = 'arrow';
-          arrow.textContent = '→';
-          moneyBox.appendChild(arrow);
-        }
-        const div = document.createElement('div');
-        div.className = 'box ' + b.cls;
-        const strong = document.createElement('strong');
-        strong.textContent = b.title;
-        div.appendChild(strong);
-        b.lines.forEach(text => {
-          const p = document.createElement('div');
-          p.textContent = text;
-          div.appendChild(p);
-        });
+        if (i > 0) moneyBox.appendChild(el('div', 'arrow', '→'));
+        const div = el('div', 'box ' + b.cls);
+        div.appendChild(el('strong', '', b.title));
+        b.lines.forEach(text => div.appendChild(el('div', '', text)));
         moneyBox.appendChild(div);
       });
     }
 
-    // Buyer: type the GCash number to pay from
-    function addPayControls(price) {
-      const number = document.createElement('input');
+    // The box where a person types a GCash number
+    function addGcashInput(placeholder, label) {
+      const number = el('input');
       number.type = 'tel';
       number.inputMode = 'numeric';
       number.maxLength = 11;
-      number.placeholder = 'GCash number 09XXXXXXXXX';
-      number.setAttribute('aria-label', 'GCash number you are paying from');
-
+      number.placeholder = placeholder;
+      number.setAttribute('aria-label', label);
       actions.appendChild(number);
+      return number;
+    }
+
+    // Buyer: type the GCash number to pay from
+    function addPayControls(price) {
+      const number = addGcashInput('GCash number 09XXXXXXXXX', 'GCash number you are paying from');
       addButton('Pay ' + peso(price) + ' with GCash', btn =>
         act('/pay', { method: 'gcash', number: number.value }, btn));
     }
 
     // Seller: type the GCash number to receive the money, then mark the item as delivered
     function addDeliverControls() {
-      const number = document.createElement('input');
-      number.type = 'tel';
-      number.inputMode = 'numeric';
-      number.maxLength = 11;
-      number.placeholder = 'Your GCash number to receive the money';
-      number.setAttribute('aria-label', 'GCash number to receive your money');
-
-      actions.appendChild(number);
+      const number = addGcashInput('Your GCash number to receive the money', 'GCash number to receive your money');
       addButton('I delivered the item', btn =>
         act('/deliver', { method: 'gcash', number: number.value }, btn));
     }
@@ -431,9 +302,8 @@
       }
 
       if (d.status === 'paid' && role === 'seller') {
-        const reason = document.createElement('input');
+        const reason = el('input', 'wide');
         reason.type = 'text';
-        reason.className = 'wide';
         reason.maxLength = 300;
         reason.placeholder = 'Reason for cancelling (required)';
         reason.setAttribute('aria-label', 'Reason for cancelling');
@@ -458,12 +328,11 @@
       const price = Number(d.amount);
       const fee = Number(d.service_fee);
       const net = price - fee;
-      const info = splitDescription(d.item_description);
+      const info = ST.splitDescription(d.item_description);
 
       // Header
-      document.getElementById('title').textContent = info.title;
-      document.getElementById('subtitle').textContent = 'Trade #' + d.transaction_id + ' · You are the ' + role;
-      const badge = document.getElementById('status-badge');
+      setTexts({ title: info.title, subtitle: 'Trade #' + d.transaction_id + ' · You are the ' + role });
+      const badge = $('status-badge');
       const b = badgeFor(d, role);
       badge.className = 'badge ' + b[0];
       badge.textContent = b[1];
@@ -479,12 +348,9 @@
       ];
       tracker.innerHTML = '';
       steps.forEach((s, i) => {
-        const li = document.createElement('li');
-        li.className = i < doneCount ? 'done' : (inProgress && i === doneCount ? 'current' : '');
+        const li = el('li', i < doneCount ? 'done' : (inProgress && i === doneCount ? 'current' : ''));
         li.dataset.n = i + 1;
-        const strong = document.createElement('strong');
-        strong.textContent = s[0];
-        li.append(strong, document.createTextNode(s[1]));
+        li.append(el('strong', '', s[0]), s[1]);
         tracker.appendChild(li);
       });
 
@@ -506,21 +372,12 @@
       }
       addCancelControls(d, role);
       if (['paid', 'delivered'].includes(d.status)) {
-        const wrong = document.createElement('a');
-        wrong.className = 'btn btn-outline';
-        wrong.href = 'dispute.html?id=' + d.transaction_id;
-        wrong.textContent = 'Something is wrong';
-        actions.appendChild(wrong);
+        addLink('Something is wrong', 'dispute.html?id=' + d.transaction_id);
       }
-      const back = document.createElement('a');
-      back.className = 'btn btn-outline';
-      back.href = 'dashboard.html';
-      back.textContent = 'Back to dashboard';
-      actions.appendChild(back);
+      addLink('Back to dashboard', 'dashboard.html');
 
       // Details (the partner row shows their photo, a Verified badge, and a star)
-      const partnerCell = document.createElement('span');
-      partnerCell.className = 'person-cell';
+      const partnerCell = el('span', 'person-cell');
       partnerCell.append(makeAvatar(partner, partnerAvatar, 28), '@' + partner);
       partnerCell.appendChild(partnerVerified ? verifiedBadge() : notVerifiedTag());
       partnerCell.appendChild(makeStar(partner, d.partner_is_favorite));
@@ -543,40 +400,22 @@
         rows.push(['Payment status', d.payment.payment_status]);
       }
       if (d.receipt) rows.push(['Receipt', d.receipt.receipt_number]);
-      rows.push(['Started', new Date(d.created_at).toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' })]);
+      rows.push(['Started', fmtDate(d.created_at)]);
 
-      const dl = document.getElementById('details');
+      const dl = $('details');
       dl.innerHTML = '';
-      rows.forEach(r => {
-        const line = document.createElement('div');
-        line.className = 'line';
-        const dt = document.createElement('dt'); dt.textContent = r[0];
-        const dd = document.createElement('dd');
-        if (r[1] instanceof Node) dd.appendChild(r[1]); else dd.textContent = r[1];
-        line.append(dt, dd);
+      rows.forEach(([label, value]) => {
+        const dd = el('dd');
+        dd.append(value);
+        const line = el('div', 'line');
+        line.append(el('dt', '', label), dd);
         dl.appendChild(line);
       });
 
-      const chatTitle = document.getElementById('chat-title');
-      chatTitle.replaceChildren(makeAvatar(partner, partnerAvatar, 30), 'Chat with @' + partner);
+      $('chat-title').replaceChildren(makeAvatar(partner, partnerAvatar, 30), 'Chat with @' + partner);
     }
 
     // ---------- Rating box: shown only after the trade is completed ----------
-    function drawStars(starsBox) {
-      starsBox.innerHTML = '';
-      for (let i = 1; i <= 5; i++) {
-        const b = document.createElement('button');
-        b.type = 'button';
-        b.className = i <= rateStars ? 'on' : '';
-        b.textContent = '★';
-        b.setAttribute('role', 'radio');
-        b.setAttribute('aria-checked', i === rateStars);
-        b.setAttribute('aria-label', i + (i === 1 ? ' star' : ' stars'));
-        b.addEventListener('click', () => { rateStars = i; drawStars(starsBox); });
-        starsBox.appendChild(b);
-      }
-    }
-
     // Find out whether I already rated this trade (the history list holds my rating)
     async function loadRating() {
       if (!data || data.status !== 'completed') {
@@ -609,97 +448,66 @@
       if (key === 'skipped') return;
 
       if (myScore) {
-        const p = document.createElement('p');
-        p.className = 'rated-line';
-        p.textContent = 'You rated @' + partner + ' ★ ' + myScore + '. Thank you!';
-        rateCard.appendChild(p);
+        rateCard.appendChild(el('p', 'rated-line', 'You rated @' + partner + ' ★ ' + myScore + '. Thank you!'));
         return;
       }
 
-      const h = document.createElement('h2');
-      h.textContent = 'Rate @' + partner;
-      const hint = document.createElement('p');
-      hint.className = 'hint';
-      hint.textContent = 'How was the trade? Your rating helps other gamers. You can rate once, and it cannot be changed. '
-        + 'Your name is hidden from the public, but admins can see it. Do not write personal information.';
+      const heading = el('h2', '', 'Rate @' + partner);
+      const hint = el('p', 'hint', 'How was the trade? Your rating helps other gamers. You can rate once, and it cannot be changed. '
+        + 'Your name is hidden from the public, but admins can see it. Do not write personal information.');
 
-      const starsBox = document.createElement('div');
-      starsBox.className = 'stars';
+      const starsBox = el('div', 'stars');
       starsBox.setAttribute('role', 'radiogroup');
       starsBox.setAttribute('aria-label', 'Your rating');
-      rateStars = 0;
-      drawStars(starsBox);
+      const stars = makeStarRating(starsBox);
 
-      const label = document.createElement('label');
+      const label = el('label', '', 'Feedback (optional)');
       label.setAttribute('for', 'rate-feedback');
-      label.textContent = 'Feedback (optional)';
-      const text = document.createElement('textarea');
+      const text = el('textarea');
       text.id = 'rate-feedback';
       text.rows = 3;
       text.maxLength = 500;
       text.placeholder = 'Example: fast delivery, easy to trade with';
 
-      const error = document.createElement('p');
-      error.className = 'form-error';
+      const error = el('p', 'form-error');
       error.setAttribute('role', 'alert');
       error.hidden = true;
+      const showError = msg => { error.textContent = msg; error.hidden = !msg; };
 
-      const row = document.createElement('div');
-      row.className = 'rate-actions';
-      const save = document.createElement('button');
-      save.type = 'button';
-      save.className = 'btn btn-primary';
-      save.textContent = 'Save rating';
-      const skip = document.createElement('button');
-      skip.type = 'button';
-      skip.className = 'btn btn-outline';
-      skip.textContent = 'Skip for now';
-      row.append(save, skip);
-
-      save.addEventListener('click', async () => {
-        error.hidden = true;
-        if (!rateStars) { error.textContent = 'Choose 1 to 5 stars.'; error.hidden = false; return; }
+      const save = makeButton('btn btn-primary', 'Save rating', async () => {
+        showError('');
+        if (!stars.value) { showError('Choose 1 to 5 stars.'); return; }
         save.disabled = true;
         try {
-          await apiFetch('/transactions/' + tradeId + '/rating', {
-            method: 'POST',
-            body: JSON.stringify({ score: rateStars, feedback: text.value })
-          });
-          myScore = rateStars;
+          await postJson('/transactions/' + tradeId + '/rating', { score: stars.value, feedback: text.value });
+          myScore = stars.value;
           drawRating();
         } catch (err) {
-          error.textContent = err instanceof TypeError ? 'Cannot reach the server. Is the backend running?' : err.message;
-          error.hidden = false;
+          showError(netError(err));
           save.disabled = false;
         }
       });
-      skip.addEventListener('click', () => { rateSkipped = true; drawRating(); });
+      const skip = makeButton('btn btn-outline', 'Skip for now', () => { rateSkipped = true; drawRating(); });
 
-      rateCard.append(h, hint, starsBox, label, text, error, row);
+      const row = el('div', 'rate-actions');
+      row.append(save, skip);
+      rateCard.append(heading, hint, starsBox, label, text, error, row);
     }
 
     function renderMessages() {
       box.innerHTML = '';
       if (data.messages.length === 0) {
-        const p = document.createElement('p');
-        p.className = 'no-msgs';
-        p.textContent = 'No messages yet. Say hello to start the chat.';
-        box.appendChild(p);
+        box.appendChild(el('p', 'no-msgs', 'No messages yet. Say hello to start the chat.'));
         return;
       }
       data.messages.forEach(m => {
         const mine = String(m.sender_id) === String(me.user_id);
 
-        const row = document.createElement('div');
-        row.className = 'msgrow' + (mine ? ' me' : '');
-
-        const msg = document.createElement('div');
-        msg.className = 'msg' + (mine ? ' me' : '');
-        const small = document.createElement('small');
         const time = new Date(m.sent_at).toLocaleTimeString('en-PH', { hour: 'numeric', minute: '2-digit' });
-        small.textContent = (mine ? 'You' : '@' + m.username) + ' · ' + time;
-        msg.append(small, document.createTextNode(m.content));
+        const msg = el('div', 'msg' + (mine ? ' me' : ''));
+        msg.append(el('small', '', (mine ? 'You' : '@' + m.username) + ' · ' + time), m.content);
 
+        const row = el('div', 'msgrow' + (mine ? ' me' : ''));
         row.append(makeAvatar(m.username, m.avatar_file, 30), msg);
         box.appendChild(row);
       });
@@ -711,7 +519,7 @@
         data = await apiFetch('/transactions/' + tradeId);
       } catch (err) {
         if (!data) {
-          showPageError(err instanceof TypeError ? 'Cannot reach the server. Is the backend running?' : err.message);
+          showPageError(netError(err));
         }
         return;
       }
@@ -746,17 +554,14 @@
     }
 
     // Chat
-    const input = document.getElementById('chat-input');
-    document.getElementById('chat-form').addEventListener('submit', async e => {
+    const input = $('chat-input');
+    $('chat-form').addEventListener('submit', async e => {
       e.preventDefault();
       const content = input.value.trim();
       if (!content) return;
       input.value = '';
       try {
-        await apiFetch('/transactions/' + tradeId + '/messages', {
-          method: 'POST',
-          body: JSON.stringify({ content })
-        });
+        await postJson('/transactions/' + tradeId + '/messages', { content });
         await load();
       } catch (err) {
         input.value = content;

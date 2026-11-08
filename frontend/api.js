@@ -1,8 +1,12 @@
-const API = 'http://localhost:3000/api';
+/* ==========================================================
+   api.js – talking to the backend, and the pieces shared by
+   every signed-in page. Load it after data.js.
+   ========================================================== */
 
 const IDLE_REASON = 'You were signed out because you were inactive.';
 const ACTIVE_KEY = 'st_last_active';   // when the user last did something (shared by all open tabs)
 
+/* ---------- Who is signed in ---------- */
 function getToken() {
   return localStorage.getItem('st_token');
 }
@@ -16,6 +20,11 @@ function saveUser(patch) {
   const user = Object.assign(getUser() || {}, patch);
   localStorage.setItem('st_user', JSON.stringify(user));
   return user;
+}
+
+// Save the parts of the profile the pages read from the saved user
+function rememberProfile(p) {
+  saveUser({ username: p.username, email: p.email, avatar_file: p.avatar_file, verified: p.verified, full_name: p.full_name });
 }
 
 function onSupportPage() {
@@ -45,13 +54,20 @@ async function logout(reason) {
       clearTimeout(timer);
     } catch (err) { /* the server session ends by itself when the account goes idle */ }
   }
-  localStorage.removeItem('st_token');
-  localStorage.removeItem('st_user');
-  localStorage.removeItem(ACTIVE_KEY);
+  ['st_token', 'st_user', ACTIVE_KEY].forEach(key => localStorage.removeItem(key));
   if (reason) localStorage.setItem('st_logout_reason', reason);
   else localStorage.removeItem('st_logout_reason');
   window.location.href = 'login.html';
 }
+
+// What every signed-in page does first
+function startPage() {
+  ST.applyBrand();
+  if (!getToken()) window.location.href = 'login.html';
+  $('signout').addEventListener('click', e => { e.preventDefault(); logout(); });
+}
+
+/* ---------- Calling the backend ---------- */
 
 // Read the server's answer. If we are signed out (another device, idle), go back to login and show why.
 // If the account is suspended, go to Support.
@@ -69,32 +85,30 @@ async function readReply(res) {
   return data;
 }
 
-// Call the backend with the login token
-async function apiFetch(path, options = {}) {
+// The login token as a header. Without a token, go to the login page.
+function authHeader() {
   const token = getToken();
   if (!token) { window.location.href = 'login.html'; throw new Error('Not logged in'); }
+  return { Authorization: 'Bearer ' + token };
+}
 
+// Call the backend with the login token
+async function apiFetch(path, options = {}) {
   const res = await fetch(API + path, {
     ...options,
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: 'Bearer ' + token,
-      ...(options.headers || {})
-    }
+    headers: { 'Content-Type': 'application/json', ...authHeader(), ...(options.headers || {}) }
   });
   return readReply(res);
 }
 
-// Send a file (FormData) to the backend with the login token
-async function apiUpload(path, formData, method) {
-  const token = getToken();
-  if (!token) { window.location.href = 'login.html'; throw new Error('Not logged in'); }
+// Send JSON to the backend
+function postJson(path, body = {}) {
+  return apiFetch(path, { method: 'POST', body: JSON.stringify(body) });
+}
 
-  const res = await fetch(API + path, {
-    method: method || 'POST',
-    headers: { Authorization: 'Bearer ' + token },
-    body: formData
-  });
+// Send a file (FormData) to the backend with the login token
+async function apiUpload(path, formData) {
+  const res = await fetch(API + path, { method: 'POST', headers: authHeader(), body: formData });
   return readReply(res);
 }
 
@@ -105,16 +119,12 @@ async function fetchPrivateImage(path) {
   return URL.createObjectURL(await res.blob());
 }
 
-// The address of a profile photo
-function avatarUrl(file) {
-  return file ? API + '/avatars/' + file : null;
-}
+/* ---------- Small pieces shown on many pages ---------- */
 
 // A round profile picture: the photo if there is one, otherwise the first letter of the username
-function makeAvatar(username, file, size) {
-  size = size || 40;
+function makeAvatar(username, file, size = 40) {
   const letter = (username || '?').charAt(0).toUpperCase();
-  const box = document.createElement('span');
+  const box = el('span');
   box.style.cssText =
     'display:inline-grid;place-items:center;flex-shrink:0;overflow:hidden;border-radius:50%;' +
     'background:#dfe3f6;color:#25306b;font-weight:700;vertical-align:middle;' +
@@ -122,8 +132,8 @@ function makeAvatar(username, file, size) {
   box.title = username ? '@' + username : '';
 
   if (file) {
-    const img = document.createElement('img');
-    img.src = avatarUrl(file);
+    const img = el('img');
+    img.src = API + '/avatars/' + file;
     img.alt = '';
     img.style.cssText = 'width:100%;height:100%;object-fit:cover;display:block;';
     img.addEventListener('error', () => { img.remove(); box.textContent = letter; });
@@ -134,32 +144,27 @@ function makeAvatar(username, file, size) {
   return box;
 }
 
-// "✔ Verified": this person showed an ID to an admin
-function verifiedBadge() {
-  const b = document.createElement('span');
-  b.textContent = '✔ Verified';
-  b.title = 'This person verified their identity with an ID';
-  b.style.cssText =
-    'display:inline-block;margin-left:.4rem;padding:.08rem .5rem;border-radius:999px;background:#d6f4ee;' +
-    'color:#146b5a;font-size:.72rem;font-weight:700;vertical-align:middle;white-space:nowrap;';
-  return b;
+// A small rounded label beside a name
+function pillTag(text, title, background, color) {
+  const tag = el('span', '', text);
+  tag.title = title;
+  tag.style.cssText =
+    'display:inline-block;margin-left:.4rem;padding:.08rem .5rem;border-radius:999px;background:' + background + ';' +
+    'color:' + color + ';font-size:.72rem;font-weight:700;vertical-align:middle;white-space:nowrap;';
+  return tag;
 }
 
-// "Not verified": this person cannot trade yet
+function verifiedBadge() {
+  return pillTag('✔ Verified', 'This person verified their identity with an ID', '#d6f4ee', '#146b5a');
+}
+
 function notVerifiedTag() {
-  const b = document.createElement('span');
-  b.textContent = 'Not verified';
-  b.title = 'This person has not verified their identity yet';
-  b.style.cssText =
-    'display:inline-block;margin-left:.4rem;padding:.08rem .5rem;border-radius:999px;background:#fdecc8;' +
-    'color:#8a5a00;font-size:.72rem;font-weight:700;vertical-align:middle;white-space:nowrap;';
-  return b;
+  return pillTag('Not verified', 'This person has not verified their identity yet', '#fdecc8', '#8a5a00');
 }
 
 // A star button to add or remove a favorite. It saves right away (favorites are private).
 function makeStar(username, isFavorite, onChange) {
-  const btn = document.createElement('button');
-  btn.type = 'button';
+  const btn = makeButton('');
   btn.style.cssText = 'background:none;border:0;padding:0 .15rem;font-size:1.3rem;line-height:1;cursor:pointer;';
   let fav = !!isFavorite;
 
@@ -175,8 +180,9 @@ function makeStar(username, isFavorite, onChange) {
     e.stopPropagation();
     btn.disabled = true;
     try {
-      if (fav) await apiFetch('/favorites/' + encodeURIComponent(username), { method: 'DELETE' });
-      else await apiFetch('/favorites/' + encodeURIComponent(username), { method: 'PUT', body: JSON.stringify({}) });
+      const path = '/favorites/' + encodeURIComponent(username);
+      if (fav) await apiFetch(path, { method: 'DELETE' });
+      else await apiFetch(path, { method: 'PUT', body: JSON.stringify({}) });
       fav = !fav;
       paint();
       if (onChange) onChange(fav);
@@ -188,12 +194,100 @@ function makeStar(username, isFavorite, onChange) {
   return btn;
 }
 
+// A table row. Each value can be text, an element, or a ready-made <td>.
+function tableRow(values) {
+  const tr = el('tr');
+  values.forEach(v => {
+    if (v instanceof HTMLTableCellElement) { tr.appendChild(v); return; }
+    const td = el('td');
+    if (v instanceof Node) td.appendChild(v); else td.textContent = v;
+    tr.appendChild(td);
+  });
+  return tr;
+}
+
+// Five clickable stars. Read the choice with stars.value.
+function makeStarRating(box) {
+  const stars = {
+    value: 0,
+    draw() {
+      box.innerHTML = '';
+      for (let i = 1; i <= 5; i++) {
+        const b = makeButton(i <= stars.value ? 'on' : '', '★', () => stars.set(i));
+        b.setAttribute('role', 'radio');
+        b.setAttribute('aria-checked', i === stars.value);
+        b.setAttribute('aria-label', i + (i === 1 ? ' star' : ' stars'));
+        box.appendChild(b);
+      }
+    },
+    set(value) { stars.value = value; stars.draw(); }
+  };
+  stars.draw();
+  return stars;
+}
+
+// A "Report" link that opens a box for the reason. Returns the link and the box.
+function makeReportControls({ openText, panelClass, reviewRef, onStart, onSent, onError }) {
+  const open = makeButton('link-btn', openText, () => { panel.hidden = false; open.hidden = true; reason.focus(); });
+  const panel = el('div', panelClass);
+  panel.hidden = true;
+
+  const reason = el('input');
+  reason.type = 'text';
+  reason.maxLength = 300;
+  reason.placeholder = 'Why? (abusive, false, personal information)';
+  reason.setAttribute('aria-label', 'Reason for reporting');
+
+  const send = makeButton('btn btn-primary btn-small', 'Send report', async () => {
+    onStart();
+    send.disabled = true;
+    try {
+      await postJson('/reviews/' + reviewRef + '/report', { reason: reason.value });
+      onSent();
+    } catch (err) {
+      onError(netError(err));
+      send.disabled = false;
+    }
+  });
+  const cancel = makeButton('btn btn-outline btn-small', 'Cancel', () => { panel.hidden = true; open.hidden = false; });
+
+  panel.append(reason, send, cancel);
+  return [open, panel];
+}
+
+// Evidence pictures need the login token, so they are fetched and shown as previews.
+// The preview links are added to blobUrls so the page can clean them up later.
+function addEvidenceThumbs(listEl, items, blobUrls, titleOf) {
+  listEl.innerHTML = '';
+  items.forEach(item => {
+    const title = titleOf(item);
+    const btn = makeButton('');
+    btn.title = title;
+    const img = el('img');
+    img.alt = item.name || 'Evidence';
+    btn.appendChild(img);
+    const li = el('li');
+    li.appendChild(btn);
+    listEl.appendChild(li);
+
+    fetchPrivateImage('/evidence/' + item.evidence_id + '/file')
+      .then(url => {
+        blobUrls.push(url);
+        img.src = url;
+        btn.addEventListener('click', () => window.open(url, '_blank'));
+      })
+      .catch(() => { btn.textContent = 'Could not load'; });
+  });
+}
+
+/* ---------- Staying signed in ---------- */
+
 // Tell the server "I'm online" every minute while a page is open
 function startHeartbeat() {
   if (!getToken()) return;
   const ping = () => {
     if (document.hidden) return;
-    apiFetch('/heartbeat', { method: 'POST' }).catch(() => {});
+    postJson('/heartbeat').catch(() => {});
   };
   ping();
   setInterval(ping, 60000);
@@ -239,7 +333,7 @@ function startIdleWatch() {
     if (now - last > idleMs) { logout(IDLE_REASON); return; }
     if (now - last < 60000 && now - lastPing > 60000) {
       lastPing = now;
-      apiFetch('/activity', { method: 'POST' }).catch(() => {});
+      postJson('/activity').catch(() => {});
     }
   }, 15000);
 }
@@ -254,29 +348,3 @@ function startIdleWatch() {
 
 startHeartbeat();
 startIdleWatch();
-
-// ---------- Small helpers used by many pages ----------
-// Make an element with a class and text
-function el(tag, cls, text) {
-  const e = document.createElement(tag);
-  if (cls) e.className = cls;
-  if (text !== undefined) e.textContent = text;
-  return e;
-}
-
-// Show a message in the element with this id, or hide it when the message is empty
-function setMessage(id, msg) {
-  const box = document.getElementById(id);
-  box.textContent = msg;
-  box.hidden = !msg;
-}
-
-// A clear message when the server cannot be reached
-function netError(err) {
-  return err instanceof TypeError ? 'Cannot reach the server. Is the backend running?' : err.message;
-}
-
-// "Oct 18, 3:05 PM"
-function fmtTime(iso) {
-  return new Date(iso).toLocaleString('en-PH', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
-}

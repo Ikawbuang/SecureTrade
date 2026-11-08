@@ -8,86 +8,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=Figtree:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="global.css">
-  <style>
-    /* Page-specific styles (style.css stays unchanged) */
-    [hidden] { display: none !important; }
-    .sidebar .brand { display: block; margin-bottom: 2rem; padding-left: .85rem; }
-    .sidebar .spacer { margin-top: 2rem; padding-top: 1rem; border-top: 1px solid var(--ink-3); }
-    .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
-
-    .page-head { margin-bottom: 1.5rem; }
-    .page-head h1 { margin: 0; font-size: 1.9rem; }
-    .page-head p { margin: .25rem 0 0; color: var(--text-soft); }
-
-    .stack > * + * { margin-top: 1.5rem; }
-    .layout { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr); gap: 1.5rem; align-items: start; }
-    @media (max-width: 1000px) { .layout { grid-template-columns: 1fr; } }
-
-    .section-title { margin: 0 0 .25rem; font-size: 1.15rem; }
-    .section-sub { margin: 0 0 1rem; color: var(--text-soft); font-size: .92rem; }
-    .btn-small { padding: .45rem .9rem; font-size: .92rem; }
-
-    .who-head { display: flex; align-items: center; gap: 1rem; }
-    .who-head h2 { margin: 0; font-size: 1.3rem; word-break: break-all; }
-    .who-head p { margin: .15rem 0 0; color: var(--text-soft); font-size: .92rem; word-break: break-all; }
-
-    .row-2 { display: grid; grid-template-columns: 1fr 1fr; gap: .8rem; }
-    .row-2 input { width: 100%; }
-
-    /* Information list: each row shows a value, and some have an Edit button */
-    .info-row { padding: .85rem 0; border-bottom: 1px solid #e6e8f5; }
-    .info-row:last-of-type { border-bottom: 0; }
-    .info-top { display: flex; justify-content: space-between; align-items: center; gap: 1rem; }
-    .info-label { margin: 0; color: var(--text-soft); font-size: .85rem; }
-    .info-value { margin: .1rem 0 0; font-weight: 600; word-break: break-word; }
-    .info-note { margin: .25rem 0 0; color: var(--text-soft); font-size: .85rem; }
-    .edit-panel { margin-top: .75rem; padding: .9rem 1rem; background: #f6f7fc; border-radius: var(--radius-s); }
-
-    .pf-row { display: flex; gap: .6rem; flex-wrap: wrap; align-items: flex-end; }
-    .pf-row .field { margin: 0; flex: 1; min-width: 180px; }
-    .pf-row input, .field select {
-      width: 100%; padding: .6rem .85rem; font: 1rem var(--font-body); color: var(--text);
-      background: var(--white); border: 2px solid #d5d8ec; border-radius: var(--radius-s);
-    }
-    .pf-row input:focus, .field select:focus { outline: none; border-color: var(--gold); }
-    .pf-actions { display: flex; gap: .6rem; flex-wrap: wrap; align-items: center; margin-top: .75rem; }
-    .form-ok { margin: .6rem 0 0; padding: .6rem .85rem; border-radius: 8px; background: #e3f7f2; color: #146b5a; font-size: .9rem; }
-    .link-btn { background: none; border: 0; padding: 0; font: inherit; font-weight: 600; color: var(--gold-dark); text-decoration: underline; cursor: pointer; }
-    .link-btn:disabled { opacity: .55; cursor: not-allowed; text-decoration: none; }
-
-    /* My reviews (anonymous: the writer's name is hidden) */
-    .rev-list { list-style: none; margin: 0; padding: 0; }
-    .rev-item { padding: .75rem 0; border-bottom: 1px solid #e6e8f5; }
-    .rev-item:last-child { border-bottom: 0; }
-    .rev-meta { color: var(--text-soft); font-size: .85rem; }
-    .rev-text { margin: .3rem 0 0; white-space: pre-wrap; word-break: break-word; }
-    .rev-actions { margin-top: .35rem; font-size: .88rem; }
-    .rev-report { margin-top: .4rem; display: flex; gap: .4rem; flex-wrap: wrap; }
-    .rev-report input { flex: 1; min-width: 160px; padding: .45rem .7rem; font: .92rem var(--font-body); border: 2px solid #d5d8ec; border-radius: var(--radius-s); }
-    .rev-report input:focus { outline: none; border-color: var(--gold); }
-
-    /* Verification */
-    .vf-state { padding: .9rem 1rem; border-radius: var(--radius-s); font-size: .95rem; margin-bottom: 1rem; }
-    .vf-state.ok { background: #e3f7f2; border-left: 4px solid var(--teal); }
-    .vf-state.wait { background: #fff8e6; border-left: 4px solid var(--gold); }
-    .vf-state.bad { background: #fdecea; border-left: 4px solid #d9534f; }
-    .vf-state strong { display: block; margin-bottom: .2rem; }
-    .code-box { text-align: center; padding: 1rem; background: var(--ink); color: var(--gold); border-radius: var(--radius-m); margin: .75rem 0 1rem; }
-    .code-box .num { font: 700 2.4rem var(--font-display); letter-spacing: .5rem; }
-    .code-box small { display: block; color: var(--text-on-dark-soft); margin-top: .25rem; }
-    .steps { margin: 0 0 1rem; padding-left: 1.2rem; color: var(--text-soft); font-size: .93rem; }
-    .steps li { margin-bottom: .35rem; }
-    fieldset.vf { border: 0; padding: 0; margin: 0; }
-    fieldset.vf:disabled { opacity: .55; }
-    .pics { display: grid; grid-template-columns: 1fr 1fr; gap: .9rem; margin-bottom: 1rem; }
-    .pic { border: 2px dashed #c3c7e3; border-radius: var(--radius-m); padding: .75rem; background: var(--paper); min-width: 0; }
-    .pic label { font-weight: 600; font-size: .9rem; display: block; margin-bottom: .4rem; }
-    .pic input[type="file"] { width: 100%; font-size: .85rem; }
-    .pic img { display: block; width: 100%; max-height: 180px; object-fit: cover; border-radius: var(--radius-s); margin-top: .5rem; }
-    .check-line { display: flex; gap: .6rem; align-items: flex-start; font-size: .9rem; margin: .5rem 0 1rem; }
-    .check-line input { margin-top: .25rem; }
-    @media (max-width: 560px) { .pics, .row-2 { grid-template-columns: 1fr; } }
-  </style>
+  <link rel="stylesheet" href="style.css">
 </head>
 <body>
   <div class="app">
@@ -341,19 +262,14 @@
   <script src="api.js"></script>
   <script src="nav-badge.js"></script>
   <script>
-    ST.applyBrand();
+    startPage();
 
-    // Must be signed in to use this page
-    if (!getToken()) window.location.href = 'login.html';
-    document.getElementById('signout').addEventListener('click', e => { e.preventDefault(); logout(); });
-
-    const $ = id => document.getElementById(id);
     let profile = null;
     let verification = null;
     let reviews = [];
     let showVerifyForm = false;   // the verification form opens only after pressing "Verify now"
 
-    function fmtDate(iso) {
+    function fmtLongDate(iso) {
       return new Date(iso).toLocaleDateString('en-PH', { month: 'long', day: 'numeric', year: 'numeric' });
     }
     // Show a message in a green (ok) or red (error) line
@@ -379,14 +295,14 @@
       $('pf-last').textContent = p.last_name || '–';
       $('pf-username-value').textContent = '@' + p.username;
       $('pf-email-value').textContent = p.email;
-      $('pf-joined').textContent = new Date(p.created_at).toLocaleDateString('en-PH', { month: 'long', year: 'numeric' });
+      $('pf-joined').textContent = fmtMonthYear(p.created_at);
 
-      saveUser({ username: p.username, email: p.email, avatar_file: p.avatar_file, verified: p.verified, full_name: p.full_name });
+      rememberProfile(p);
 
       // The Edit button for the username is locked while trades are on process or during the 30 days
       let reason = '';
       if (p.active_trades > 0) reason = 'You cannot change your username while you have trades on process.';
-      else if (p.next_username_change) reason = 'You can change your username again on ' + fmtDate(p.next_username_change) + '.';
+      else if (p.next_username_change) reason = 'You can change your username again on ' + fmtLongDate(p.next_username_change) + '.';
       $('pf-username-edit').disabled = !!reason;
       $('pf-username-hint').textContent = reason;
       $('pf-username-hint').hidden = !reason;
@@ -407,7 +323,7 @@
         const top = el('div');
         top.append(
           el('strong', '', '★ ' + r.score),
-          el('span', 'rev-meta', ' · from the ' + r.as_role.toLowerCase() + ' · ' + fmtDate(r.rated_at))
+          el('span', 'rev-meta', ' · from the ' + r.as_role.toLowerCase() + ' · ' + fmtLongDate(r.rated_at))
         );
         li.appendChild(top);
         if (r.feedback) li.appendChild(el('p', 'rev-text', r.feedback));
@@ -416,39 +332,18 @@
         if (r.reported_by_me) {
           act.appendChild(el('span', 'rev-meta', 'You reported this review. An admin will look at it.'));
         } else {
-          const open = el('button', 'link-btn', 'Report this review');
-          open.type = 'button';
-          act.appendChild(open);
-
-          const panel = el('div', 'rev-report');
-          panel.hidden = true;
-          const reason = el('input');
-          reason.type = 'text';
-          reason.maxLength = 300;
-          reason.placeholder = 'Why? (abusive, false, personal information)';
-          reason.setAttribute('aria-label', 'Reason for reporting');
-          const send = el('button', 'btn btn-primary btn-small', 'Send report');
-          send.type = 'button';
-          const cancel = el('button', 'btn btn-outline btn-small', 'Cancel');
-          cancel.type = 'button';
-          panel.append(reason, send, cancel);
-          act.appendChild(panel);
-
-          open.addEventListener('click', () => { panel.hidden = false; open.hidden = true; reason.focus(); });
-          cancel.addEventListener('click', () => { panel.hidden = true; open.hidden = false; });
-          send.addEventListener('click', async () => {
-            say('rev', '');
-            send.disabled = true;
-            try {
-              await apiFetch('/reviews/' + r.review_ref + '/report', { method: 'POST', body: JSON.stringify({ reason: reason.value }) });
+          act.append(...makeReportControls({
+            openText: 'Report this review',
+            panelClass: 'rev-report',
+            reviewRef: r.review_ref,
+            onStart: () => say('rev', ''),
+            onSent: () => {
               r.reported_by_me = true;
               renderReviews();
               say('rev', 'Thank you. An admin will look at this review.', true);
-            } catch (err) {
-              say('rev', netError(err));
-              send.disabled = false;
-            }
-          });
+            },
+            onError: message => say('rev', message)
+          }));
         }
         li.appendChild(act);
         list.appendChild(li);
@@ -517,18 +412,6 @@
 
     // ---------- Email: Edit opens the form, then the PIN step ----------
     const emailResend = $('pf-email-resend');
-    let resendTimer;
-    function startResendCooldown(seconds) {
-      clearInterval(resendTimer);
-      let left = seconds;
-      emailResend.disabled = true;
-      emailResend.textContent = 'Resend PIN (' + left + 's)';
-      resendTimer = setInterval(() => {
-        left--;
-        if (left <= 0) { clearInterval(resendTimer); emailResend.disabled = false; emailResend.textContent = 'Resend PIN'; }
-        else emailResend.textContent = 'Resend PIN (' + left + 's)';
-      }, 1000);
-    }
     function backToEmailForm() {
       $('pf-email-verify').hidden = true;
       $('pf-email-form').hidden = false;
@@ -542,7 +425,7 @@
       $('pf-new-email').focus();
     }
     function closeEmailEdit() {
-      clearInterval(resendTimer);
+      stopCooldown(emailResend);
       backToEmailForm();
       $('pf-new-email').value = '';
       $('pf-email-password').value = '';
@@ -560,16 +443,13 @@
       const btn = $('pf-email-send');
       btn.disabled = true;
       try {
-        const result = await apiFetch('/profile/email/start', {
-          method: 'POST',
-          body: JSON.stringify({ new_email: $('pf-new-email').value, password: $('pf-email-password').value })
-        });
+        const result = await postJson('/profile/email/start', { new_email: $('pf-new-email').value, password: $('pf-email-password').value });
         $('pf-email-password').value = '';
         $('pf-email-form').hidden = true;
         $('pf-email-verify').hidden = false;
         $('pf-email-verify-text').textContent = 'We sent a 6-digit PIN to ' + result.new_email + '. Type it below to confirm the change. It expires in 10 minutes.';
         $('pf-email-pin').focus();
-        startResendCooldown(60);
+        startCooldown(emailResend, 60);
       } catch (err) { say('pf-email', netError(err)); }
       btn.disabled = false;
     });
@@ -579,7 +459,7 @@
       const btn = $('pf-email-confirm');
       btn.disabled = true;
       try {
-        await apiFetch('/profile/email/verify', { method: 'POST', body: JSON.stringify({ pin: $('pf-email-pin').value.trim() }) });
+        await postJson('/profile/email/verify', { pin: $('pf-email-pin').value.trim() });
         closeEmailEdit();
         await loadAll();
         say('pf-email', 'Your email was changed. Use the new email the next time you sign in.', true);
@@ -590,9 +470,9 @@
       say('pf-email', '');
       emailResend.disabled = true;
       try {
-        await apiFetch('/profile/email/resend', { method: 'POST' });
+        await postJson('/profile/email/resend');
         say('pf-email', 'A new PIN was sent.', true);
-        startResendCooldown(60);
+        startCooldown(emailResend, 60);
       } catch (err) { say('pf-email', netError(err)); emailResend.disabled = false; }
     });
 
@@ -611,7 +491,7 @@
       $('vf-start').textContent = v.rejected ? 'Verify again' : 'Verify now';
 
       if (v.verified) {
-        $('vf-verified-text').textContent = (v.verified_at ? 'Verified on ' + fmtDate(v.verified_at) + '. ' : '') +
+        $('vf-verified-text').textContent = (v.verified_at ? 'Verified on ' + fmtLongDate(v.verified_at) + '. ' : '') +
           'Your name on file: ' + v.full_name + '.';
       }
       if (v.pending) {
@@ -625,7 +505,11 @@
       const select = $('vf-type');
       if (!select.options.length) {
         select.innerHTML = '<option value="">Choose an ID</option>';
-        v.id_types.forEach(t => { const o = document.createElement('option'); o.value = t; o.textContent = t; select.appendChild(o); });
+        v.id_types.forEach(t => {
+          const option = el('option', '', t);
+          option.value = t;
+          select.appendChild(option);
+        });
       }
 
       // The code: the form fields open only after the code is shown
@@ -657,7 +541,7 @@
       say('vf', '');
       $('vf-get-code').disabled = true;
       try {
-        await apiFetch('/verification/code', { method: 'POST' });
+        await postJson('/verification/code');
         verification = await apiFetch('/verification');
         renderVerification();
       } catch (err) { say('vf', netError(err)); }
@@ -719,13 +603,12 @@
         [profile, verification, reviews] = await Promise.all([
           apiFetch('/profile'), apiFetch('/verification'), apiFetch('/reviews/mine')
         ]);
-        $('page-error').hidden = true;
+        setMessage('page-error', '');
         renderProfile();
         renderVerification();
         renderReviews();
       } catch (err) {
-        $('page-error').textContent = netError(err);
-        $('page-error').hidden = false;
+        setMessage('page-error', netError(err));
       }
     }
     loadAll();

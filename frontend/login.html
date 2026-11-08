@@ -8,19 +8,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=Figtree:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="global.css">
-  <style>
-    /* Page-specific styles (style.css stays unchanged) */
-    [hidden] { display: none !important; }
-    .form-ok { margin: 0 0 1rem; padding: .65rem .85rem; border-radius: 8px; background: #e3f7f2; color: #146b5a; font-size: .9rem; }
-    .form-notice { margin: 0 0 1rem; padding: .65rem .85rem; border-radius: 8px; background: #fff8e6; color: #6b4b00; font-size: .9rem; }
-    .warn-box { margin: 0 0 1rem; padding: .9rem 1rem; border-radius: 8px; background: #fff8e6; border-left: 4px solid var(--gold); font-size: .92rem; }
-    .warn-actions { display: flex; gap: .6rem; flex-wrap: wrap; margin-top: .75rem; }
-    .warn-actions .btn { padding: .5rem .9rem; font-size: .92rem; }
-    .pin-input { font: 700 1.6rem var(--font-display); letter-spacing: .5rem; text-align: center; }
-    .forgot { margin: -.5rem 0 1rem; text-align: right; font-size: .9rem; }
-    .link-btn { background: none; border: 0; padding: 0; font: inherit; font-weight: 600; color: inherit; text-decoration: underline; cursor: pointer; }
-    .link-btn:disabled { opacity: .55; cursor: not-allowed; text-decoration: none; }
-  </style>
+  <link rel="stylesheet" href="style.css">
 </head>
 <body>
   <main class="auth">
@@ -228,12 +216,7 @@
   <script src="data.js"></script>
   <script>
     ST.applyBrand();
-    document.getElementById('team-line').textContent = ST.course + ' UI prototype – Team ' + ST.team;
-    document.getElementById('fee-step').textContent = (ST.feeRate * 100) + '%';
-    document.getElementById('fee-terms').textContent = (ST.feeRate * 100) + '%';
-
-    const $ = id => document.getElementById(id);
-    const API = 'http://localhost:3000/api';
+    setTexts({ 'fee-step': (ST.feeRate * 100) + '%', 'fee-terms': (ST.feeRate * 100) + '%' });
 
     // ---------- Which form is showing ----------
     const forms = {
@@ -267,12 +250,6 @@
     });
 
     // ---------- Helpers ----------
-    function setMessage(id, msg) {
-      const el = $(id);
-      el.textContent = msg;
-      el.hidden = !msg;
-    }
-
     // Call the backend. A problem keeps the server's message and its code (for example ALREADY_LOGGED_IN).
     async function callApi(path, body) {
       const res = await fetch(API + path, {
@@ -289,12 +266,6 @@
       return data;
     }
 
-    function friendly(err) {
-      return err instanceof TypeError
-        ? 'Cannot reach the server. Is the backend running?'
-        : err.message;
-    }
-
     function saveSession(data) {
       localStorage.setItem('st_token', data.token);
       localStorage.setItem('st_user', JSON.stringify(data.user));
@@ -308,25 +279,6 @@
       if (user && user.role === 'admin') page = 'admin-dashboard.html';
       else if (user && user.account_status === 'suspended') page = 'support.html';
       window.location.href = page;
-    }
-
-    // "Resend PIN" button that waits 60 seconds between sends
-    const cooldownTimers = {};
-    function startCooldown(button, seconds) {
-      clearInterval(cooldownTimers[button.id]);
-      let left = seconds;
-      button.disabled = true;
-      button.textContent = 'Resend PIN (' + left + 's)';
-      cooldownTimers[button.id] = setInterval(() => {
-        left--;
-        if (left <= 0) {
-          clearInterval(cooldownTimers[button.id]);
-          button.disabled = false;
-          button.textContent = 'Resend PIN';
-        } else {
-          button.textContent = 'Resend PIN (' + left + 's)';
-        }
-      }, 1000);
     }
 
     // ---------- Already signed in? Go straight to the dashboard ----------
@@ -348,9 +300,7 @@
         }
         if (res.status === 401) {
           const data = await res.json().catch(() => ({}));
-          localStorage.removeItem('st_token');
-          localStorage.removeItem('st_user');
-          localStorage.removeItem('st_last_active');
+          ['st_token', 'st_user', 'st_last_active'].forEach(key => localStorage.removeItem(key));
           if (!localStorage.getItem('st_logout_reason') && /signed out|inactive|not active/i.test(data.message || '')) {
             setMessage('login-notice', data.message);
           }
@@ -384,7 +334,7 @@
           $('login-warn-text').textContent = err.message;
           $('login-warn').hidden = false;
         } else {
-          setMessage('login-error', friendly(err));
+          setMessage('login-error', netError(err));
         }
         btn.disabled = false;
       }
@@ -399,7 +349,7 @@
         await doLogin(true);
       } catch (err) {
         $('login-warn').hidden = true;
-        setMessage('login-error', friendly(err));
+        setMessage('login-error', netError(err));
         btn.disabled = false;
       }
     });
@@ -448,7 +398,7 @@
         $('verify-pin').focus();
         startCooldown(verifyResend, 60);
       } catch (err) {
-        setMessage('reg-error', friendly(err));
+        setMessage('reg-error', netError(err));
       }
       btn.disabled = false;
     });
@@ -468,7 +418,7 @@
         saveSession(data);
         goHome(data.user);
       } catch (err) {
-        setMessage('verify-error', friendly(err));
+        setMessage('verify-error', netError(err));
         btn.disabled = false;
       }
     });
@@ -482,7 +432,7 @@
         setMessage('verify-info', 'A new PIN was sent to ' + pendingEmail + '.');
         startCooldown(verifyResend, 60);
       } catch (err) {
-        setMessage('verify-error', friendly(err));
+        setMessage('verify-error', netError(err));
         verifyResend.disabled = false;
       }
     });
@@ -508,7 +458,7 @@
         $('reset-pin').focus();
         startCooldown(resetResend, 60);
       } catch (err) {
-        setMessage('forgot-error', friendly(err));
+        setMessage('forgot-error', netError(err));
       }
       btn.disabled = false;
     });
@@ -536,7 +486,7 @@
         $('login-password').value = '';
         setMessage('login-info', 'Your password was changed and every device was signed out. Sign in with your new password.');
       } catch (err) {
-        setMessage('reset-error', friendly(err));
+        setMessage('reset-error', netError(err));
       }
       btn.disabled = false;
     });
@@ -550,7 +500,7 @@
         setMessage('reset-info', 'If the email has an account, a new PIN was sent.');
         startCooldown(resetResend, 60);
       } catch (err) {
-        setMessage('reset-error', friendly(err));
+        setMessage('reset-error', netError(err));
         resetResend.disabled = false;
       }
     });

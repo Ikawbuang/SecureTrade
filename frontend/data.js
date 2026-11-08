@@ -1,28 +1,21 @@
 /* ==========================================================
-   data.js – the ONE place for names and sample data.
+   data.js – shared names, settings, and small helpers.
    Edit a name here and every page updates.
    Load this file before each page's own script:
      <script src="data.js"></script>
+   The real data (users, trades, messages) comes from the database.
    ========================================================== */
+
+const API = 'http://localhost:3000/api';
 
 const ST = {
 
   /* ---------- Branding ---------- */
   brand: { first: 'Secure', second: 'Trade' },   // shown as SecureTrade (second part is gold)
-  team: 'Alt-F4',
-  course: 'SIA101',
 
-  /* ---------- Rules ---------- */
+  /* ---------- Rules (shown on the pages; the server applies the real 3%) ---------- */
   feeRate: 0.03,            // 3% service fee
   autoReleaseHours: 2,      // payment releases this many hours after delivery
-
-  /* ---------- The person using the prototype ---------- */
-  me: {
-    name: 'Jahn Patrick Anding',
-    first: 'Patrick',
-    username: '@Anding_JP',
-    completedTrades: 12
-  },
 
   /* ---------- Status key -> [badge class, label] ---------- */
   status: {
@@ -37,87 +30,92 @@ const ST = {
     cancelled:        ['badge-pending',  'Cancelled']
   },
 
-  /* ---------- Everyone on the platform (anyone can buy or sell) ---------- */
-  users: [
-    { username: '@Angel_Waren',    status: 'online',  trades: 18, rating: 4.8, joined: '2026-08-12', account: 'Active' },
-    { username: '@Yusores_Yudolf', status: 'online',  trades: 34, rating: 4.9, joined: '2026-08-30', account: 'Active' },
-    { username: '@Almario_Jessen', status: 'online',  trades: 27, rating: 4.6, joined: '2026-08-21', account: 'Active' },
-    { username: '@Mantalaba_Erica',status: 'online',  trades: 3,  rating: 4.8, joined: '2026-10-06', account: 'Active' },
-    { username: '@Cortes_Mavs',    status: 'offline', lastSeen: '25 min ago',  trades: 15, rating: 4.7, joined: '2026-09-02', account: 'Active' },
-    { username: '@Ikaw_Buang',     status: 'offline', lastSeen: '2 hours ago', trades: 7,  rating: 4.5, joined: '2026-10-03', account: 'Active' },
-    { username: '@Anding_Aries',   status: 'offline', lastSeen: 'Yesterday',   trades: 11, rating: 4.4, joined: '2026-09-25', account: 'Active' },
-    { username: '@Anding_Tala',    status: 'offline', lastSeen: '3 days ago',  trades: 21, rating: 3.9, joined: '2026-09-14', account: 'Under review' }
-  ],
+  /* ---------- What a person can ask for in a dispute ---------- */
+  outcomeLabels: {
+    refund:  'Refund the buyer',
+    release: 'Release the payment to the seller',
+    fix:     'Ask the other person to fix it'
+  },
 
-  /* ---------- My active trades (role = what I am in that trade) ---------- */
-  trades: [
-    { id: 'ST-1051', item: 'Mobile Legends', game: 'Mobile Legends', role: 'seller', partner: '@Yusores_Yudolf',
-      amount: 3000, status: 'held', started: 'Oct 8, 2026',
-      chat: [['them', '1:48 PM', 'I paid. Ready when you are.'], ['me', '1:51 PM', 'Sending the account details now.']] },
-
-    { id: 'ST-1048', item: 'Crossfire', game: 'Valorant', role: 'buyer', partner: '@Angel_Waren',
-      amount: 1200, status: 'waiting_seller', started: 'Oct 7, 2026',
-      chat: [['me', '10:05 AM', 'Paid into escrow. Please send when you can.'], ['them', '10:12 AM', 'Got it, sending tonight.']] },
-
-    { id: 'ST-1047', item: 'Roblox (Robux)', game: 'Roblox', role: 'seller', partner: '@Mantalaba_Erica',
-      amount: 300, status: 'dispute', started: 'Oct 6, 2026', chat: [] },
-
-    { id: 'ST-1042', item: 'Grow a Garden', game: 'Genshin Impact', role: 'buyer', partner: '@Almario_Jessen',
-      amount: 1500, status: 'confirm', started: 'Oct 8, 2026',
-      chat: [['them', '2:14 PM', 'Sent the primogems to your UID. Please check.'], ['me', '2:16 PM', 'Checking now, thanks.']] }
-  ],
-
-  /* ---------- Requests other users sent me (myRole = what I would be) ---------- */
-  requests: [
-    { id: 'RQ-1', from: '@Anding_Aries', myRole: 'seller', item: 'Roblox',       game: 'Roblox', amount: 2500 },
-    { id: 'RQ-2', from: '@Anding_Tala',  myRole: 'buyer',  item: 'MLBB Account', game: 'MLBB',   amount: 900 }
-  ],
-
-  /* ---------- My finished trades (History page) ---------- */
-  history: [
-    { id: 'ST-1031', date: 'Oct 5, 2026',  item: 'Crossfire',            role: 'seller', partner: '@Angel_Waren',     amount: 3000, status: 'completed' },
-    { id: 'ST-1024', date: 'Sep 29, 2026', item: 'Grow a Garden',        role: 'buyer',  partner: '@Mantalaba_Erica', amount: 1200, status: 'completed' },
-    { id: 'ST-1018', date: 'Sep 21, 2026', item: 'Roblox Robux (1,000)', role: 'buyer',  partner: '@Mantalaba_Erica', amount: 500,  status: 'refunded' },
-    { id: 'ST-1009', date: 'Sep 12, 2026', item: 'CS2',                  role: 'seller', partner: '@Anding_Aries',    amount: 1500, status: 'completed' },
-    { id: 'ST-1002', date: 'Sep 3, 2026',  item: 'Valorant skin bundle', role: 'buyer',  partner: '@Almario_Jessen',  amount: 800,  status: 'cancelled' }
-  ],
-
-  /* ---------- Admin: platform-wide numbers ---------- */
-  admin: {
-    heldInEscrow: 48300,
-    tradesThisMonth: 214,
-    feesEarned: 9870,
-
-    disputes: [
-      { id: 'DP-214', tradeId: 'ST-1047', item: 'Roblox limited item', buyer: '@Mantalaba_Erica', seller: '@Anding_JP', amount: 300,
-        reason: 'I did not receive the item',
-        story: 'Seller said it was sent at 8 PM but my inventory is empty. I checked twice.',
-        reply: 'Item was sent to the username given. Buyer may have given the wrong account.',
-        proof: ['buyer-inventory.png', 'chat-8pm.png'] },
-      { id: 'DP-216', tradeId: 'ST-1038', item: 'Mobile Legends account', buyer: '@Anding_Tala', seller: '@Almario_Jessen', amount: 3000,
-        reason: 'Item is different from the description',
-        story: 'Listing said Mythic rank. The account is Epic and skins are missing.',
-        reply: 'Account was Mythic last season. Rank reset happened after the season ended.',
-        proof: ['rank-screen.png', 'skins-list.png', 'listing-copy.png'] },
-      { id: 'DP-218', tradeId: 'ST-1042', item: 'Grow a Garden', buyer: '@Ikaw_Buang', seller: '@Mantalaba_Erica', amount: 1500,
-        reason: 'I did not receive the item',
-        story: 'Marked as sent but only 1,640 primogems arrived, not 3,280.',
-        reply: 'Sent the full amount in two top-ups. Second one may be delayed.',
-        proof: ['primogem-balance.png'] }
-    ],
-
-    recentTransactions: [
-      { id: 'ST-1046', item: 'Crossfire',            buyer: '@Angel_Waren',     seller: '@Anding_JP',       amount: 1200, status: 'waiting_seller' },
-      { id: 'ST-1045', item: 'Mobile Legends skin',  buyer: '@Anding_Tala',     seller: '@Yusores_Yudolf',  amount: 600,  status: 'held' },
-      { id: 'ST-1044', item: 'Roblox Robux (2,000)', buyer: '@Mantalaba_Erica', seller: '@Almario_Jessen',  amount: 1000, status: 'completed' },
-      { id: 'ST-1043', item: 'Grow a Garden',        buyer: '@Ikaw_Buang',      seller: '@Mantalaba_Erica', amount: 4500, status: 'held' },
-      { id: 'ST-1042', item: 'MLBB Acount',          buyer: '@Anding_Tala',     seller: '@Almario_Jessen',  amount: 1500, status: 'dispute' }
-    ]
-  }
+  methodNames: { gcash: 'GCash', maya: 'Maya', card: 'Card' }
 };
 
 /* ==========================================================
-   Helpers shared by every page
+   Small helpers for the page
+   ========================================================== */
+
+const $ = id => document.getElementById(id);
+
+// Make an element with a class and text
+function el(tag, cls, text) {
+  const e = document.createElement(tag);
+  if (cls) e.className = cls;
+  if (text !== undefined) e.textContent = text;
+  return e;
+}
+
+// Make a button that is safe inside a form
+function makeButton(cls, text, onClick) {
+  const b = el('button', cls, text);
+  b.type = 'button';
+  if (onClick) b.addEventListener('click', () => onClick(b));
+  return b;
+}
+
+// Show a message in the element with this id, or hide it when the message is empty
+function setMessage(id, msg) {
+  const box = $(id);
+  box.textContent = msg;
+  box.hidden = !msg;
+}
+
+// Put a text value in many elements: setTexts({ 'some-id': 'value' })
+function setTexts(values) {
+  Object.keys(values).forEach(id => { $(id).textContent = values[id]; });
+}
+
+function setDisabled(ids, disabled) {
+  ids.forEach(id => { $(id).disabled = disabled; });
+}
+
+// A clear message when the server cannot be reached
+function netError(err) {
+  return err instanceof TypeError ? 'Cannot reach the server. Is the backend running?' : err.message;
+}
+
+// A short tab group: one button is selected at a time
+function bindTabs(selector, attribute, onPick) {
+  const buttons = document.querySelectorAll(selector);
+  buttons.forEach(btn => btn.addEventListener('click', () => {
+    buttons.forEach(b => b.setAttribute(attribute, b === btn));
+    onPick(btn);
+  }));
+}
+
+// "Resend PIN" waits between sends
+const cooldownTimers = new Map();
+
+function stopCooldown(button) {
+  clearInterval(cooldownTimers.get(button));
+}
+
+function startCooldown(button, seconds) {
+  stopCooldown(button);
+  let left = seconds;
+  const paint = () => { button.textContent = 'Resend PIN (' + left + 's)'; };
+  button.disabled = true;
+  paint();
+  cooldownTimers.set(button, setInterval(() => {
+    left--;
+    if (left > 0) return paint();
+    stopCooldown(button);
+    button.disabled = false;
+    button.textContent = 'Resend PIN';
+  }, 1000));
+}
+
+/* ==========================================================
+   Formatting
    ========================================================== */
 
 // ₱1,500.00
@@ -126,28 +124,64 @@ ST.peso = n => '₱' + n.toLocaleString('en-PH', { minimumFractionDigits: 2, max
 // ₱1,500
 ST.pesoShort = n => '₱' + n.toLocaleString('en-PH');
 
-// '2026-10-06' -> 'Oct 6, 2026'
-ST.fmtDate = iso => new Date(iso + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+// "Oct 18, 2026"
+function fmtDate(iso) {
+  return new Date(iso).toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' });
+}
+
+// "Oct 18, 3:05 PM"
+function fmtTime(iso) {
+  return new Date(iso).toLocaleString('en-PH', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+}
+
+// "October 2026"
+function fmtMonthYear(iso) {
+  return new Date(iso).toLocaleDateString('en-PH', { month: 'long', year: 'numeric' });
+}
+
+// "GCash 09••••••123"
+ST.methodLabel = (method, masked) => (ST.methodNames[method] || method) + (masked ? ' ' + masked : '');
+
+// The game, item and details are saved together as: "Game – Item. Details"
+ST.splitDescription = desc => {
+  const text = String(desc || '');
+  const i = text.indexOf(' – ');
+  if (i < 0) return { game: '', title: text, details: '' };
+  const game = text.slice(0, i);
+  const rest = text.slice(i + 3);
+  const j = rest.indexOf('. ');
+  return j < 0
+    ? { game, title: rest, details: '' }
+    : { game, title: rest.slice(0, j), details: rest.slice(j + 2) };
+};
+
+/* ==========================================================
+   Badges and branding
+   ========================================================== */
 
 // A coloured status badge element
 ST.badge = key => {
   const s = ST.status[key] || ['badge-pending', key];
-  const el = document.createElement('span');
-  el.className = 'badge ' + s[0];
-  el.textContent = s[1];
-  return el;
+  return el('span', 'badge ' + s[0], s[1]);
 };
 
-// Find one of my active trades by id
-ST.findTrade = id => ST.trades.find(t => t.id === id);
+// The badge for a dispute: open, under review, or how it ended
+ST.disputeBadge = d => {
+  if (d.dispute_status === 'resolved') {
+    return d.trade_status === 'refunded'
+      ? el('span', 'badge badge-pending', 'Refunded to buyer')
+      : el('span', 'badge badge-released', 'Paid to seller');
+  }
+  return d.dispute_status === 'under_review'
+    ? el('span', 'badge badge-held', 'Under review')
+    : el('span', 'badge badge-dispute', 'Open');
+};
 
 // Fill every .brand element and the page title with the brand name
 ST.applyBrand = () => {
-  document.querySelectorAll('.brand').forEach(el => {
-    const second = document.createElement('span');
-    second.textContent = ST.brand.second;
-    el.textContent = ST.brand.first;
-    el.appendChild(second);
+  document.querySelectorAll('.brand').forEach(brand => {
+    brand.textContent = ST.brand.first;
+    brand.appendChild(el('span', '', ST.brand.second));
   });
   document.title = document.title.replace('SecureTrade', ST.brand.first + ST.brand.second);
 };
