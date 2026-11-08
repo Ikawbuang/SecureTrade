@@ -91,6 +91,12 @@
     border-radius: var(--radius-s);
   }
   .filters input { flex: 1; min-width: 180px; }
+  .pager { display: flex; align-items: center; justify-content: flex-end; gap: .6rem; flex-wrap: wrap; margin-top: 1rem; }
+  .pager[hidden] { display: none; }
+  .pager-info { margin-right: auto; color: var(--text-soft); font-size: .9rem; }
+  .pager .btn:disabled { opacity: .5; cursor: not-allowed; }
+  .more-btn { margin-top: .5rem; }
+  .more-btn[hidden] { display: none; }
   .group-tabs { display: inline-flex; flex-wrap: wrap; background: #e4e6f6; border-radius: var(--radius-s); padding: 4px; margin-bottom: 1rem; }
   .group-tabs button {
     padding: .5rem .95rem;

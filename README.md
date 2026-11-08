@@ -4,7 +4,7 @@
 
 SecureTrade is an escrow platform for gamers who buy and sell in-game items, accounts and currency. The buyer pays into escrow, the seller delivers, the buyer confirms, and only then is the payment released to the seller (minus a 3% service fee). If something goes wrong, either side can open a dispute and an administrator decides.
 
-> **Status:** the app works end to end (accounts, identity verification, trades, escrow flow, chat, disputes, ratings, support, admin panel). **Payments are simulated:** no real money moves yet, and "held in escrow" is a status in the database. See [Future work](#future-work-and-recommendations).
+> **Status:** the app works end to end (accounts, identity verification, trades, escrow flow, chat, disputes, ratings, support, admin panel). **Payments use PayMongo in test mode:** no real money moves, and "held in escrow" is a status in the database. Refunds and payouts are still simulated. See [Future work](#future-work-and-recommendations).
 
 **UI-only demo (frontend pages, needs the backend to sign in):** https://ikawbuang.github.io/SecureTrade/frontend/login.html
 
@@ -18,6 +18,7 @@ SecureTrade is an escrow platform for gamers who buy and sell in-game items, acc
 | Authentication | JSON Web Tokens, bcrypt password hashing |
 | File uploads | multer (dispute evidence, profile photos, ID photos) |
 | Email | nodemailer (PINs). In development the PIN is printed in the server terminal |
+| Payments | PayMongo Hosted Checkout (test mode, GCash) |
 | Version control | Git and GitHub |
 
 ## How it works
@@ -25,6 +26,7 @@ SecureTrade is an escrow platform for gamers who buy and sell in-game items, acc
 ```
 Browser (HTML, CSS, JS)  ──►  Express REST API (backend/server.js)  ──►  PostgreSQL (Supabase)
                                       │
+                                      ├── PayMongo API (hosted GCash checkout, test mode)
                                       ├── uploads/  (evidence, avatars, ID photos)
                                       └── email provider (PIN emails, planned: Brevo)
 ```
@@ -83,7 +85,11 @@ Browser (HTML, CSS, JS)  ──►  Express REST API (backend/server.js)  ──
    JWT_SECRET=<a long random text>
    IDLE_MINUTES=15
    DEV_LOG_PIN=true
+   PAYMONGO_SECRET_KEY=sk_test_<your test secret key>
+   FRONTEND_URL=http://localhost:5500/frontend
    ```
+
+   Get the test key from the PayMongo dashboard. Only `sk_test_` keys are accepted, because refunds and payouts are not connected yet. `FRONTEND_URL` is where PayMongo sends the buyer back, so open the frontend from that address (Live Server), not as a file.
 
    Use the **Session pooler** string and **port 6543**. `DEV_LOG_PIN=true` prints PINs in the terminal instead of sending email. Remove it once real email is set up. Never commit `.env`. When you deploy, add `CORS_ORIGINS=https://your-site.com` (comma-separated) so only your own site can call the API; leave it out for local development.
 
@@ -115,7 +121,18 @@ UPDATE users SET verified_at = now() WHERE username = 'some_username';
 
 ### Database tables
 
-`users`, `transactions`, `escrow_payments`, `messages`, `disputes`, `evidence`, `receipts`, `ratings`, `activity_log`, `email_pins`, `email_changes`, `verifications`, `favorites`, `trade_attempts`, `rate_dismissals`, `support_messages`, `review_reports`.
+`users`, `transactions`, `escrow_payments`, `messages`, `disputes`, `evidence`, `receipts`, `ratings`, `activity_log`, `email_pins`, `email_changes`, `verifications`, `favorites`, `trade_attempts`, `rate_dismissals`, `support_messages`, `review_reports`, `paymongo_checkouts`.
+
+```sql
+CREATE TABLE paymongo_checkouts (
+  transaction_id BIGINT PRIMARY KEY REFERENCES transactions(transaction_id),
+  session_id     TEXT NOT NULL,
+  checkout_url   TEXT NOT NULL,
+  payment_id     TEXT,
+  created_at     TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+ALTER TABLE paymongo_checkouts ENABLE ROW LEVEL SECURITY;
+```
 
 ## API overview
 
@@ -143,7 +160,7 @@ UPDATE users SET verified_at = now() WHERE username = 'some_username';
 - One device per account, idle sign-out on the server and in the browser, and sign-out of all devices after a password reset.
 - Review writers are hidden from the public, with report and delete tools for admins.
 
-**Known limits (this is a school project, not production):** payments are simulated, there is no rate limiting or lockout on login yet, CORS is open, the login token is kept in `localStorage`, uploaded files are on the server's disk, and the ID check depends on the admin's eyes.
+**Known limits (this is a school project, not production):** payments run in PayMongo test mode while refunds and payouts are simulated, there is no rate limiting or lockout on login yet, CORS is open, the login token is kept in `localStorage`, uploaded files are on the server's disk, and the ID check depends on the admin's eyes.
 
 ## Design Thinking summary
 
@@ -193,7 +210,7 @@ Features were prioritized into must have, should have and future work, using the
 |---|---|---|
 | Register and sign in | Must | Done (email PIN) |
 | Trade request (send, accept, decline) | Must | Done |
-| Escrow payment hold | Must | Done (payment simulated) |
+| Escrow payment hold | Must | Done (PayMongo test mode) |
 | Delivery and buyer confirmation | Must | Done |
 | Dispute with evidence upload | Must | Done |
 | Admin dispute review (refund or pay seller) | Must | Done |

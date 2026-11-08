@@ -10,6 +10,29 @@ function renderRows(bodyId, emptyId, list, toCells) {
   $(emptyId).hidden = list.length > 0;
 }
 
+// ---------- Pages for the long lists ----------
+// One page from the server. If that page no longer exists (rows were removed), step back.
+async function fetchPage(pager, path) {
+  const data = await apiFetch(path + (path.includes('?') ? '&' : '?') + 'page=' + pager.page);
+  if (!data.rows.length && pager.page > 1) {
+    pager.page--;
+    return fetchPage(pager, path);
+  }
+  pager.show(data.total, data.rows.length);
+  return data.rows;
+}
+
+const adminPager = (sectionId, reload) => createPager(sectionId, reload, showError);
+const pagers = {
+  verifications: adminPager('verifications', () => loadVerifications()),
+  messages: adminPager('messages', () => loadSupport()),
+  disputes: adminPager('disputes', async () => renderDisputes()),
+  reports: adminPager('reports', () => loadReports()),
+  alerts: adminPager('alerts', () => loadAlerts()),
+  transactions: adminPager('transactions', () => loadTrades()),
+  users: adminPager('users', () => loadUsers())
+};
+
 // A list inside a dialog, with its "nothing here" line
 function fillList(listId, noneId, items, toItem) {
   $(listId).replaceChildren(...items.map(toItem));
@@ -212,7 +235,6 @@ function renderOverview(o) {
   navCount('nav-verif-count', o.pending_verifications);
   navCount('nav-msg-count', o.unread_support);
   navCount('nav-report-count', o.open_reports);
-  navCount('nav-alert-count', o.login_alerts);
 }
 
 // ---------- Verification requests ----------
@@ -225,7 +247,7 @@ function renderVerifications(list) {
 }
 
 async function loadVerifications() {
-  renderVerifications(await apiFetch('/admin/verifications?status=' + encodeURIComponent($('v-status').value)));
+  renderVerifications(await fetchPage(pagers.verifications, '/admin/verifications?status=' + encodeURIComponent($('v-status').value)));
 }
 
 // ---------- Support messages ----------
@@ -245,12 +267,12 @@ function renderSupport(list) {
 }
 
 async function loadSupport() {
-  renderSupport(await apiFetch('/admin/support'));
+  renderSupport(await fetchPage(pagers.messages, '/admin/support'));
 }
 
 // ---------- Reported reviews ----------
 async function loadReports() {
-  const list = await apiFetch('/admin/reports?status=' + encodeURIComponent($('r-status').value));
+  const list = await fetchPage(pagers.reports, '/admin/reports?status=' + encodeURIComponent($('r-status').value));
   renderRows('r-rows', 'r-empty', list, r => [
     '★ ' + r.score + (r.feedback ? ' ' + short(r.feedback, 50) : ''),
     '@' + r.subject_username,
@@ -264,9 +286,30 @@ async function loadReports() {
 }
 
 // ---------- Sign-in alerts ----------
+// The menu number counts only alerts newer than the ones this admin already opened (remembered in this browser)
+const ALERTS_SEEN_KEY = 'adminAlertsSeenAt';
+let alertTimes = [];
+
+function alertsSeenAt() {
+  try { return Number(localStorage.getItem(ALERTS_SEEN_KEY)) || 0; } catch { return 0; }
+}
+
+function showAlertCount() {
+  const seenAt = alertsSeenAt();
+  navCount('nav-alert-count', alertTimes.filter(t => t > seenAt).length);
+}
+
+function markAlertsSeen() {
+  if (!alertTimes.length) return;
+  try { localStorage.setItem(ALERTS_SEEN_KEY, String(Math.max(alertsSeenAt(), ...alertTimes))); } catch { /* storage is blocked */ }
+  navCount('nav-alert-count', 0);
+}
+
 async function loadAlerts() {
   const list = await apiFetch('/admin/login-alerts');
-  renderRows('a-rows', 'a-empty', list, a => [
+  alertTimes = list.map(a => new Date(a.created_at).getTime());
+  showAlertCount();
+  renderRows('a-rows', 'a-empty', slicePage(pagers.alerts, list), a => [
     whoCell(a.username, a.avatar_file, '@' + a.username),
     accountBadge(a.account_status),
     'Too many wrong passwords ' + (a.detail || ''),
@@ -298,7 +341,7 @@ function renderDisputes() {
     ? new Date(b.opened_at) - new Date(a.opened_at)
     : new Date(a.opened_at) - new Date(b.opened_at));
 
-  renderRows('d-rows', 'd-empty', list, d => [
+  renderRows('d-rows', 'd-empty', slicePage(pagers.disputes, list), d => [
     '#' + d.dispute_id, d.item_description, '@' + d.buyer_username, '@' + d.seller_username, peso(d.amount),
     badgeWithTag(ST.disputeBadge(d), d.has_reply ? 'ok' : 'none', !isOpen(d) ? '' : (d.has_reply ? 'Reply received' : 'No reply yet')),
     isOpen(d) ? timeSince(d.opened_at) : '–',
@@ -308,9 +351,13 @@ function renderDisputes() {
 
 bindTabs('[data-dtab]', 'aria-selected', btn => {
   disputeTab = btn.dataset.dtab;
+  pagers.disputes.page = 1;
   renderDisputes();
 });
-$('d-search').addEventListener('input', renderDisputes);
+$('d-search').addEventListener('input', () => {
+  pagers.disputes.page = 1;
+  renderDisputes();
+});
 
 function renderTrades(list) {
   renderRows('t-rows', 't-empty', list, t => [
@@ -338,16 +385,12 @@ function renderUsers(list) {
 }
 
 async function loadTrades() {
-  const choice = $('t-status').value;
-  const needs = choice === 'needs_admin';
-  const q = '?status=' + encodeURIComponent(needs ? 'process' : choice) + '&search=' + encodeURIComponent($('t-search').value.trim());
-  let list = await apiFetch('/admin/transactions' + q);
-  if (needs) list = list.filter(t => t.needs_admin);
-  renderTrades(list);
+  const q = '?status=' + encodeURIComponent($('t-status').value) + '&search=' + encodeURIComponent($('t-search').value.trim());
+  renderTrades(await fetchPage(pagers.transactions, '/admin/transactions' + q));
 }
 async function loadUsers() {
   const q = '?status=' + encodeURIComponent($('u-status').value) + '&search=' + encodeURIComponent($('u-search').value.trim());
-  renderUsers(await apiFetch('/admin/users' + q));
+  renderUsers(await fetchPage(pagers.users, '/admin/users' + q));
 }
 
 let scrolledToHash = false;
@@ -367,6 +410,7 @@ async function load() {
       if (location.hash) {
         const target = document.getElementById(location.hash.slice(1));
         if (target) target.scrollIntoView();
+        if (location.hash === '#alerts') markAlertsSeen();
       }
     }
   } catch (err) {
@@ -376,21 +420,22 @@ async function load() {
 
 // Filters: reload when the choice or the search text changes
 let filterTimer;
-function onFilter(fn) {
+function onFilter(pager, fn) {
+  pager.page = 1;
   clearTimeout(filterTimer);
   filterTimer = setTimeout(() => fn().catch(showError), 250);
 }
-$('v-status').addEventListener('change', () => onFilter(loadVerifications));
-$('r-status').addEventListener('change', () => onFilter(loadReports));
-$('t-search').addEventListener('input', () => onFilter(loadTrades));
-$('t-status').addEventListener('change', () => onFilter(loadTrades));
-$('u-search').addEventListener('input', () => onFilter(loadUsers));
-$('u-status').addEventListener('change', () => onFilter(loadUsers));
+$('v-status').addEventListener('change', () => onFilter(pagers.verifications, loadVerifications));
+$('r-status').addEventListener('change', () => onFilter(pagers.reports, loadReports));
+$('t-search').addEventListener('input', () => onFilter(pagers.transactions, loadTrades));
+$('t-status').addEventListener('change', () => onFilter(pagers.transactions, loadTrades));
+$('u-search').addEventListener('input', () => onFilter(pagers.users, loadUsers));
+$('u-status').addEventListener('change', () => onFilter(pagers.users, loadUsers));
 
 // The "Trades needing your decision" number opens that filter
 $('st-needs').closest('a').addEventListener('click', () => {
   $('t-status').value = 'needs_admin';
-  onFilter(loadTrades);
+  onFilter(pagers.transactions, loadTrades);
 });
 
 // ---------- Shared pieces ----------
@@ -402,13 +447,15 @@ function fillChat(listId, noneId, messages) {
   });
 }
 
+function activityItem(a, showWho) {
+  const trade = !showWho && a.transaction_id ? ' (trade #' + a.transaction_id + ')' : '';
+  const li = el('li');
+  li.append(activityText(a, showWho) + trade, el('small', '', fmtTime(a.created_at)));
+  return li;
+}
+
 function fillTimeline(listId, noneId, items, showWho) {
-  fillList(listId, noneId, items, a => {
-    const trade = !showWho && a.transaction_id ? ' (trade #' + a.transaction_id + ')' : '';
-    const li = el('li');
-    li.append(activityText(a, showWho) + trade, el('small', '', fmtTime(a.created_at)));
-    return li;
-  });
+  fillList(listId, noneId, items, a => activityItem(a, showWho));
 }
 
 // ---------- Support chat with one user ----------
@@ -933,19 +980,50 @@ async function deleteReview(review, button) {
   }
 }
 
-function fillReviews(list) {
-  fillList('ud-reviews', 'ud-reviews-none', list, r => {
-    const li = el('li');
-    li.append('★ ' + r.score + ' from ', el('b', '', '@' + r.author_username),
-      el('small', '', 'trade #' + r.transaction_id + ' · ' + fmtDate(r.rated_at)));
-    if (r.feedback) li.appendChild(el('div', 'quote', r.feedback));
+function reviewItem(r) {
+  const li = el('li');
+  li.append('★ ' + r.score + ' from ', el('b', '', '@' + r.author_username),
+    el('small', '', 'trade #' + r.transaction_id + ' · ' + fmtDate(r.rated_at)));
+  if (r.feedback) li.appendChild(el('div', 'quote', r.feedback));
 
-    const del = linkButton('Delete this review', button => deleteReview(r, button));
-    del.style.cssText = 'font-size:.85rem;display:block;margin-top:.2rem';
-    li.appendChild(del);
-    return li;
-  });
+  const del = linkButton('Delete this review', button => deleteReview(r, button));
+  del.style.cssText = 'font-size:.85rem;display:block;margin-top:.2rem';
+  li.appendChild(del);
+  return li;
 }
+
+function userTradeItem(t) {
+  const li = el('li');
+  li.append(
+    linkButton('#' + t.transaction_id, () => { $('user-dialog').close(); openTrade(t.transaction_id); }),
+    ' ' + t.item_description + ' · ' + peso(t.amount) + ' · as ' + t.role + ' with @' + t.partner_username + ' · ',
+    tradeBadge(t.status)
+  );
+  return li;
+}
+
+// A "Show more" button under a list in the user window. Gives a function that shows or hides it.
+function showMoreButton(kind, listId, toItem) {
+  const button = makeButton('btn btn-outline btn-small more-btn', 'Show more', async () => {
+    button.disabled = true;
+    try {
+      const data = await apiFetch('/admin/users/' + currentUser.user_id + '/list/' + kind + '?offset=' + $(listId).children.length);
+      $(listId).append(...data.rows.map(toItem));
+      button.hidden = !data.has_more;
+    } catch (err) {
+      window.alert(netError(err));
+    } finally {
+      button.disabled = false;
+    }
+  });
+  button.hidden = true;
+  $(listId).after(button);
+  return hasMore => { button.hidden = !hasMore; };
+}
+
+const showMoreTrades = showMoreButton('trades', 'ud-trades', userTradeItem);
+const showMoreReviews = showMoreButton('reviews', 'ud-reviews', reviewItem);
+const showMoreActivity = showMoreButton('activity', 'ud-activity', a => activityItem(a, false));
 
 async function openUser(id) {
   const u = await fetchForDialog('/admin/users/' + id);
@@ -985,18 +1063,12 @@ async function openUser(id) {
   $('ud-message').hidden = u.role === 'admin';
 
   // Their trades
-  fillList('ud-trades', 'ud-trades-none', u.trades, t => {
-    const li = el('li');
-    li.append(
-      linkButton('#' + t.transaction_id, () => { $('user-dialog').close(); openTrade(t.transaction_id); }),
-      ' ' + t.item_description + ' · ' + peso(t.amount) + ' · as ' + t.role + ' with @' + t.partner_username + ' · ',
-      tradeBadge(t.status)
-    );
-    return li;
-  });
-
-  fillReviews(u.reviews || []);
+  fillList('ud-trades', 'ud-trades-none', u.trades, userTradeItem);
+  fillList('ud-reviews', 'ud-reviews-none', u.reviews, reviewItem);
   fillTimeline('ud-activity', 'ud-activity-none', u.activity, false);
+  showMoreTrades(u.trades_more);
+  showMoreReviews(u.reviews_more);
+  showMoreActivity(u.activity_more);
   openDialog('user-dialog');
 }
 
@@ -1046,7 +1118,11 @@ function markMenu(id) {
     else a.removeAttribute('aria-current');
   });
 }
-menuLinks.forEach(a => a.addEventListener('click', () => markMenu(a.getAttribute('href').slice(1))));
+menuLinks.forEach(a => a.addEventListener('click', () => {
+  const id = a.getAttribute('href').slice(1);
+  markMenu(id);
+  if (id === 'alerts') markAlertsSeen();
+}));
 
 if ('IntersectionObserver' in window) {
   const seen = new IntersectionObserver(entries => {

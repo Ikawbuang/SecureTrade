@@ -56,7 +56,7 @@ function noticeFor(d, role, partner, net) {
         : { text: '@' + partner + ' sent you this request. Accept or decline it on your dashboard. It is cancelled automatically if nobody answers in 12 hours.' };
     case 'accepted':
       return role === 'buyer'
-        ? { text: 'Enter the GCash number you are paying from. The money goes to SecureTrade, not to the seller, and stays there until you confirm the item arrived. Payments are simulated for now.' }
+        ? { text: 'You will pay with GCash on the secure PayMongo page (test mode, no real money). The money goes to SecureTrade, not to the seller, and stays there until you confirm the item arrived.' }
         : { text: 'Waiting for the buyer to pay into escrow. Do not hand over the item until the payment is held.' };
     case 'paid':
       return role === 'buyer'
@@ -184,11 +184,48 @@ function addGcashInput(placeholder, label) {
   return number;
 }
 
-// Buyer: type the GCash number to pay from
+// Buyer: go to the PayMongo page to pay
 function addPayControls(price) {
-  const number = addGcashInput('GCash number 09XXXXXXXXX', 'GCash number you are paying from');
-  addButton('Pay ' + peso(price) + ' with GCash', btn =>
-    act('/pay', { method: 'gcash', number: number.value }, btn));
+  addButton('Pay ' + peso(price) + ' with GCash', async btn => {
+    showActionError('');
+    btn.disabled = true;
+    try {
+      const reply = await postJson('/transactions/' + tradeId + '/pay');
+      if (reply.checkout_url) {
+        window.location.href = reply.checkout_url;
+      } else {
+        await load();
+      }
+    } catch (err) {
+      showActionError(err.message);
+      btn.disabled = false;
+    }
+  });
+}
+
+// Back from PayMongo: ask the backend to confirm. The payment can take a moment to appear, so try a few times.
+async function confirmReturnedPayment() {
+  for (let tries = 0; tries < 4; tries++) {
+    const reply = await postJson('/transactions/' + tradeId + '/pay/verify');
+    if (reply.paid) return;
+    await new Promise(resolve => setTimeout(resolve, 1500));
+  }
+  showActionError('PayMongo has not confirmed this payment yet. If you already paid, press the Pay button to check again.');
+}
+
+async function handlePaymentReturn() {
+  const result = new URLSearchParams(location.search).get('payment');
+  if (!result) return;
+  history.replaceState(null, '', 'transaction.html?id=' + tradeId);
+  if (result === 'cancelled') {
+    showActionError('You left the PayMongo page, so nothing was paid.');
+    return;
+  }
+  try {
+    await confirmReturnedPayment();
+  } catch (err) {
+    showActionError(err.message);
+  }
 }
 
 // Seller: type the GCash number to receive the money, then mark the item as delivered
@@ -486,6 +523,8 @@ $('chat-form').addEventListener('submit', async e => {
 if (!/^\d+$/.test(String(tradeId))) {
   showPageError('No trade selected. Open a trade from your dashboard.');
 } else {
-  load();
-  setInterval(load, 5000);   // pick up new messages and status changes
+  handlePaymentReturn().finally(() => {
+    load();
+    setInterval(load, 5000);   // pick up new messages and status changes
+  });
 }
