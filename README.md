@@ -87,6 +87,8 @@ Browser (HTML, CSS, JS)  ──►  Express REST API (backend/server.js)  ──
 
    Use the **Session pooler** string and **port 6543**. `DEV_LOG_PIN=true` prints PINs in the terminal instead of sending email. Remove it once real email is set up. Never commit `.env`. When you deploy, add `CORS_ORIGINS=https://your-site.com` (comma-separated) so only your own site can call the API; leave it out for local development.
 
+   Download the SSL certificate from Supabase (**Project Settings → Database → SSL Configuration**) and save it as `backend/supabase-ca.crt`. The server will not start without it. It is not in Git, so copy it to every computer that runs the backend.
+
 2. **Database:** create the tables listed below in Supabase (SQL Editor). The server needs all of them.
 
 3. **Start the server:**
