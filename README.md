@@ -85,7 +85,7 @@ Browser (HTML, CSS, JS)  ──►  Express REST API (backend/server.js)  ──
    DEV_LOG_PIN=true
    ```
 
-   Use the **Session pooler** string and **port 6543**. `DEV_LOG_PIN=true` prints PINs in the terminal instead of sending email. Remove it once real email is set up. Never commit `.env`.
+   Use the **Session pooler** string and **port 6543**. `DEV_LOG_PIN=true` prints PINs in the terminal instead of sending email. Remove it once real email is set up. Never commit `.env`. When you deploy, add `CORS_ORIGINS=https://your-site.com` (comma-separated) so only your own site can call the API; leave it out for local development.
 
 2. **Database:** create the tables listed below in Supabase (SQL Editor). The server needs all of them.
 
@@ -127,7 +127,7 @@ UPDATE users SET verified_at = now() WHERE username = 'some_username';
 | Disputes | `GET /api/disputes`, `POST /api/transactions/:id/dispute`, `/dispute/reply` |
 | Reviews | `GET /api/reviews/mine`, `POST /api/reviews/:ref/report` |
 | Support | `GET /api/support`, `POST /api/support` |
-| Admin | `/api/admin/overview`, `/verifications`, `/support`, `/disputes`, `/reports`, `/transactions`, `/users` |
+| Admin | `/api/admin/overview`, `/verifications`, `/support`, `/disputes`, `/reports`, `/login-alerts`, `/transactions`, `/users` |
 
 ## Security measures
 

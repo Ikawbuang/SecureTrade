@@ -11,7 +11,9 @@ const nodemailer = require('nodemailer');
 const multer = require('multer');
 
 const app = express();
-app.use(cors());
+// Set CORS_ORIGINS in .env (comma-separated) to allow only your own site. Empty means open, for local development.
+const allowedOrigins = (process.env.CORS_ORIGINS || '').split(',').map(origin => origin.trim()).filter(Boolean);
+app.use(cors(allowedOrigins.length ? { origin: allowedOrigins } : undefined));
 app.use(express.json());
 // A request with no JSON body gets an empty one, so the checks answer "required" instead of crashing
 app.use((req, res, next) => {
@@ -21,7 +23,8 @@ app.use((req, res, next) => {
 
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
-  ssl: { rejectUnauthorized: false },
+  // Supabase's certificate proves we are talking to the real database
+  ssl: { ca: fs.readFileSync(path.join(__dirname, 'supabase-ca.crt'), 'utf8'), rejectUnauthorized: true },
 });
 
 // A user counts as online if we heard from them in the last 2 minutes
@@ -500,6 +503,73 @@ app.post('/api/password/reset', route(async (req, res) => {
   res.json({ ok: true });
 }));
 
+// ---------- Limit on wrong passwords ----------
+// Failures are counted per computer + email, so nobody can lock another person out from elsewhere.
+// The counts reset when the server restarts.
+const LOGIN_LIMIT_MINUTES = 15;
+const MAX_FAILS_PER_ACCOUNT = 5;
+const loginFailures = new Map();   // key -> { count, resetAt }
+
+function currentLoginFailure(key) {
+  const entry = loginFailures.get(key);
+  return entry && entry.resetAt > Date.now() ? entry : null;
+}
+
+function addLoginFailure(key) {
+  const entry = currentLoginFailure(key) || { count: 0, resetAt: Date.now() + LOGIN_LIMIT_MINUTES * 60000 };
+  entry.count++;
+  loginFailures.set(key, entry);
+  return entry.count;
+}
+
+function assertLoginAllowed(accountKey) {
+  const account = currentLoginFailure(accountKey);
+  if (account && account.count >= MAX_FAILS_PER_ACCOUNT) {
+    throw new HttpError(429, 'Too many wrong tries. Please wait ' + LOGIN_LIMIT_MINUTES + ' minutes, or reset your password.');
+  }
+}
+
+// An account just reached the limit: record it for the admins and warn the owner by email.
+// At most once an hour per account, so nobody can flood the owner's inbox.
+// Nothing here is awaited by the login, so the answer does not reveal whether the account exists.
+async function warnAboutBlockedLogin(user, ip) {
+  try {
+    const recent = await queryOne(
+      pool,
+      `SELECT 1 FROM activity_log
+       WHERE user_id = $1 AND action = 'login_blocked' AND created_at > now() - interval '1 hour'`,
+      [user.user_id]
+    );
+    if (recent) return;
+    await logActivity(pool, user.user_id, null, 'login_blocked', 'from ' + ip);
+    await sendLoginWarningEmail(user.email);
+  } catch (err) {
+    console.error('Sign-in warning failed:', err.message);
+  }
+}
+
+async function sendLoginWarningEmail(to) {
+  if (!mailConfigured()) {
+    if (process.env.DEV_LOG_PIN === 'true') console.log('[DEV] sign-in warning for ' + to);
+    return;
+  }
+  await getTransporter().sendMail({
+    from: `"SecureTrade" <${process.env.MAIL_FROM}>`,
+    to,
+    subject: 'Someone tried to sign in to your SecureTrade account',
+    text: `We blocked sign-in attempts on your account after ${MAX_FAILS_PER_ACCOUNT} wrong passwords.\n\n` +
+      'If this was you, wait ' + LOGIN_LIMIT_MINUTES + ' minutes and try again, or reset your password.\n' +
+      'If this was not you, reset your password now. Your account was not suspended.',
+  });
+}
+
+// Forget old counts so the list does not keep growing
+setInterval(() => {
+  for (const key of loginFailures.keys()) {
+    if (!currentLoginFailure(key)) loginFailures.delete(key);
+  }
+}, LOGIN_LIMIT_MINUTES * 60000);
+
 // ---------- Login ----------
 // A new login replaces the old session, so the account is open on one device at a time.
 // If another device is active right now, the person is warned first (they send force: true to continue).
@@ -508,8 +578,17 @@ app.post('/api/login', route(async (req, res) => {
   const { email, password } = req.body;
   const force = req.body.force === true;
   if (!email || !password) throw new HttpError(400, 'Email and password are required.');
+  const accountKey = req.ip + '|' + String(email).toLowerCase();
+  assertLoginAllowed(accountKey);
+
   const user = await queryOne(pool, 'SELECT * FROM users WHERE email = $1', [String(email).toLowerCase()]);
-  if (!user || !(await bcrypt.compare(password, user.password_hash))) throw new HttpError(401, 'Wrong email or password.');
+  if (!user || !(await bcrypt.compare(password, user.password_hash))) {
+    const failures = addLoginFailure(accountKey);
+    if (user && failures === MAX_FAILS_PER_ACCOUNT) warnAboutBlockedLogin(user, req.ip);
+    throw new HttpError(401, 'Wrong email or password.');
+  }
+  loginFailures.delete(accountKey);
+
   const status = String(user.account_status);
   if (status === 'banned') throw new HttpError(403, 'This account was banned.');
   if (status !== 'active' && status !== 'suspended') throw new HttpError(403, 'This account is not active.');
@@ -1513,6 +1592,7 @@ app.post('/api/transactions/:id/dispute', auth, uploadFiles, route(async (req, r
     const outcome = String(req.body.outcome || '').trim();
     if (!description) throw new HttpError(400, 'Tell us what happened.');
     if (description.length > 2000) throw new HttpError(400, 'Please keep the description under 2000 characters.');
+    await assertRealImages(files, 'One of the files is not a valid JPG, PNG, WEBP, or GIF image.');
 
     await withTx(async client => {
       const t = await queryOne(client, 'SELECT * FROM transactions WHERE transaction_id = $1 FOR UPDATE', [req.params.id]);
@@ -1556,6 +1636,7 @@ app.post('/api/transactions/:id/dispute/reply', auth, uploadFiles, route(async (
     const message = String(req.body.message || '').trim();
     if (!message) throw new HttpError(400, 'Write your reply.');
     if (message.length > 2000) throw new HttpError(400, 'Please keep the reply under 2000 characters.');
+    await assertRealImages(files, 'One of the files is not a valid JPG, PNG, WEBP, or GIF image.');
 
     await withTx(async client => {
       const userId = req.user.user_id;
@@ -1639,9 +1720,17 @@ async function looksLikeImage(filePath, ext) {
     if (ext === '.jpg') return buf[0] === 0xFF && buf[1] === 0xD8 && buf[2] === 0xFF;
     if (ext === '.png') return buf[0] === 0x89 && buf.toString('ascii', 1, 4) === 'PNG';
     if (ext === '.webp') return buf.toString('ascii', 0, 4) === 'RIFF' && buf.toString('ascii', 8, 12) === 'WEBP';
+    if (ext === '.gif') return ['GIF87a', 'GIF89a'].includes(buf.toString('ascii', 0, 6));
     return false;
   } finally {
     await handle.close();
+  }
+}
+
+// Every uploaded file must really be the kind of image it says it is
+async function assertRealImages(files, message) {
+  for (const file of files) {
+    if (!(await looksLikeImage(file.path, path.extname(file.filename)))) throw new HttpError(400, message);
   }
 }
 
@@ -1951,11 +2040,7 @@ app.post('/api/verification/submit', auth, uploadVerification, route(async (req,
     const idPhoto = req.files && req.files.id_photo && req.files.id_photo[0];
     const selfie = req.files && req.files.selfie && req.files.selfie[0];
     if (!idPhoto || !selfie) throw new HttpError(400, 'Add a picture of your ID and a selfie holding it.');
-    for (const f of [idPhoto, selfie]) {
-      if (!(await looksLikeImage(f.path, path.extname(f.filename)))) {
-        throw new HttpError(400, 'One of the pictures is not a valid JPG, PNG, or WEBP image.');
-      }
-    }
+    await assertRealImages([idPhoto, selfie], 'One of the pictures is not a valid JPG, PNG, or WEBP image.');
 
     await withTx(async client => {
       const id = req.user.user_id;
@@ -2035,6 +2120,7 @@ app.get('/api/admin/overview', auth, adminOnly, route(async (req, res) => {
        (SELECT COUNT(*) FROM verifications WHERE status = 'pending') AS pending_verifications,
        (SELECT COUNT(DISTINCT user_id) FROM support_messages WHERE NOT from_admin AND read_at IS NULL) AS unread_support,
        (SELECT COUNT(*) FROM review_reports WHERE status = 'open') AS open_reports,
+       (SELECT COUNT(*) FROM activity_log WHERE action = 'login_blocked' AND created_at > now() - interval '7 days') AS login_alerts,
        (SELECT COUNT(*) FROM transactions t
           ${JOIN_BUYER_SELLER}
          WHERE t.status::text IN ('paid', 'delivered')
@@ -2048,6 +2134,7 @@ app.get('/api/admin/overview', auth, adminOnly, route(async (req, res) => {
     pending_verifications: Number(stats.pending_verifications),
     unread_support: Number(stats.unread_support),
     open_reports: Number(stats.open_reports),
+    login_alerts: Number(stats.login_alerts),
     needs_admin_trades: Number(stats.needs_admin_trades),
   });
 }));
@@ -2130,6 +2217,21 @@ app.post('/api/admin/verifications/:id/decision', auth, adminOnly, route(async (
   });
   await Promise.all(toDelete.map(removeVerifFile));
   res.json({ ok: true });
+}));
+
+// ---------- Admin: sign-in alerts ----------
+
+// Accounts that reached the wrong-password limit in the last 7 days. An admin decides whether to act.
+app.get('/api/admin/login-alerts', auth, adminOnly, route(async (req, res) => {
+  res.json(await queryAll(
+    pool,
+    `SELECT a.log_id, a.detail, a.created_at,
+            u.user_id, u.username, u.avatar_file, u.account_status::text AS account_status
+     FROM activity_log a JOIN users u ON u.user_id = a.user_id
+     WHERE a.action = 'login_blocked' AND a.created_at > now() - interval '7 days'
+     ORDER BY a.created_at DESC
+     LIMIT 50`
+  ));
 }));
 
 // ---------- Admin: support chat ----------

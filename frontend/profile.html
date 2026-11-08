@@ -35,7 +35,7 @@
 
       <div class="layout">
 
-        <!-- Left: who I am, my information, and my reviews -->
+        <!-- Left: who I am and my information -->
         <div class="stack">
 
           <section class="card" aria-label="Profile">
@@ -150,6 +150,100 @@
               <p class="info-value" id="pf-joined"></p>
             </div>
           </section>
+        </div>
+
+        <!-- Right: identity verification, then my reviews -->
+        <div class="stack">
+
+          <section class="card" aria-labelledby="vf-title">
+            <h3 class="section-title" id="vf-title">Identity verification</h3>
+            <p class="section-sub">You must be verified to start or accept trades. SecureTrade is for users 18 and older, so your ID must show that you are 18 or older. An admin checks your ID, then the pictures are deleted.</p>
+
+            <div id="vf-verified" class="vf-state ok" hidden>
+              <strong>✔ You are verified</strong>
+              <span id="vf-verified-text"></span>
+            </div>
+
+            <div id="vf-pending" class="vf-state wait" hidden>
+              <strong>Your request is being reviewed</strong>
+              <span id="vf-pending-text"></span>
+            </div>
+
+            <div id="vf-rejected" class="vf-state bad" hidden>
+              <strong>Your last request was rejected</strong>
+              <span id="vf-rejected-text"></span>
+            </div>
+
+            <!-- Not verified yet: the form opens only after pressing the button -->
+            <div id="vf-intro" hidden>
+              <p style="margin:0 0 1rem; color:var(--text-soft)">It takes a few minutes: a code, a picture of your ID, and a selfie holding it.</p>
+              <button class="btn btn-primary" type="button" id="vf-start">Verify now</button>
+            </div>
+
+            <div id="vf-form-wrap" hidden>
+              <ol class="steps">
+                <li><strong>Get your code</strong> and write it on a piece of paper.</li>
+                <li>Take a <strong>selfie holding your ID</strong> next to your face, with the paper and the code in the picture.</li>
+                <li>Type your <strong>first name and last name exactly as written on the ID</strong>, and add both pictures.</li>
+              </ol>
+
+              <div id="vf-code-area">
+                <button class="btn btn-outline" type="button" id="vf-get-code">Get my code</button>
+              </div>
+              <div class="code-box" id="vf-code-box" hidden>
+                <div class="num" id="vf-code"></div>
+                <small id="vf-code-expires"></small>
+              </div>
+
+              <form id="vf-form">
+                <fieldset class="vf" id="vf-fields" disabled>
+                  <div class="row-2">
+                    <div class="field">
+                      <label for="vf-first">First name on your ID</label>
+                      <input id="vf-first" type="text" maxlength="45" autocomplete="off" placeholder="Juan" required>
+                    </div>
+                    <div class="field">
+                      <label for="vf-last">Last name on your ID</label>
+                      <input id="vf-last" type="text" maxlength="45" autocomplete="off" placeholder="Dela Cruz" required>
+                    </div>
+                  </div>
+                  <div class="field">
+                    <label for="vf-type">Kind of ID</label>
+                    <select id="vf-type" required></select>
+                  </div>
+
+                  <div class="pics">
+                    <div class="pic">
+                      <label for="vf-id">Picture of your ID</label>
+                      <input id="vf-id" type="file" accept="image/jpeg,image/png,image/webp" required>
+                      <img id="vf-id-preview" alt="" hidden>
+                    </div>
+                    <div class="pic">
+                      <label for="vf-selfie">Selfie holding the ID and the code</label>
+                      <input id="vf-selfie" type="file" accept="image/jpeg,image/png,image/webp" required>
+                      <img id="vf-selfie-preview" alt="" hidden>
+                    </div>
+                  </div>
+
+                  <label class="check-line">
+                    <input id="vf-consent" type="checkbox" required>
+                    <span>I agree that SecureTrade and its admins look at my ID and selfie only to verify me. The pictures are deleted after the decision, and no ID number is saved.</span>
+                  </label>
+
+                  <p class="form-error" id="vf-error" role="alert" hidden></p>
+                  <div class="pf-actions">
+                    <button class="btn btn-primary" type="submit" id="vf-submit">Send for review</button>
+                    <button class="btn btn-outline" type="button" id="vf-cancel">Cancel</button>
+                  </div>
+                </fieldset>
+              </form>
+
+              <!-- Cancel is also reachable before the code is shown -->
+              <div class="pf-actions" id="vf-cancel-early">
+                <button class="btn btn-outline" type="button" id="vf-cancel-2">Cancel</button>
+              </div>
+            </div>
+          </section>
 
           <!-- Reviews other people wrote about me. Their names are hidden. -->
           <section class="card" aria-labelledby="rev-title">
@@ -162,97 +256,6 @@
           </section>
 
         </div>
-
-        <!-- Right: identity verification -->
-        <section class="card" aria-labelledby="vf-title">
-          <h3 class="section-title" id="vf-title">Identity verification</h3>
-          <p class="section-sub">You must be verified to start or accept trades. SecureTrade is for users 18 and older, so your ID must show that you are 18 or older. An admin checks your ID, then the pictures are deleted.</p>
-
-          <div id="vf-verified" class="vf-state ok" hidden>
-            <strong>✔ You are verified</strong>
-            <span id="vf-verified-text"></span>
-          </div>
-
-          <div id="vf-pending" class="vf-state wait" hidden>
-            <strong>Your request is being reviewed</strong>
-            <span id="vf-pending-text"></span>
-          </div>
-
-          <div id="vf-rejected" class="vf-state bad" hidden>
-            <strong>Your last request was rejected</strong>
-            <span id="vf-rejected-text"></span>
-          </div>
-
-          <!-- Not verified yet: the form opens only after pressing the button -->
-          <div id="vf-intro" hidden>
-            <p style="margin:0 0 1rem; color:var(--text-soft)">It takes a few minutes: a code, a picture of your ID, and a selfie holding it.</p>
-            <button class="btn btn-primary" type="button" id="vf-start">Verify now</button>
-          </div>
-
-          <div id="vf-form-wrap" hidden>
-            <ol class="steps">
-              <li><strong>Get your code</strong> and write it on a piece of paper.</li>
-              <li>Take a <strong>selfie holding your ID</strong> next to your face, with the paper and the code in the picture.</li>
-              <li>Type your <strong>first name and last name exactly as written on the ID</strong>, and add both pictures.</li>
-            </ol>
-
-            <div id="vf-code-area">
-              <button class="btn btn-outline" type="button" id="vf-get-code">Get my code</button>
-            </div>
-            <div class="code-box" id="vf-code-box" hidden>
-              <div class="num" id="vf-code"></div>
-              <small id="vf-code-expires"></small>
-            </div>
-
-            <form id="vf-form">
-              <fieldset class="vf" id="vf-fields" disabled>
-                <div class="row-2">
-                  <div class="field">
-                    <label for="vf-first">First name on your ID</label>
-                    <input id="vf-first" type="text" maxlength="45" autocomplete="off" placeholder="Juan" required>
-                  </div>
-                  <div class="field">
-                    <label for="vf-last">Last name on your ID</label>
-                    <input id="vf-last" type="text" maxlength="45" autocomplete="off" placeholder="Dela Cruz" required>
-                  </div>
-                </div>
-                <div class="field">
-                  <label for="vf-type">Kind of ID</label>
-                  <select id="vf-type" required></select>
-                </div>
-
-                <div class="pics">
-                  <div class="pic">
-                    <label for="vf-id">Picture of your ID</label>
-                    <input id="vf-id" type="file" accept="image/jpeg,image/png,image/webp" required>
-                    <img id="vf-id-preview" alt="" hidden>
-                  </div>
-                  <div class="pic">
-                    <label for="vf-selfie">Selfie holding the ID and the code</label>
-                    <input id="vf-selfie" type="file" accept="image/jpeg,image/png,image/webp" required>
-                    <img id="vf-selfie-preview" alt="" hidden>
-                  </div>
-                </div>
-
-                <label class="check-line">
-                  <input id="vf-consent" type="checkbox" required>
-                  <span>I agree that SecureTrade and its admins look at my ID and selfie only to verify me. The pictures are deleted after the decision, and no ID number is saved.</span>
-                </label>
-
-                <p class="form-error" id="vf-error" role="alert" hidden></p>
-                <div class="pf-actions">
-                  <button class="btn btn-primary" type="submit" id="vf-submit">Send for review</button>
-                  <button class="btn btn-outline" type="button" id="vf-cancel">Cancel</button>
-                </div>
-              </fieldset>
-            </form>
-
-            <!-- Cancel is also reachable before the code is shown -->
-            <div class="pf-actions" id="vf-cancel-early">
-              <button class="btn btn-outline" type="button" id="vf-cancel-2">Cancel</button>
-            </div>
-          </div>
-        </section>
 
       </div>
     </main>

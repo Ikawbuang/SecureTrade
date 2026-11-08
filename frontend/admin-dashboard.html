@@ -21,6 +21,7 @@
       <a href="#messages">Messages <span class="count" id="nav-msg-count" hidden></span></a>
       <a href="#disputes">Disputes</a>
       <a href="#reports">Reports <span class="count" id="nav-report-count" hidden></span></a>
+      <a href="#alerts">Sign-in alerts <span class="count" id="nav-alert-count" hidden></span></a>
       <a href="#transactions">Transactions</a>
       <a href="#users">Users</a>
       <div class="spacer">
@@ -161,6 +162,23 @@
             </table>
           </div>
           <p class="empty" id="r-empty" hidden>No reports here.</p>
+        </section>
+
+        <!-- Accounts that reached the wrong-password limit -->
+        <section class="card block" id="alerts" aria-labelledby="a-title">
+          <div class="card-head">
+            <h2 id="a-title">Sign-in alerts</h2>
+            <span>Accounts blocked after too many wrong passwords in the last 7 days. This may be a stranger, so open the user before you act.</span>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr><th>User</th><th>Account</th><th>What happened</th><th>When</th><th><span class="sr-only">Open</span></th></tr>
+              </thead>
+              <tbody id="a-rows"></tbody>
+            </table>
+          </div>
+          <p class="empty" id="a-empty" hidden>No sign-in alerts.</p>
         </section>
 
         <!-- Transactions -->
@@ -653,6 +671,7 @@
         case 'verification_submitted': return 'sent an ID for verification' + (detail ? ' (' + detail + ')' : '');
         case 'verification_approved':  return 'was verified ' + detail;
         case 'verification_rejected':  return 'verification rejected ' + detail;
+        case 'login_blocked':          return 'had sign-in blocked after too many wrong passwords ' + detail;
         case 'account_active':         return 'account reactivated ' + detail;
         case 'account_suspended':      return 'account suspended ' + detail;
         case 'account_banned':         return 'account banned ' + detail;
@@ -712,6 +731,7 @@
       navCount('nav-verif-count', o.pending_verifications);
       navCount('nav-msg-count', o.unread_support);
       navCount('nav-report-count', o.open_reports);
+      navCount('nav-alert-count', o.login_alerts);
     }
 
     // ---------- Verification requests ----------
@@ -759,6 +779,18 @@
         fmtTime(r.created_at),
         reportBadge(r),
         linkButton(r.status === 'open' && !r.deleted_at ? 'Review' : 'View', () => openReport(r))
+      ]);
+    }
+
+    // ---------- Sign-in alerts ----------
+    async function loadAlerts() {
+      const list = await apiFetch('/admin/login-alerts');
+      renderRows('a-rows', 'a-empty', list, a => [
+        whoCell(a.username, a.avatar_file, '@' + a.username),
+        accountBadge(a.account_status),
+        'Too many wrong passwords ' + (a.detail || ''),
+        fmtTime(a.created_at),
+        linkButton('Open', () => openUser(a.user_id))
       ]);
     }
 
@@ -846,7 +878,7 @@
         renderOverview(overview);
         allDisputes = disputes;
         renderDisputes();
-        await Promise.all([loadVerifications(), loadSupport(), loadReports(), loadTrades(), loadUsers()]);
+        await Promise.all([loadVerifications(), loadSupport(), loadReports(), loadAlerts(), loadTrades(), loadUsers()]);
 
         // Opened from a link such as admin-dashboard.html#messages
         if (!scrolledToHash) {
