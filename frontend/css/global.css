@@ -153,7 +153,15 @@ th { font-size: .85rem; color: var(--text-soft); font-weight: 600; }
   border-radius: var(--radius-s);
 }
 .sidebar a:hover, .sidebar a[aria-current="page"] { background: var(--ink-3); color: var(--white); }
-.main { padding: 2rem; }
+.main { position: relative; padding: 2rem 2rem 6rem; }
+.site-footer {                /* stays at the bottom of the main area, even on a short page */
+  position: absolute;
+  left: 2rem; right: 2rem; bottom: 1.25rem;
+  padding-top: .75rem;
+  border-top: 1px solid #e0e3f2;
+  font-size: .85rem;
+  color: var(--text-soft);
+}
 
 /* ---------- Brand mark ---------- */
 .brand {

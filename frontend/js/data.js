@@ -139,6 +139,10 @@ function fmtMonthYear(iso) {
   return new Date(iso).toLocaleDateString('en-PH', { month: 'long', year: 'numeric' });
 }
 
+// The line at the bottom of every page
+ST.footerText = () => '© ' + new Date().getFullYear() + ' ' + ST.brand.first + ST.brand.second
+  + ' · Payments are held in escrow until the buyer confirms';
+
 // "GCash 09••••••123"
 ST.methodLabel = (method, masked) => (ST.methodNames[method] || method) + (masked ? ' ' + masked : '');
 

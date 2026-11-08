@@ -60,11 +60,21 @@ async function logout(reason) {
   window.location.href = 'login.html';
 }
 
+// The footer at the bottom of the main area
+function addFooter() {
+  const support = el('a', '', 'Support');
+  support.href = 'support.html';
+  const footer = el('footer', 'site-footer', ST.footerText() + ' · ');
+  footer.appendChild(support);
+  document.querySelector('.main').appendChild(footer);
+}
+
 // What every signed-in page does first
 function startPage() {
   ST.applyBrand();
   if (!getToken()) window.location.href = 'login.html';
   $('signout').addEventListener('click', e => { e.preventDefault(); logout(); });
+  addFooter();
 }
 
 /* ---------- Calling the backend ---------- */

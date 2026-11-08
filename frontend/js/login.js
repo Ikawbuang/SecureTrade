@@ -1,5 +1,5 @@
 ST.applyBrand();
-setTexts({ 'fee-step': (ST.feeRate * 100) + '%', 'fee-terms': (ST.feeRate * 100) + '%' });
+setTexts({ 'fee-step': (ST.feeRate * 100) + '%', 'fee-terms': (ST.feeRate * 100) + '%', 'team-line': ST.footerText() });
 
 // ---------- Which form is showing ----------
 const forms = {
