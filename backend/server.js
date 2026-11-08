@@ -13,6 +13,11 @@ const multer = require('multer');
 const app = express();
 app.use(cors());
 app.use(express.json());
+// A request with no JSON body gets an empty one, so the checks answer "required" instead of crashing
+app.use((req, res, next) => {
+  req.body = req.body || {};
+  next();
+});
 
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
@@ -170,8 +175,7 @@ async function isAdmin(userId) {
 
 // Everyone must be verified to start or accept a trade (admin accounts count as verified)
 async function assertVerified(userId, message) {
-  const r = await pool.query('SELECT verified_at, role FROM users WHERE user_id = $1', [userId]);
-  const u = r.rows[0];
+  const u = await queryOne(pool, 'SELECT verified_at, role FROM users WHERE user_id = $1', [userId]);
   if (!u || (!u.verified_at && u.role !== 'admin')) {
     throw new HttpError(403, message || 'Verify your identity first. Open "Edit profile" on your dashboard and complete the verification.');
   }
@@ -339,11 +343,11 @@ async function issuePin(email, purpose, signupData) {
 async function checkPin(email, purpose, pin) {
   if (!/^\d{6}$/.test(String(pin || ''))) throw new HttpError(400, 'Enter the 6-digit PIN.');
 
-  const r = await pool.query(
+  const row = await queryOne(
+    pool,
     `SELECT * FROM email_pins WHERE email = $1 AND purpose = $2 ORDER BY created_at DESC LIMIT 1`,
     [email, purpose]
   );
-  const row = r.rows[0];
   if (!row || new Date(row.expires_at) < new Date()) {
     if (row) await deletePin(row.pin_id);
     throw new HttpError(400, 'Wrong or expired PIN. Please request a new one.');
@@ -504,8 +508,7 @@ app.post('/api/login', route(async (req, res) => {
   const { email, password } = req.body;
   const force = req.body.force === true;
   if (!email || !password) throw new HttpError(400, 'Email and password are required.');
-  const result = await pool.query('SELECT * FROM users WHERE email = $1', [String(email).toLowerCase()]);
-  const user = result.rows[0];
+  const user = await queryOne(pool, 'SELECT * FROM users WHERE email = $1', [String(email).toLowerCase()]);
   if (!user || !(await bcrypt.compare(password, user.password_hash))) throw new HttpError(401, 'Wrong email or password.');
   const status = String(user.account_status);
   if (status === 'banned') throw new HttpError(403, 'This account was banned.');
@@ -553,11 +556,11 @@ async function auth(req, res, next) {
     return res.status(401).json({ message: 'Invalid or expired token.' });
   }
   try {
-    const r = await pool.query(
+    const u = await queryOne(
+      pool,
       'SELECT account_status, role, last_seen, session_id, last_activity_at FROM users WHERE user_id = $1',
       [req.user.user_id]
     );
-    const u = r.rows[0];
     const status = u ? String(u.account_status) : '';
     if (!u || (status !== 'active' && status !== 'suspended')) {
       return res.status(401).json({ message: 'Your account is not active.' });
@@ -915,13 +918,13 @@ app.post('/api/transactions', auth, route(async (req, res) => {
   }
   const buyer_id  = my_role === 'buyer'  ? req.user.user_id : partnerId;
   const seller_id = my_role === 'seller' ? req.user.user_id : partnerId;
-  const result = await pool.query(
+  const trade = await queryOne(
+    pool,
     `INSERT INTO transactions (buyer_id, seller_id, item_description, amount, created_by)
      VALUES ($1, $2, $3, $4, $5)
      RETURNING transaction_id, buyer_id, seller_id, item_description, amount, service_fee, status, created_at, created_by`,
     [buyer_id, seller_id, item_description, amount, req.user.user_id]
   );
-  const trade = result.rows[0];
   await logActivity(pool, req.user.user_id, trade.transaction_id, 'trade_created', 'as the ' + my_role + ', ₱' + Number(amount));
   res.status(201).json(trade);
 }));
@@ -1043,8 +1046,7 @@ function readGcashNumber(req, invalidMessage) {
 
 // Lock one trade and make sure this user may do this step
 async function lockTrade(client, id, userId, { role, status }) {
-  const r = await client.query('SELECT * FROM transactions WHERE transaction_id = $1 FOR UPDATE', [id]);
-  const t = r.rows[0];
+  const t = await queryOne(client, 'SELECT * FROM transactions WHERE transaction_id = $1 FOR UPDATE', [id]);
   if (!t || !isParty(t, userId)) {
     throw new HttpError(404, 'Trade not found.');
   }
@@ -1102,11 +1104,11 @@ app.get('/api/transactions/:id', auth, route(async (req, res) => {
   if (!row) throw new HttpError(404, 'Trade not found.');
   const { payout_number, ...trade } = row;
 
-  const paymentResult = await pool.query(
+  const p = await queryOne(
+    pool,
     'SELECT payment_method, payment_status, released_at, payer_number FROM escrow_payments WHERE transaction_id = $1',
     [req.params.id]
   );
-  const p = paymentResult.rows[0];
   const payment = p
     ? {
         payment_method: p.payment_method,
@@ -1513,8 +1515,7 @@ app.post('/api/transactions/:id/dispute', auth, uploadFiles, route(async (req, r
     if (description.length > 2000) throw new HttpError(400, 'Please keep the description under 2000 characters.');
 
     await withTx(async client => {
-      const r = await client.query('SELECT * FROM transactions WHERE transaction_id = $1 FOR UPDATE', [req.params.id]);
-      const t = r.rows[0];
+      const t = await queryOne(client, 'SELECT * FROM transactions WHERE transaction_id = $1 FOR UPDATE', [req.params.id]);
       const userId = req.user.user_id;
       if (!t || !isParty(t, userId)) {
         throw new HttpError(404, 'Trade not found.');
@@ -1558,14 +1559,14 @@ app.post('/api/transactions/:id/dispute/reply', auth, uploadFiles, route(async (
 
     await withTx(async client => {
       const userId = req.user.user_id;
-      const r = await client.query(
+      const d = await queryOne(
+        client,
         `SELECT d.dispute_id, d.filed_by, d.dispute_status, t.transaction_id, t.buyer_id, t.seller_id
          FROM disputes d JOIN transactions t ON t.transaction_id = d.transaction_id
          WHERE d.transaction_id = $1
          FOR UPDATE OF d`,
         [req.params.id]
       );
-      const d = r.rows[0];
       if (!d || !isParty(d, userId)) {
         throw new HttpError(404, 'Dispute not found.');
       }
@@ -1591,7 +1592,8 @@ app.post('/api/transactions/:id/dispute/reply', auth, uploadFiles, route(async (
 // One evidence image. Only the two traders (and admins) can open it.
 app.get('/api/evidence/:id/file', auth, route(async (req, res) => {
   requireNumeric(req.params.id, 'Invalid file.');
-  const r = await pool.query(
+  const row = await queryOne(
+    pool,
     `SELECT e.file_url, t.buyer_id, t.seller_id
      FROM evidence e
      JOIN disputes d ON d.dispute_id = e.dispute_id
@@ -1599,7 +1601,6 @@ app.get('/api/evidence/:id/file', auth, route(async (req, res) => {
      WHERE e.evidence_id = $1`,
     [req.params.id]
   );
-  const row = r.rows[0];
   const userId = String(req.user.user_id);
   const allowed = row && (
     String(row.buyer_id) === userId ||
@@ -2715,7 +2716,8 @@ setInterval(async () => {
     );
     for (const row of due.rows) {
       await withTx(async client => {
-        const r = await client.query(
+        const t = await queryOne(
+          client,
           `SELECT t.status, b.account_status::text AS buyer_status, s.account_status::text AS seller_status
            FROM transactions t
            ${JOIN_BUYER_SELLER}
@@ -2723,7 +2725,6 @@ setInterval(async () => {
            FOR UPDATE OF t`,
           [row.transaction_id]
         );
-        const t = r.rows[0];
         if (t && t.status === 'delivered' && t.buyer_status === 'active' && t.seller_status === 'active') {
           await releasePayment(client, row.transaction_id);
           await logActivity(client, null, row.transaction_id, 'auto_released', null);
@@ -2734,6 +2735,12 @@ setInterval(async () => {
     console.error('Auto-release failed:', err.message);
   }
 }, 60 * 1000);
+
+// Anything no route handled (for example broken JSON) still gets a JSON answer
+app.use((err, req, res, next) => {
+  if (err.status && err.status < 500) return res.status(err.status).json({ message: 'That request could not be read.' });
+  sendError(res, err);
+});
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`SecureTrade API running on http://localhost:${PORT}`));

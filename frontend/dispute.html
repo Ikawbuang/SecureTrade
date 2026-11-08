@@ -10,7 +10,7 @@
   <link rel="stylesheet" href="global.css">
   <link rel="stylesheet" href="style.css">
 </head>
-<body>
+<body class="page-dispute">
   <div class="app">
 
     <nav class="sidebar" aria-label="Main">
@@ -446,6 +446,8 @@
       btn.disabled = true;
       try {
         await apiUpload('/transactions/' + tradeId + '/dispute/reply', form);
+        e.target.reset();
+        $('reply-files').innerHTML = '';
         lastSignature = '';
         await load();
         setMessage('reply-ok', 'Your reply was sent.');
