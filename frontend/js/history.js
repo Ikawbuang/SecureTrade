@@ -53,7 +53,7 @@ function tradeRow(h) {
 
 function render() {
   const shown = pastTrades.filter(matches);
-  $('rows').replaceChildren(...shown.map(tradeRow));
+  $('rows').replaceChildren(...slicePage(pager, shown).map(tradeRow));
 
   const empty = $('empty');
   empty.hidden = shown.length > 0;
@@ -62,9 +62,15 @@ function render() {
     : 'No trades match your search. Try a different word or status.';
 }
 
-$('search').addEventListener('input', render);
-$('status').addEventListener('change', render);
-$('role').addEventListener('change', render);
+const pager = createPager('past-trades', async () => render(), err => setMessage('page-error', netError(err)));
+
+function filterChanged() {
+  pager.page = 1;
+  render();
+}
+$('search').addEventListener('input', filterChanged);
+$('status').addEventListener('change', filterChanged);
+$('role').addEventListener('change', filterChanged);
 
 async function load() {
   try {

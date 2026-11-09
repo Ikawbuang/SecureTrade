@@ -132,6 +132,21 @@ function cleanSearch(value) {
   return String(value || '').replace(/^@/, '').replace(/[%_]/g, '').trim();
 }
 
+// Admin lists come one page at a time: ?page=1, 2, 3...
+const ADMIN_PAGE_SIZE = 20;
+const ADMIN_MAX_PAGE = 100000;
+function pageOffset(value) {
+  const page = Math.min(Math.max(parseInt(value, 10) || 1, 1), ADMIN_MAX_PAGE);
+  return (page - 1) * ADMIN_PAGE_SIZE;
+}
+// Rows selected with COUNT(*) OVER() AS total_count become { total, rows }
+function pageResult(rows, toRow = row => row) {
+  return {
+    total: rows.length ? Number(rows[0].total_count) : 0,
+    rows: rows.map(({ total_count, ...row }) => toRow(row)),
+  };
+}
+
 // The username of a user (used in "by @admin" log lines)
 function findUsername(userId) {
   return queryOne(pool, 'SELECT username FROM users WHERE user_id = $1', [userId]);
@@ -2276,16 +2291,17 @@ app.get('/api/admin/verifications', auth, adminOnly, route(async (req, res) => {
   const all = String(req.query.status || 'pending') === 'all';
   const result = await pool.query(
     `SELECT v.verification_id, v.status, v.typed_name, v.id_type, v.submitted_at, v.decided_at, v.reject_reason,
-            u.username, u.avatar_file, u.full_name
+            u.username, u.avatar_file, u.full_name, COUNT(*) OVER() AS total_count
      FROM verifications v JOIN users u ON u.user_id = v.user_id
      WHERE ($1::boolean OR v.status = 'pending')
      ORDER BY (v.status = 'pending') DESC,
               CASE WHEN v.status = 'pending' THEN v.submitted_at END ASC,
-              v.decided_at DESC NULLS LAST
-     LIMIT 100`,
+              v.decided_at DESC NULLS LAST,
+              v.verification_id DESC
+     LIMIT ${ADMIN_PAGE_SIZE} OFFSET ${pageOffset(req.query.page)}`,
     [all]
   );
-  res.json(result.rows);
+  res.json(pageResult(result.rows));
 }));
 
 // One request: the names, the code, and what to compare the pictures with
@@ -2362,7 +2378,7 @@ app.get('/api/admin/login-alerts', auth, adminOnly, route(async (req, res) => {
      FROM activity_log a JOIN users u ON u.user_id = a.user_id
      WHERE a.action = 'login_blocked' AND a.created_at > now() - interval '7 days'
      ORDER BY a.created_at DESC
-     LIMIT 50`
+     LIMIT 200`
   ));
 }));
 
@@ -2371,7 +2387,7 @@ app.get('/api/admin/login-alerts', auth, adminOnly, route(async (req, res) => {
 // Everyone who has a conversation. The ones with unread messages come first.
 app.get('/api/admin/support', auth, adminOnly, route(async (req, res) => {
   const result = await pool.query(
-    `SELECT * FROM (
+    `SELECT *, COUNT(*) OVER() AS total_count FROM (
        SELECT u.user_id, u.username, u.avatar_file, u.account_status::text AS account_status,
               (SELECT COUNT(*) FROM support_messages m
                 WHERE m.user_id = u.user_id AND NOT m.from_admin AND m.read_at IS NULL) AS unread,
@@ -2383,10 +2399,10 @@ app.get('/api/admin/support', auth, adminOnly, route(async (req, res) => {
          ORDER BY sent_at DESC, message_id DESC LIMIT 1
        ) lm ON true
      ) x
-     ORDER BY (x.unread > 0) DESC, x.last_at DESC
-     LIMIT 100`
+     ORDER BY (x.unread > 0) DESC, x.last_at DESC, x.user_id DESC
+     LIMIT ${ADMIN_PAGE_SIZE} OFFSET ${pageOffset(req.query.page)}`
   );
-  res.json(result.rows.map(r => ({ ...r, unread: Number(r.unread) })));
+  res.json(pageResult(result.rows, r => ({ ...r, unread: Number(r.unread) })));
 }));
 
 // One conversation. Opening it marks the user's messages as read.
@@ -2439,18 +2455,19 @@ app.get('/api/admin/reports', auth, adminOnly, route(async (req, res) => {
     `SELECT rr.report_id, rr.review_ref, rr.status, rr.reason, rr.created_at,
             r.score, r.feedback, r.rated_at, r.deleted_at, r.transaction_id,
             au.user_id AS author_id, au.username AS author_username,
-            su.username AS subject_username, ru.username AS reporter_username
+            su.username AS subject_username, ru.username AS reporter_username,
+            COUNT(*) OVER() AS total_count
      FROM review_reports rr
      JOIN ratings r ON r.review_ref = rr.review_ref
      JOIN users au ON au.user_id = r.rated_by
      JOIN users su ON su.user_id = r.rated_user_id
      JOIN users ru ON ru.user_id = rr.reported_by
      WHERE ($1::boolean OR rr.status = 'open')
-     ORDER BY (rr.status = 'open') DESC, rr.created_at DESC
-     LIMIT 100`,
+     ORDER BY (rr.status = 'open') DESC, rr.created_at DESC, rr.report_id DESC
+     LIMIT ${ADMIN_PAGE_SIZE} OFFSET ${pageOffset(req.query.page)}`,
     [all]
   );
-  res.json(result.rows);
+  res.json(pageResult(result.rows));
 }));
 
 // Delete a review (it no longer counts in the average, and nobody sees it). A note is needed.
@@ -2643,8 +2660,11 @@ app.post('/api/admin/disputes/:id/resolve', auth, adminOnly, route(async (req, r
 
 // ---------- Admin: trades ----------
 
-// Every trade, newest first. Filters: ?status=process|all|<one status>, ?search=
 // needs_admin = the payment is held and one of the two people is suspended or banned
+const NEEDS_ADMIN_SQL = `(t.status::text IN ('paid', 'delivered')
+              AND (b.account_status::text <> 'active' OR s.account_status::text <> 'active'))`;
+
+// Every trade, newest first. Filters: ?status=process|needs_admin|all|<one status>, ?search=
 app.get('/api/admin/transactions', auth, adminOnly, route(async (req, res) => {
   const status = String(req.query.status || 'process');
   const search = cleanSearch(req.query.search);
@@ -2654,6 +2674,8 @@ app.get('/api/admin/transactions', auth, adminOnly, route(async (req, res) => {
   if (status === 'process') {
     params.push(PROCESS_STATUSES);
     clauses.push(`t.status::text = ANY($${params.length})`);
+  } else if (status === 'needs_admin') {
+    clauses.push(NEEDS_ADMIN_SQL);
   } else if (ALL_TRADE_STATUSES.includes(status)) {
     params.push(status);
     clauses.push(`t.status::text = $${params.length}`);
@@ -2673,16 +2695,16 @@ app.get('/api/admin/transactions', auth, adminOnly, route(async (req, res) => {
     `SELECT t.transaction_id, t.item_description, t.amount, t.status, t.created_at,
             b.username AS buyer_username, s.username AS seller_username,
             EXISTS (SELECT 1 FROM disputes d WHERE d.transaction_id = t.transaction_id) AS had_dispute,
-            (t.status::text IN ('paid', 'delivered')
-              AND (b.account_status::text <> 'active' OR s.account_status::text <> 'active')) AS needs_admin
+            ${NEEDS_ADMIN_SQL} AS needs_admin,
+            COUNT(*) OVER() AS total_count
      FROM transactions t
      ${JOIN_BUYER_SELLER}
      ${clauses.length ? 'WHERE ' + clauses.join(' AND ') : ''}
-     ORDER BY t.created_at DESC
-     LIMIT 200`,
+     ORDER BY t.created_at DESC, t.transaction_id DESC
+     LIMIT ${ADMIN_PAGE_SIZE} OFFSET ${pageOffset(req.query.page)}`,
     params
   );
-  res.json(result.rows.map(t => ({ ...t, amount: Number(t.amount) })));
+  res.json(pageResult(result.rows, t => ({ ...t, amount: Number(t.amount) })));
 }));
 
 // One trade: status, payment, chat, dispute, and what each person did
@@ -2792,14 +2814,15 @@ app.get('/api/admin/users', auth, adminOnly, route(async (req, res) => {
               WHERE t.status = 'completed' AND (t.buyer_id = u.user_id OR t.seller_id = u.user_id)) AS completed_trades,
             (SELECT COUNT(*) FROM transactions t
               WHERE t.status::text = ANY($${params.length + 1}) AND (t.buyer_id = u.user_id OR t.seller_id = u.user_id)) AS active_trades,
-            (SELECT ROUND(AVG(r.score)::numeric, 1) FROM ratings r WHERE r.rated_user_id = u.user_id AND r.deleted_at IS NULL) AS rating
+            (SELECT ROUND(AVG(r.score)::numeric, 1) FROM ratings r WHERE r.rated_user_id = u.user_id AND r.deleted_at IS NULL) AS rating,
+            COUNT(*) OVER() AS total_count
      FROM users u
      ${clauses.length ? 'WHERE ' + clauses.join(' AND ') : ''}
-     ORDER BY u.created_at DESC
-     LIMIT 100`,
+     ORDER BY u.created_at DESC, u.user_id DESC
+     LIMIT ${ADMIN_PAGE_SIZE} OFFSET ${pageOffset(req.query.page)}`,
     [...params, PROCESS_STATUSES]
   );
-  res.json(result.rows.map(u => ({
+  res.json(pageResult(result.rows, u => ({
     user_id: u.user_id,
     username: u.username,
     avatar_file: u.avatar_file,
@@ -2815,6 +2838,48 @@ app.get('/api/admin/users', auth, adminOnly, route(async (req, res) => {
     active_trades: Number(u.active_trades),
     rating: numberOrNull(u.rating),
   })));
+}));
+
+// The lists in the admin's user window, 20 at a time ($1 is the user)
+const USER_LIST_SIZE = 20;
+const USER_LISTS = {
+  trades: {
+    sql: `SELECT t.transaction_id, t.item_description, t.amount, t.status, t.created_at,
+            CASE WHEN t.buyer_id = $1 THEN 'buyer' ELSE 'seller' END AS role,
+            CASE WHEN t.buyer_id = $1 THEN s.username ELSE b.username END AS partner_username
+     FROM transactions t
+     ${JOIN_BUYER_SELLER}
+     WHERE t.buyer_id = $1 OR t.seller_id = $1
+     ORDER BY t.created_at DESC, t.transaction_id DESC`,
+    toRow: t => ({ ...t, amount: Number(t.amount) }),
+  },
+  reviews: {
+    sql: `SELECT r.review_ref, r.score, r.feedback, r.rated_at, r.transaction_id, au.username AS author_username
+     FROM ratings r JOIN users au ON au.user_id = r.rated_by
+     WHERE r.rated_user_id = $1 AND r.deleted_at IS NULL
+     ORDER BY r.rated_at DESC, r.review_ref DESC`,
+  },
+  activity: {
+    sql: `SELECT action, detail, created_at, transaction_id
+     FROM activity_log
+     WHERE user_id = $1
+     ORDER BY created_at DESC, log_id DESC`,
+  },
+};
+
+// One more row than needed is read, to know whether there are more
+async function userListPage(kind, userId, offset) {
+  const { sql, toRow = row => row } = USER_LISTS[kind];
+  const rows = await queryAll(pool, `${sql} LIMIT ${USER_LIST_SIZE + 1} OFFSET ${offset}`, [userId]);
+  return { rows: rows.slice(0, USER_LIST_SIZE).map(toRow), has_more: rows.length > USER_LIST_SIZE };
+}
+
+// "Show more" in the user window: ?offset= is how many rows are already showing
+app.get('/api/admin/users/:id/list/:kind', auth, adminOnly, route(async (req, res) => {
+  requireNumeric(req.params.id, 'Invalid user.');
+  if (!Object.hasOwn(USER_LISTS, req.params.kind)) throw new HttpError(404, 'List not found.');
+  const offset = Math.min(Math.max(parseInt(req.query.offset, 10) || 0, 0), ADMIN_PAGE_SIZE * ADMIN_MAX_PAGE);
+  res.json(await userListPage(req.params.kind, req.params.id, offset));
 }));
 
 // One user: details, their trades, the reviews about them (the admin sees who wrote them), and what they did
@@ -2845,33 +2910,9 @@ app.get('/api/admin/users/:id', auth, adminOnly, route(async (req, res) => {
     [u.user_id, PROCESS_STATUSES]
   );
 
-  const trades = await pool.query(
-    `SELECT t.transaction_id, t.item_description, t.amount, t.status, t.created_at,
-            CASE WHEN t.buyer_id = $1 THEN 'buyer' ELSE 'seller' END AS role,
-            CASE WHEN t.buyer_id = $1 THEN s.username ELSE b.username END AS partner_username
-     FROM transactions t
-     ${JOIN_BUYER_SELLER}
-     WHERE t.buyer_id = $1 OR t.seller_id = $1
-     ORDER BY t.created_at DESC
-     LIMIT 20`,
-    [u.user_id]
-  );
-  const reviews = await pool.query(
-    `SELECT r.review_ref, r.score, r.feedback, r.rated_at, r.transaction_id, au.username AS author_username
-     FROM ratings r JOIN users au ON au.user_id = r.rated_by
-     WHERE r.rated_user_id = $1 AND r.deleted_at IS NULL
-     ORDER BY r.rated_at DESC
-     LIMIT 20`,
-    [u.user_id]
-  );
-  const activity = await pool.query(
-    `SELECT action, detail, created_at, transaction_id
-     FROM activity_log
-     WHERE user_id = $1
-     ORDER BY created_at DESC, log_id DESC
-     LIMIT 30`,
-    [u.user_id]
-  );
+  const trades = await userListPage('trades', u.user_id, 0);
+  const reviews = await userListPage('reviews', u.user_id, 0);
+  const activity = await userListPage('activity', u.user_id, 0);
 
   res.json({
     user_id: u.user_id,
@@ -2894,9 +2935,12 @@ app.get('/api/admin/users/:id', auth, adminOnly, route(async (req, res) => {
     rating_count: Number(stats.rating_count),
     is_me: sameId(u.user_id, req.user.user_id),
     can_control: u.role !== 'admin' && !sameId(u.user_id, req.user.user_id),
-    trades: trades.rows.map(t => ({ ...t, amount: Number(t.amount) })),
+    trades: trades.rows,
+    trades_more: trades.has_more,
     reviews: reviews.rows,
+    reviews_more: reviews.has_more,
     activity: activity.rows,
+    activity_more: activity.has_more,
   });
 }));
 

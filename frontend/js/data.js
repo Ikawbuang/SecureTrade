@@ -62,6 +62,59 @@ function makeButton(cls, text, onClick) {
   return b;
 }
 
+// ---------- Pages for long lists ----------
+const PAGE_SIZE = 20;
+
+// Adds "Showing 1–20 of 250" with Previous and Next to the bottom of a card
+function createPager(sectionId, reload, onError) {
+  const section = $(sectionId);
+  const box = el('div', 'pager');
+  const info = el('span', 'pager-info');
+  let busy = false;
+
+  async function go(step) {
+    if (busy) return;
+    busy = true;
+    pager.page += step;
+    try {
+      await reload();
+      section.scrollIntoView();
+    } catch (err) {
+      onError(err);
+    } finally {
+      busy = false;
+    }
+  }
+
+  const prev = makeButton('btn btn-outline btn-small', 'Previous', () => go(-1));
+  const next = makeButton('btn btn-outline btn-small', 'Next', () => go(1));
+  box.hidden = true;
+  box.append(info, prev, next);
+  section.appendChild(box);
+
+  const pager = {
+    page: 1,
+    show(total, count) {
+      const first = (pager.page - 1) * PAGE_SIZE + 1;
+      const last = first + count - 1;
+      info.textContent = 'Showing ' + first + '–' + last + ' of ' + total;
+      prev.disabled = pager.page <= 1;
+      next.disabled = last >= total;
+      box.hidden = total <= PAGE_SIZE;
+    }
+  };
+  return pager;
+}
+
+// One page of a list the browser already has
+function slicePage(pager, list) {
+  pager.page = Math.min(pager.page, Math.max(Math.ceil(list.length / PAGE_SIZE), 1));
+  const start = (pager.page - 1) * PAGE_SIZE;
+  const rows = list.slice(start, start + PAGE_SIZE);
+  pager.show(list.length, rows.length);
+  return rows;
+}
+
 // Show a message in the element with this id, or hide it when the message is empty
 function setMessage(id, msg) {
   const box = $(id);

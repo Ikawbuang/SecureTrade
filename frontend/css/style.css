@@ -30,6 +30,12 @@
 }
 .chat-form input:focus { outline: none; border-color: var(--gold); }
 
+/* Page controls for long lists */
+.pager { display: flex; align-items: center; justify-content: flex-end; gap: .6rem; flex-wrap: wrap; margin-top: 1rem; }
+.pager-info { margin-right: auto; color: var(--text-soft); font-size: .9rem; }
+.pager .btn:disabled { opacity: .5; cursor: not-allowed; }
+.more-btn { margin-top: .5rem; }
+
 /* ---------- admin-dashboard ---------- */
 :where(.page-admin-dashboard) {
   .sidebar .brand { display: block; margin-bottom: .25rem; padding-left: .85rem; }
