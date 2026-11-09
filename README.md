@@ -4,7 +4,7 @@
 
 SecureTrade is an escrow platform for gamers who buy and sell in-game items, accounts and currency. The buyer pays into escrow, the seller delivers, the buyer confirms, and only then is the payment released to the seller (minus a 3% service fee). If something goes wrong, either side can open a dispute and an administrator decides.
 
-> **Status:** the app works end to end (accounts, identity verification, trades, escrow flow, chat, disputes, ratings, support, admin panel). **Payments are simulated:** no real money moves yet, and "held in escrow" is a status in the database. See [Future work](#future-work-and-recommendations).
+> **Status:** the app works end to end (accounts, identity verification, trades, escrow flow, chat, disputes, ratings, support, admin panel). **Buyer payments run on Xendit in test mode.** Seller payouts and most refunds are still simulated, so no real money moves, and "held in escrow" is a status in the database. See [Future work](#future-work-and-recommendations).
 
 **UI-only demo (frontend pages, needs the backend to sign in):** https://ikawbuang.github.io/SecureTrade/frontend/login.html
 
@@ -38,16 +38,16 @@ Browser (HTML, CSS, JS)  ──►  Express REST API (backend/server.js)  ──
 | Accounts | Sign up with first name, last name, gamer username, email and password, confirmed by an emailed PIN. Forgot password with PIN. 18+ confirmation. |
 | Identity verification | A code, a photo of an ID and a selfie holding it. An admin reviews it (including that the ID shows the person is 18 or older). The pictures are deleted after the decision and no ID number is saved. The name on the ID becomes the account name. |
 | Trades | Find a partner (All, Recent, Online, Offline, Favorites), send a request, accept or decline. Both people must be verified. Trade requests appear at the top of the dashboard. |
-| Escrow | The buyer pays with GCash, the payment is held, the seller marks the item as delivered, the buyer confirms. If the buyer does nothing, the payment is released automatically 2 hours after delivery. |
+| Escrow | The buyer pays with GCash, the payment is held, the seller marks the item as delivered, the buyer confirms. If the buyer does nothing, the payment is released automatically 24 hours after delivery. |
 | Cancel | The sender can cancel a request. Either person can cancel before payment. After payment only the seller can cancel (with a reason) and the buyer is refunded in full. |
 | Chat | In-app chat for every trade (admins can read it). |
 | Disputes | Report a problem with screenshots, the other side replies, an admin reads both sides and the chat, then refunds the buyer or pays the seller. |
 | Receipts and history | Digital receipts and a history of finished trades. |
 | Ratings | Rate the other person after a completed trade. Reviews are **anonymous to the public** (stars, comment, date, buyer or seller). Only admins can see who wrote one. Reviews can be reported and deleted by an admin. |
 | Favorites | A star beside a user, with a private note. The other person is never told. |
-| Profile | Photo, username (once every 30 days, not while trades are on process), email change (password and PIN), and "My reviews". |
+| Profile | Photo, username (once every 30 days, not while trades are on process), email change (password and PIN), password change, and "My reviews". |
 | Support | A chat between a user and the admins. A suspended user can sign in but can only use Support (to appeal). |
-| Admin panel | Verifications, support messages, disputes, reported reviews, all trades, and users (suspend, ban, reactivate). The admin can refund the buyer on a held trade that has no dispute. |
+| Admin panel | Verifications, support messages, disputes, reported reviews, all trades, and users (suspend, ban, reactivate). The admin can refund the buyer on a held trade that has no dispute, release a delivered trade when an account is suspended or banned, and refund payments that arrived too late ("Payments to review"). |
 | Feedback | A link to the Google Form survey in the menu: https://forms.gle/Rex91MrokLRTdjg47 |
 
 ## Rules of the system
@@ -60,7 +60,8 @@ Browser (HTML, CSS, JS)  ──►  Express REST API (backend/server.js)  ──
 | One device per account | A new login signs out the other device, after a warning ("already logged in") |
 | Idle sign-out | 15 minutes without real activity (set by `IDLE_MINUTES`) |
 | Trade request expiry | 12 hours without an answer |
-| Auto-release | 2 hours after delivery. It is paused when the buyer or the seller is suspended or banned, or while there is a dispute. An admin decides those trades. |
+| Trade price | ₱1 to ₱100,000, with up to 10 requests waiting at a time |
+| Auto-release | 24 hours after delivery. It is paused when the buyer or the seller is suspended or banned, or while there is a dispute. An admin decides those trades. |
 | Banned account | Cannot sign in |
 | Suspended account | Can sign in, but only Support works |
 
@@ -85,6 +86,8 @@ Browser (HTML, CSS, JS)  ──►  Express REST API (backend/server.js)  ──
    DEV_LOG_PIN=true
    ```
 
+   Online payment needs `XENDIT_SECRET_KEY`, `XENDIT_WEBHOOK_TOKEN` and `PUBLIC_URL`. Without them nobody can pay. For local testing only, `ALLOW_SIMULATED_PAYMENTS=true` turns on a fake payment instead.
+
    Use the **Session pooler** string and **port 6543**. `DEV_LOG_PIN=true` prints PINs in the terminal instead of sending email. Remove it once real email is set up. Never commit `.env`. When you deploy, add `CORS_ORIGINS=https://your-site.com` (comma-separated) so only your own site can call the API; leave it out for local development.
 
    Download the SSL certificate from Supabase (**Project Settings → Database → SSL Configuration**) and save it as `backend/supabase-ca.crt`. The server will not start without it. It is not in Git, so copy it to every computer that runs the backend.
@@ -97,9 +100,9 @@ Browser (HTML, CSS, JS)  ──►  Express REST API (backend/server.js)  ──
    node server.js
    ```
 
-   Check `http://localhost:3000/api/health`. It should answer `{"status":"ok", ...}`.
+   Check `http://localhost:3000/api/health`. It should answer `{"status":"ok"}`.
 
-4. **Frontend:** open `frontend/login.html` in a browser (or use a local web server such as Live Server). The API address is `http://localhost:3000/api` (in `js/data.js`).
+4. **Frontend:** the server hosts the pages too, so open `http://localhost:3000/login.html`. The pages call the API at the same address, so this also works through ngrok or a real domain.
 
 5. **First admin:** sign up normally, then in Supabase run:
 
@@ -143,7 +146,7 @@ UPDATE users SET verified_at = now() WHERE username = 'some_username';
 - One device per account, idle sign-out on the server and in the browser, and sign-out of all devices after a password reset.
 - Review writers are hidden from the public, with report and delete tools for admins.
 
-**Known limits (this is a school project, not production):** payments are simulated, there is no rate limiting or lockout on login yet, CORS is open, the login token is kept in `localStorage`, uploaded files are on the server's disk, and the ID check depends on the admin's eyes.
+**Known limits (this is a school project, not production):** buyer payments run in Xendit test mode while payouts and most refunds are simulated, rate limits are kept in memory, the login token is kept in `localStorage`, uploaded files are on the server's disk, and the ID check depends on the admin's eyes.
 
 ## Design Thinking summary
 
@@ -193,14 +196,14 @@ Features were prioritized into must have, should have and future work, using the
 |---|---|---|
 | Register and sign in | Must | Done (email PIN) |
 | Trade request (send, accept, decline) | Must | Done |
-| Escrow payment hold | Must | Done (payment simulated) |
+| Escrow payment hold | Must | Done (Xendit test mode) |
 | Delivery and buyer confirmation | Must | Done |
 | Dispute with evidence upload | Must | Done |
 | Admin dispute review (refund or pay seller) | Must | Done |
 | Transaction history and receipts | Should | Done |
 | In-app chat | Should | Done |
 | Partner finder with online/offline status | Should | Done (plus Recent and Favorites) |
-| Auto-release after 2 hours | Should | Done |
+| Auto-release after 24 hours | Should | Done |
 | Seller ratings and reviews | Future work | Done (anonymous reviews, report and delete) |
 | Automatic refund when the seller does not deliver | Future work | Partly: the seller can cancel and refund, and an admin can refund. No automatic refund yet. |
 | ID verification | Future work | Done (admin reviews ID and selfie) |
@@ -260,7 +263,7 @@ Pages added after the first prototype: `profile.html` (profile, identity verific
 | Identity checks | Use a third-party KYC provider instead of relying only on admin review. |
 | Data privacy | Comply with the Data Privacy Act (RA 10173): privacy policy, terms and consent, retention rules and a breach plan. |
 | Minors | Allow users under 18 only with parental consent, tighter limits and a verified guardian. |
-| Security | Rate limiting and lockout, security headers, restricted CORS, 2FA (required for admins), secure cookies instead of `localStorage`, Row Level Security on every Supabase table, security testing. |
+| Security | Shared rate limits that survive a restart, 2FA (required for admins), secure cookies instead of `localStorage`, security testing. |
 | Files | Move uploads to private cloud storage (for example Supabase Storage) with backups. |
 | Email | Send PINs through a real email provider (planned: Brevo) and remove `DEV_LOG_PIN`. |
 | Automation | Automatic refund when a seller does not deliver, and notifications for new requests, payments and status changes. |

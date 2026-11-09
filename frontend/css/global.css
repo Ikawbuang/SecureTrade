@@ -133,7 +133,7 @@ th, td { text-align: left; padding: .75rem .5rem; border-bottom: 1px solid #e6e8
 th { font-size: .85rem; color: var(--text-soft); font-weight: 600; }
 
 /* ---------- App shell (dashboard pages will reuse this) ---------- */
-.app { display: grid; grid-template-columns: 240px 1fr; min-height: 100vh; }
+.app { display: grid; grid-template-columns: 240px minmax(0, 1fr); min-height: 100vh; }
 .sidebar {
   background: var(--ink);
   color: var(--text-on-dark);
@@ -259,7 +259,7 @@ th { font-size: .85rem; color: var(--text-soft); font-weight: 600; }
   .auth { grid-template-columns: 1fr; }
   .auth-story { padding: 1.75rem 1.5rem; gap: 1.5rem; }
   .flow { display: none; }            /* keep mobile login short */
-  .app { grid-template-columns: 1fr; }
+  .app { grid-template-columns: minmax(0, 1fr); }
   .sidebar { padding: 1rem; position: static; height: auto; }
 }
 @media (max-width: 480px) {

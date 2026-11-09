@@ -9,11 +9,36 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const nodemailer = require('nodemailer');
 const multer = require('multer');
+const helmet = require('helmet');
+const { rateLimit } = require('express-rate-limit');
 
 const app = express();
-// Set CORS_ORIGINS in .env (comma-separated) to allow only your own site. Empty means open, for local development.
+// ngrok connects from this computer and says who the real visitor is. Nobody else is believed.
+app.set('trust proxy', 'loopback');
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      scriptSrc: ["'self'"],
+      styleSrc: ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com'],
+      fontSrc: ["'self'", 'https://fonts.gstatic.com'],
+      imgSrc: ["'self'", 'data:', 'blob:'],
+      connectSrc: ["'self'"],
+      formAction: ["'self'"],
+      upgradeInsecureRequests: null,
+    },
+  },
+  crossOriginResourcePolicy: { policy: 'cross-origin' },
+  strictTransportSecurity: false,
+}));
+// Set CORS_ORIGINS in .env (comma-separated) to choose which sites may call the API.
+// Without it, only this project's own addresses may.
 const allowedOrigins = (process.env.CORS_ORIGINS || '').split(',').map(origin => origin.trim()).filter(Boolean);
-app.use(cors(allowedOrigins.length ? { origin: allowedOrigins } : undefined));
+if (!allowedOrigins.length) {
+  allowedOrigins.push('http://localhost:3000', 'http://127.0.0.1:3000', 'http://localhost:5500', 'http://127.0.0.1:5500');
+  if (process.env.PUBLIC_URL) allowedOrigins.push(process.env.PUBLIC_URL.replace(/\/$/, ''));
+}
+app.use(cors({ origin: allowedOrigins }));
 app.use(express.json());
 // The website itself, so Xendit can send buyers back to a real address
 app.use(express.static(path.join(__dirname, '..', 'frontend')));
@@ -23,6 +48,18 @@ app.use((req, res, next) => {
   req.body = req.body || {};
   next();
 });
+
+// Limits per visitor, on the routes that guess passwords and PINs or send email
+const limiter = (limit, message) => rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit,
+  standardHeaders: 'draft-7',
+  legacyHeaders: false,
+  message: { message },
+});
+const TOO_MANY_TRIES = 'Too many attempts. Please wait 15 minutes and try again.';
+app.use(['/api/login', '/api/register', '/api/password', '/api/profile/password', '/api/profile/email'], limiter(60, TOO_MANY_TRIES));
+app.use(['/api/register/start', '/api/register/resend', '/api/password/forgot'], limiter(10, 'Too many emails were requested. Please wait 15 minutes and try again.'));
 
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
@@ -53,6 +90,16 @@ const PAID_STATUSES = ['paid', 'delivered'];
 const IDLE_MINUTES = Number(process.env.IDLE_MINUTES || 15);
 // A trade request nobody answers is cancelled after this many hours
 const REQUEST_EXPIRE_HOURS = 12;
+// If the buyer does nothing after delivery, the payment is released after this many hours
+const AUTO_RELEASE_HOURS = 24;
+// Limits on trades, chat, and dispute evidence
+const MAX_TRADE_AMOUNT = 100000;
+const MAX_ITEM_LENGTH = 1000;
+const MAX_PENDING_SENT = 10;
+const CHAT_PER_MINUTE = 20;
+const CHAT_MAX_SHOWN = 300;
+const MAX_EVIDENCE_PER_PERSON = 10;
+const FINISHED_STATUSES = ['completed', 'refunded', 'cancelled'];
 // Identity verification
 const ID_TYPES = ['PhilSys National ID', "Driver's License", 'Passport', 'UMID', 'Postal ID'];
 const VERIFY_CODE_HOURS = 24;
@@ -93,8 +140,21 @@ async function queryAll(db, sql, params) {
 }
 
 // A database id or review reference from the address must be digits only
+const isDbId = value => /^\d{1,18}$/.test(value);   // longer numbers do not fit in the database
 function requireNumeric(value, message) {
-  if (!/^\d+$/.test(value)) throw new HttpError(400, message);
+  if (!isDbId(value)) throw new HttpError(400, message);
+}
+
+// Neither person in this trade may be suspended or banned
+async function assertBothActive(db, trade) {
+  const inactive = await queryOne(
+    db,
+    `SELECT COUNT(*) AS n FROM users WHERE user_id = ANY($1::bigint[]) AND account_status::text <> 'active'`,
+    [[trade.buyer_id, trade.seller_id]]
+  );
+  if (Number(inactive.n) > 0) {
+    throw new HttpError(409, 'One of the accounts in this trade is not active, so this step is paused. An admin will decide this trade.');
+  }
 }
 
 // A note an admin must write: at least 5 characters, and not too long
@@ -377,12 +437,16 @@ async function checkPin(email, purpose, pin) {
     await deletePin(row.pin_id);
     throw new HttpError(429, 'Too many wrong tries. Please request a new PIN.');
   };
-  if (row.attempts >= MAX_PIN_TRIES) return tooManyTries();
+  // The try is counted in the database first, so guesses sent at the same moment all count
+  const claimed = await queryOne(
+    pool,
+    'UPDATE email_pins SET attempts = attempts + 1 WHERE pin_id = $1 AND attempts < $2 RETURNING attempts',
+    [row.pin_id, MAX_PIN_TRIES]
+  );
+  if (!claimed) return tooManyTries();
   if (!(await bcrypt.compare(String(pin), row.pin_hash))) {
-    const used = row.attempts + 1;
-    if (used >= MAX_PIN_TRIES) return tooManyTries();
-    await pool.query('UPDATE email_pins SET attempts = $1 WHERE pin_id = $2', [used, row.pin_id]);
-    throw new HttpError(400, 'Wrong PIN. ' + (MAX_PIN_TRIES - used) + ' tries left.');
+    if (claimed.attempts >= MAX_PIN_TRIES) return tooManyTries();
+    throw new HttpError(400, 'Wrong PIN. ' + (MAX_PIN_TRIES - claimed.attempts) + ' tries left.');
   }
   return row;
 }
@@ -398,15 +462,11 @@ setInterval(() => {
 // ---------- Health check and settings ----------
 app.get('/api/health', async (req, res) => {
   try {
-    const result = await pool.query('SELECT COUNT(*) AS users FROM users');
-    res.json({ status: 'ok', users: Number(result.rows[0].users) });
+    await pool.query('SELECT 1');
+    res.json({ status: 'ok' });
   } catch (err) {
     console.error(err);
-    res.status(500).json({
-      status: 'error',
-      code: err.code,
-      detail: (err.errors && err.errors[0] && err.errors[0].message) || err.message,
-    });
+    res.status(500).json({ status: 'error' });
   }
 });
 
@@ -581,6 +641,19 @@ async function sendLoginWarningEmail(to) {
   });
 }
 
+// Tell someone about a change to their account. A problem here never stops the change itself.
+async function sendSecurityNotice(to, subject, text) {
+  try {
+    if (!mailConfigured()) {
+      if (process.env.DEV_LOG_PIN === 'true') console.log('[DEV] security notice for ' + to + ': ' + subject);
+      return;
+    }
+    await getTransporter().sendMail({ from: `"SecureTrade" <${process.env.MAIL_FROM}>`, to, subject, text });
+  } catch (err) {
+    console.error('Security notice failed:', err.message);
+  }
+}
+
 // Forget old counts so the list does not keep growing
 setInterval(() => {
   for (const key of loginFailures.keys()) {
@@ -745,9 +818,11 @@ app.get('/api/support', auth, route(async (req, res) => {
   const me = req.user.user_id;
   const messages = await queryAll(
     pool,
-    `SELECT message_id, from_admin, content, sent_at
-     FROM support_messages WHERE user_id = $1
-     ORDER BY sent_at, message_id LIMIT 300`,
+    `SELECT * FROM (
+       SELECT message_id, from_admin, content, sent_at
+       FROM support_messages WHERE user_id = $1
+       ORDER BY sent_at DESC, message_id DESC LIMIT 300
+     ) newest ORDER BY sent_at, message_id`,
     [me]
   );
   await pool.query(
@@ -997,21 +1072,33 @@ app.post('/api/trade-attempts', auth, route(async (req, res) => {
 
 // Create a transaction request (sent to the partner). Both people must be verified.
 app.post('/api/transactions', auth, route(async (req, res) => {
-  const { my_role, item_description, amount } = req.body;
+  const { my_role } = req.body;
+  const item_description = typeof req.body.item_description === 'string' ? req.body.item_description.trim() : '';
+  const amount = Number(req.body.amount);
   const partner_username = cleanHandle(req.body.partner_username);
-  if (!partner_username || !['buyer', 'seller'].includes(my_role) || !item_description || !(Number(amount) > 0)) throw new HttpError(400, 'Partner username, your role, item description, and a valid amount are required.');
+  if (!partner_username || !['buyer', 'seller'].includes(my_role) || !item_description) throw new HttpError(400, 'Partner username, your role, item description, and a valid amount are required.');
+  if (item_description.length > MAX_ITEM_LENGTH) throw new HttpError(400, 'Please keep the item description under ' + MAX_ITEM_LENGTH + ' characters.');
+  if (!Number.isFinite(amount) || amount < 1 || amount > MAX_TRADE_AMOUNT || Math.round(amount * 100) / 100 !== amount) {
+    throw new HttpError(400, 'Enter a price from ₱1 to ₱' + MAX_TRADE_AMOUNT.toLocaleString('en-PH') + ', with at most 2 decimals.');
+  }
   await assertVerified(req.user.user_id, 'Verify your identity first. Open "Edit profile" on your dashboard and complete the verification to start trades.');
+  // Admins decide disputes, so they must never be one of the two people in a trade
+  if (await isAdmin(req.user.user_id)) throw new HttpError(403, 'Admin accounts cannot trade.');
 
   const partner = await pool.query(
     `SELECT user_id, verified_at, role FROM users WHERE lower(username) = lower($1) AND account_status = 'active'`,
     [partner_username]
   );
-  if (!partner.rows[0]) throw new HttpError(404, 'No active user with that username.');
+  if (!partner.rows[0] || partner.rows[0].role === 'admin') throw new HttpError(404, 'No active user with that username.');
   const partnerId = partner.rows[0].user_id;
   if (sameId(partnerId, req.user.user_id)) throw new HttpError(400, 'You cannot trade with yourself.');
   if (!partner.rows[0].verified_at && partner.rows[0].role !== 'admin') {
     await recordTradeAttempt(partnerId, req.user.user_id);
     return res.status(400).json({ message: '@' + partner_username + ' is not verified yet, so you cannot trade with them. We told them you tried.' });
+  }
+  const pending = await queryOne(pool, `SELECT COUNT(*) AS n FROM transactions WHERE created_by = $1 AND status = 'pending'`, [req.user.user_id]);
+  if (Number(pending.n) >= MAX_PENDING_SENT) {
+    throw new HttpError(429, 'You already have ' + MAX_PENDING_SENT + ' requests waiting for an answer. Wait for a reply or cancel one first.');
   }
   const buyer_id  = my_role === 'buyer'  ? req.user.user_id : partnerId;
   const seller_id = my_role === 'seller' ? req.user.user_id : partnerId;
@@ -1061,9 +1148,11 @@ app.get('/api/requests', auth, route(async (req, res) => {
 // Accept or decline a request (only the partner who received it can answer). Accepting needs verification.
 app.post('/api/transactions/:id/respond', auth, route(async (req, res) => {
   const { action } = req.body;
-  if (!['accept', 'decline'].includes(action) || !/^\d+$/.test(req.params.id)) throw new HttpError(400, 'Invalid request.');
+  if (!['accept', 'decline'].includes(action) || !isDbId(req.params.id)) throw new HttpError(400, 'Invalid request.');
   if (action === 'accept') {
     await assertVerified(req.user.user_id, 'Verify your identity first before you accept a trade. Open "Edit profile" on your dashboard.');
+    const trade = await queryOne(pool, 'SELECT buyer_id, seller_id FROM transactions WHERE transaction_id = $1', [req.params.id]);
+    if (trade && isParty(trade, req.user.user_id)) await assertBothActive(pool, trade);
   }
   const newValues = action === 'accept' ? `status = 'accepted'` : `status = 'cancelled', cancelled_by = $2`;
   const result = await pool.query(
@@ -1088,6 +1177,8 @@ app.post('/api/transactions/:id/cancel', auth, route(async (req, res) => {
   const reason = String(req.body.reason || '').trim();
   requireNumeric(req.params.id, 'Invalid trade.');
   if (reason.length > 300) throw new HttpError(400, 'Please keep the reason under 300 characters.');
+  // The buyer may already have paid while Xendit's message is still on its way
+  await syncTradeCheckouts(req.params.id);
 
   let outcome;
   await withTx(async client => {
@@ -1221,16 +1312,19 @@ app.get('/api/transactions/:id', auth, route(async (req, res) => {
     [req.params.id]
   );
   const messages = await pool.query(
-    `SELECT m.message_id, m.sender_id, u.username, u.avatar_file, m.content, m.sent_at
-     FROM messages m JOIN users u ON u.user_id = m.sender_id
-     WHERE m.transaction_id = $1
-     ORDER BY m.sent_at, m.message_id`,
+    `SELECT * FROM (
+       SELECT m.message_id, m.sender_id, u.username, u.avatar_file, m.content, m.sent_at
+       FROM messages m JOIN users u ON u.user_id = m.sender_id
+       WHERE m.transaction_id = $1
+       ORDER BY m.sent_at DESC, m.message_id DESC LIMIT ${CHAT_MAX_SHOWN}
+     ) newest ORDER BY sent_at, message_id`,
     [req.params.id]
   );
 
   res.json({
     ...trade,
     checkout_enabled: checkoutEnabled,
+    simulated_payments: simulatedPayments,
     payout_masked: maskNumber(payout_number),
     payment,
     receipt: receipt.rows[0] || null,
@@ -1239,33 +1333,48 @@ app.get('/api/transactions/:id', auth, route(async (req, res) => {
 }));
 
 // ---------- Xendit (online GCash payment) ----------
-// It turns on when all three settings are in .env. Otherwise the simulated payment is used.
+// It turns on when all three settings are in .env. Without them nobody can pay,
+// unless ALLOW_SIMULATED_PAYMENTS=true is set on purpose for local testing.
 const XENDIT_KEY = process.env.XENDIT_SECRET_KEY || '';
 const XENDIT_WEBHOOK_TOKEN = process.env.XENDIT_WEBHOOK_TOKEN || '';
 const PUBLIC_URL = (process.env.PUBLIC_URL || '').replace(/\/$/, '');
 const checkoutEnabled = !!(XENDIT_KEY && XENDIT_WEBHOOK_TOKEN && PUBLIC_URL);
+const simulatedPayments = !checkoutEnabled && process.env.ALLOW_SIMULATED_PAYMENTS === 'true';
+const CHECKOUT_FAILED = 'The payment service is not available right now. Please try again.';
 
 if (XENDIT_KEY && !XENDIT_KEY.startsWith('xnd_development_') && process.env.XENDIT_ALLOW_LIVE !== 'true') {
   throw new Error('XENDIT_SECRET_KEY must be a test key (xnd_development_...). Real money is turned off.');
 }
+if (!checkoutEnabled && !simulatedPayments) {
+  console.warn('Payments are OFF: set XENDIT_SECRET_KEY, XENDIT_WEBHOOK_TOKEN and PUBLIC_URL in .env.');
+}
 
-async function xenditPost(apiPath, body) {
-  const res = await fetch('https://api.xendit.co' + apiPath, {
-    method: 'POST',
-    headers: {
-      Authorization: 'Basic ' + Buffer.from(XENDIT_KEY + ':').toString('base64'),
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify(body),
-    signal: AbortSignal.timeout(15000),
-  });
+async function xenditRequest(method, apiPath, body, { headers = {}, failMessage = CHECKOUT_FAILED } = {}) {
+  let res;
+  try {
+    res = await fetch('https://api.xendit.co' + apiPath, {
+      method,
+      headers: {
+        Authorization: 'Basic ' + Buffer.from(XENDIT_KEY + ':').toString('base64'),
+        ...(body ? { 'Content-Type': 'application/json' } : {}),
+        ...headers,
+      },
+      body: body ? JSON.stringify(body) : undefined,
+      signal: AbortSignal.timeout(15000),
+    });
+  } catch (err) {
+    console.error('Xendit could not be reached:', err.message);
+    throw new HttpError(502, CHECKOUT_FAILED);
+  }
   const data = await res.json().catch(() => ({}));
   if (!res.ok) {
     console.error('Xendit error:', res.status, data.error_code, data.message);
-    throw new HttpError(502, 'The payment service is not available right now. Please try again.');
+    throw new HttpError(502, failMessage);
   }
   return data;
 }
+
+const xenditPost = (apiPath, body) => xenditRequest('POST', apiPath, body);
 
 // Hold the buyer's money for this trade
 async function markTradePaid(client, trade, payerNumber) {
@@ -1278,39 +1387,64 @@ async function markTradePaid(client, trade, payerNumber) {
   await logActivity(client, trade.buyer_id, trade.transaction_id, 'paid', 'with GCash, ₱' + Number(trade.amount));
 }
 
-// Give the buyer a Xendit checkout page. A page that is still open is reused, so a trade is never charged twice.
-function startCheckout(tradeId, buyerId) {
-  return withTx(async client => {
-    const t = await lockTrade(client, tradeId, buyerId, { role: 'buyer', status: 'accepted' });
-    const open = await queryOne(
-      client,
-      `SELECT payment_link_url FROM xendit_sessions
-       WHERE transaction_id = $1 AND status = 'ACTIVE' AND expires_at > now()`,
-      [t.transaction_id]
-    );
-    if (open) return open.payment_link_url;
+const OPEN_CHECKOUT_SQL = `SELECT payment_link_url FROM xendit_sessions
+       WHERE transaction_id = $1 AND status = 'ACTIVE' AND expires_at > now()`;
 
+// Give the buyer a Xendit checkout page. A page that is still open is reused, so a trade is never charged twice.
+// No database lock is held while waiting for Xendit, so a slow answer cannot freeze the site.
+async function startCheckout(tradeId, buyerId, fromThisComputer) {
+  const first = await withTx(async client => {
+    const t = await lockTrade(client, tradeId, buyerId, { role: 'buyer', status: 'accepted' });
+    await assertBothActive(client, t);
+    const open = await queryOne(client, OPEN_CHECKOUT_SQL, [t.transaction_id]);
+    if (open) return { url: open.payment_link_url };
     await client.query(`UPDATE xendit_sessions SET status = 'EXPIRED' WHERE transaction_id = $1 AND status = 'ACTIVE'`, [t.transaction_id]);
-    const returnUrl = PUBLIC_URL + '/api/xendit/return?id=' + t.transaction_id;
-    const session = await xenditPost('/sessions', {
-      reference_id: 'trade-' + t.transaction_id + '-' + Date.now(),
-      session_type: 'PAY',
-      mode: 'PAYMENT_LINK',
-      amount: Number(t.amount),
-      currency: 'PHP',
-      country: 'PH',
-      allowed_payment_channels: ['GCASH'],
-      description: String(t.item_description).slice(0, 1000),
-      success_return_url: returnUrl,
-      cancel_return_url: returnUrl,
-    });
-    await client.query(
-      `INSERT INTO xendit_sessions (session_id, transaction_id, payment_link_url, amount, expires_at)
-       VALUES ($1, $2, $3, $4, $5)`,
-      [session.payment_session_id, t.transaction_id, session.payment_link_url, t.amount, session.expires_at]
-    );
-    return session.payment_link_url;
+    return { trade: t };
   });
+  if (first.url) return first.url;
+
+  const t = first.trade;
+  const returnUrl = PUBLIC_URL + '/api/xendit/return?id=' + t.transaction_id + (fromThisComputer ? '&to=local' : '');
+  const session = await xenditPost('/sessions', {
+    reference_id: 'trade-' + t.transaction_id + '-' + Date.now(),
+    session_type: 'PAY',
+    mode: 'PAYMENT_LINK',
+    amount: Number(t.amount),
+    currency: 'PHP',
+    country: 'PH',
+    allowed_payment_channels: ['GCASH'],
+    description: String(t.item_description).slice(0, MAX_ITEM_LENGTH),
+    success_return_url: returnUrl,
+    cancel_return_url: returnUrl,
+  });
+
+  // While waiting, the trade may have been cancelled, or a second click may have made another page
+  let unused = false;
+  try {
+    return await withTx(async client => {
+      const now = await lockTrade(client, tradeId, buyerId, { role: 'buyer', status: 'accepted' });
+      const open = await queryOne(client, OPEN_CHECKOUT_SQL, [now.transaction_id]);
+      if (open) {
+        unused = true;
+        return open.payment_link_url;
+      }
+      await client.query(
+        `INSERT INTO xendit_sessions (session_id, transaction_id, payment_link_url, amount, expires_at)
+         VALUES ($1, $2, $3, $4, $5)`,
+        [session.payment_session_id, now.transaction_id, session.payment_link_url, now.amount, session.expires_at]
+      );
+      return session.payment_link_url;
+    });
+  } catch (err) {
+    unused = true;
+    throw err;
+  } finally {
+    if (unused) {
+      await xenditPost('/sessions/' + session.payment_session_id + '/cancel', {}).catch(cancelErr => {
+        console.error('Could not close checkout', session.payment_session_id, cancelErr.message);
+      });
+    }
+  }
 }
 
 // The trade was cancelled, so close any checkout page that is still open
@@ -1351,31 +1485,93 @@ app.post('/api/webhooks/xendit', route(async (req, res) => {
   const finished = event === 'payment_session.completed' || event === 'payment_session.expired';
   const sessionId = data && (data.id || data.payment_session_id);   // Xendit sends "id"; its docs show "payment_session_id"
   if (finished && sessionId) {
-    await withTx(async client => {
-      const session = await queryOne(client, 'SELECT * FROM xendit_sessions WHERE session_id = $1 FOR UPDATE', [sessionId]);
-      if (!session || session.status === 'COMPLETED') return;
-      if (event === 'payment_session.completed') await completeCheckout(client, session, data);
-      else await client.query(`UPDATE xendit_sessions SET status = 'EXPIRED' WHERE session_id = $1`, [session.session_id]);
-    });
+    await applySessionResult(sessionId, event === 'payment_session.completed' ? 'COMPLETED' : 'EXPIRED', data);
   }
   res.json({ ok: true });
 }));
 
+// Save how a checkout page ended. Both the webhook and the status check come through here.
+function applySessionResult(sessionId, result, data) {
+  return withTx(async client => {
+    const session = await queryOne(client, 'SELECT * FROM xendit_sessions WHERE session_id = $1 FOR UPDATE', [sessionId]);
+    if (!session || session.status === 'COMPLETED') return;
+    if (result === 'COMPLETED') await completeCheckout(client, session, data);
+    else await client.query('UPDATE xendit_sessions SET status = $1 WHERE session_id = $2', [result, session.session_id]);
+  });
+}
+
+// Ask Xendit how a checkout page ended, in case its webhook did not reach us (for example ngrok was off)
+async function syncSession(sessionId) {
+  const session = await xenditRequest('GET', '/sessions/' + sessionId);
+  if (['COMPLETED', 'EXPIRED', 'CANCELED'].includes(session.status)) {
+    await applySessionResult(sessionId, session.status, session);
+  }
+}
+
+// A problem here is only logged: the next check, or the webhook, tries again
+async function syncSessionSafely(sessionId) {
+  try {
+    await syncSession(sessionId);
+  } catch (err) {
+    console.error('Could not check checkout', sessionId, err.message);
+  }
+}
+
+async function syncTradeCheckouts(tradeId) {
+  if (!checkoutEnabled) return;
+  const open = await queryAll(pool, `SELECT session_id FROM xendit_sessions WHERE transaction_id = $1 AND status = 'ACTIVE'`, [tradeId]);
+  for (const { session_id: sessionId } of open) await syncSessionSafely(sessionId);
+}
+
+// Every minute, check the checkout pages that are still open (a page stays checkable for an hour after it expires)
+setInterval(async () => {
+  if (!checkoutEnabled) return;
+  try {
+    const open = await queryAll(
+      pool,
+      `SELECT session_id FROM xendit_sessions
+       WHERE status = 'ACTIVE' AND created_at < now() - interval '1 minute' AND expires_at > now() - interval '1 hour'
+       ORDER BY created_at LIMIT 20`
+    );
+    for (const { session_id: sessionId } of open) await syncSessionSafely(sessionId);
+  } catch (err) {
+    console.error('Checkout check failed:', err.message);
+  }
+}, 60 * 1000);
+
 // After the checkout page, Xendit sends the buyer back here (it only allows https addresses)
 app.get('/api/xendit/return', (req, res) => {
-  const site = (process.env.FRONTEND_URL || 'http://localhost:' + PORT).replace(/\/$/, '');
-  res.redirect(/^\d+$/.test(req.query.id) ? site + '/transaction.html?id=' + req.query.id : site + '/dashboard.html');
+  // Back to the address the buyer started from, so they are still signed in there
+  const site = (process.env.FRONTEND_URL || (req.query.to === 'local' || !PUBLIC_URL ? 'http://localhost:' + PORT : PUBLIC_URL)).replace(/\/$/, '');
+  res.redirect(/^\d+$/.test(req.query.id) ? site + '/transaction.html?id=' + req.query.id + '&payment=returned' : site + '/dashboard.html');
 });
 
-// Buyer pays into escrow. With Xendit the buyer gets a checkout page; otherwise the payment is simulated.
+// The buyer came back from the checkout page: find out right away whether the payment went through
+app.post('/api/transactions/:id/pay/check', auth, route(async (req, res) => {
+  requireNumeric(req.params.id, 'Invalid trade.');
+  const t = await queryOne(pool, 'SELECT buyer_id, seller_id FROM transactions WHERE transaction_id = $1', [req.params.id]);
+  if (!t || !isParty(t, req.user.user_id)) throw new HttpError(404, 'Trade not found.');
+  if (!sameId(t.buyer_id, req.user.user_id)) throw new HttpError(403, 'Only the buyer can do this.');
+  await syncTradeCheckouts(req.params.id);
+  const fresh = await queryOne(pool, 'SELECT status FROM transactions WHERE transaction_id = $1', [req.params.id]);
+  res.json({ status: fresh.status });
+}));
+
+// Buyer pays into escrow on the Xendit checkout page. Simulated only when that was turned on on purpose.
 app.post('/api/transactions/:id/pay', auth, route(async (req, res) => {
   if (checkoutEnabled) {
     requireNumeric(req.params.id, 'Invalid trade.');
-    return res.json({ checkout_url: await startCheckout(req.params.id, req.user.user_id) });
+    await syncTradeCheckouts(req.params.id);
+    const t = await queryOne(pool, 'SELECT buyer_id, status FROM transactions WHERE transaction_id = $1', [req.params.id]);
+    if (t && sameId(t.buyer_id, req.user.user_id) && t.status === 'paid') return res.json({ paid: true });
+    const fromThisComputer = /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(req.get('origin') || '');
+    return res.json({ checkout_url: await startCheckout(req.params.id, req.user.user_id, fromThisComputer) });
   }
+  if (!simulatedPayments) throw new HttpError(503, 'Online payment is not set up on this server yet. Please contact Support.');
   const number = readGcashNumber(req, 'Enter the 11-digit GCash number you are paying from (it starts with 09).');
   await withTx(async client => {
     const t = await lockTrade(client, req.params.id, req.user.user_id, { role: 'buyer', status: 'accepted' });
+    await assertBothActive(client, t);
     await markTradePaid(client, t, number);
   });
   res.json({ ok: true });
@@ -1386,6 +1582,7 @@ app.post('/api/transactions/:id/deliver', auth, route(async (req, res) => {
   const number = readGcashNumber(req, 'Enter the 11-digit GCash number (it starts with 09) where you want to receive your money.');
   await withTx(async client => {
     const t = await lockTrade(client, req.params.id, req.user.user_id, { role: 'seller', status: 'paid' });
+    await assertBothActive(client, t);
     await client.query(
       `UPDATE transactions
        SET status = 'delivered', delivered_at = now(), payout_method = 'gcash', payout_number = $1
@@ -1402,6 +1599,7 @@ app.post('/api/transactions/:id/confirm', auth, route(async (req, res) => {
   requireNumeric(req.params.id, 'Invalid trade.');
   await withTx(async client => {
     const t = await lockTrade(client, req.params.id, req.user.user_id, { role: 'buyer', status: 'delivered' });
+    await assertBothActive(client, t);
     await releasePayment(client, t.transaction_id);
     await logActivity(client, req.user.user_id, t.transaction_id, 'confirmed', null);
   });
@@ -1411,12 +1609,19 @@ app.post('/api/transactions/:id/confirm', auth, route(async (req, res) => {
 // Chat: send a message in a trade
 app.post('/api/transactions/:id/messages', auth, route(async (req, res) => {
   const content = String(req.body.content || '').trim();
-  if (!/^\d+$/.test(req.params.id) || !content || content.length > 1000) throw new HttpError(400, 'Write a message of 1 to 1000 characters.');
+  if (!isDbId(req.params.id) || !content || content.length > 1000) throw new HttpError(400, 'Write a message of 1 to 1000 characters.');
   const mine = await pool.query(
-    'SELECT 1 FROM transactions WHERE transaction_id = $1 AND (buyer_id = $2 OR seller_id = $2)',
+    'SELECT status FROM transactions WHERE transaction_id = $1 AND (buyer_id = $2 OR seller_id = $2)',
     [req.params.id, req.user.user_id]
   );
   if (!mine.rows[0]) throw new HttpError(404, 'Trade not found.');
+  if (FINISHED_STATUSES.includes(mine.rows[0].status)) throw new HttpError(409, 'This trade is finished, so the chat is closed.');
+  const recent = await queryOne(
+    pool,
+    `SELECT COUNT(*) AS n FROM messages WHERE sender_id = $1 AND sent_at > now() - interval '1 minute'`,
+    [req.user.user_id]
+  );
+  if (Number(recent.n) >= CHAT_PER_MINUTE) throw new HttpError(429, 'You are sending messages too fast. Please wait a moment.');
   await pool.query(
     'INSERT INTO messages (transaction_id, sender_id, content) VALUES ($1, $2, $3)',
     [req.params.id, req.user.user_id, content]
@@ -1617,6 +1822,11 @@ const OUTCOMES = {
   ],
 };
 
+// A seller can only ask for the money once the item was marked as delivered
+function outcomesFor(role, tradeStatus) {
+  return OUTCOMES[role].filter(o => o.value !== 'release' || tradeStatus === 'delivered');
+}
+
 async function saveEvidence(client, disputeId, userId, files) {
   for (const f of files) {
     const name = path.basename(String(f.originalname || 'image')).slice(0, 100);
@@ -1724,7 +1934,7 @@ app.get('/api/transactions/:id/dispute', auth, route(async (req, res) => {
     },
     can_file: !d && PAID_STATUSES.includes(t.status),
     reasons: REASONS[role],
-    outcomes: OUTCOMES[role],
+    outcomes: outcomesFor(role, t.status),
     dispute,
   });
 }));
@@ -1753,7 +1963,7 @@ app.post('/api/transactions/:id/dispute', auth, uploadFiles, route(async (req, r
         throw new HttpError(409, 'You can only report a problem while the trade is paid or delivered.');
       }
       if (!REASONS[role].includes(reason)) throw new HttpError(400, 'Choose a reason.');
-      if (!OUTCOMES[role].some(o => o.value === outcome)) throw new HttpError(400, 'Choose the outcome you want.');
+      if (!outcomesFor(role, t.status).some(o => o.value === outcome)) throw new HttpError(400, 'Choose the outcome you want.');
 
       const existing = await client.query('SELECT 1 FROM disputes WHERE transaction_id = $1', [t.transaction_id]);
       if (existing.rows[0]) throw new HttpError(409, 'A dispute was already opened for this trade.');
@@ -1802,6 +2012,10 @@ app.post('/api/transactions/:id/dispute/reply', auth, uploadFiles, route(async (
         throw new HttpError(403, 'You opened this dispute. The other person replies to it.');
       }
       if (d.dispute_status === 'resolved') throw new HttpError(409, 'This dispute was already decided.');
+      const saved = await queryOne(client, 'SELECT COUNT(*) AS n FROM evidence WHERE dispute_id = $1 AND submitted_by = $2', [d.dispute_id, userId]);
+      if (Number(saved.n) + files.length > MAX_EVIDENCE_PER_PERSON) {
+        throw new HttpError(400, 'You can add up to ' + MAX_EVIDENCE_PER_PERSON + ' images to a dispute.');
+      }
 
       await client.query(
         `UPDATE disputes SET reply = $1, replied_at = now(), dispute_status = 'under_review' WHERE dispute_id = $2`,
@@ -2055,16 +2269,23 @@ app.post('/api/profile/email/verify', auth, route(async (req, res) => {
     if (row) await deleteEmailChange(id);
     throw new HttpError(400, 'Wrong or expired PIN. Please start again.');
   }
+  const tooManyTries = async () => {
+    await deleteEmailChange(id);
+    throw new HttpError(429, 'Too many wrong tries. Please start again.');
+  };
+  // The try is counted in the database first, so guesses sent at the same moment all count
+  const claimed = await queryOne(
+    pool,
+    'UPDATE email_changes SET attempts = attempts + 1 WHERE user_id = $1 AND attempts < $2 RETURNING attempts',
+    [id, MAX_PIN_TRIES]
+  );
+  if (!claimed) return tooManyTries();
   if (!(await bcrypt.compare(pin, row.pin_hash))) {
-    const used = row.attempts + 1;
-    if (used >= MAX_PIN_TRIES) {
-      await deleteEmailChange(id);
-      throw new HttpError(429, 'Too many wrong tries. Please start again.');
-    }
-    await pool.query('UPDATE email_changes SET attempts = $1 WHERE user_id = $2', [used, id]);
-    throw new HttpError(400, 'Wrong PIN. ' + (MAX_PIN_TRIES - used) + ' tries left.');
+    if (claimed.attempts >= MAX_PIN_TRIES) return tooManyTries();
+    throw new HttpError(400, 'Wrong PIN. ' + (MAX_PIN_TRIES - claimed.attempts) + ' tries left.');
   }
 
+  const before = await queryOne(pool, 'SELECT email FROM users WHERE user_id = $1', [id]);
   try {
     await pool.query('UPDATE users SET email = $1 WHERE user_id = $2', [row.new_email, id]);
   } catch (err) {
@@ -2076,7 +2297,25 @@ app.post('/api/profile/email/verify', auth, route(async (req, res) => {
   }
   await deleteEmailChange(id);
   await logActivity(pool, id, null, 'email_changed', null);
+  sendSecurityNotice(before.email, 'Your SecureTrade email was changed',
+    'The email on your SecureTrade account was just changed. If this was not you, contact SecureTrade Support right away.');
   res.json({ ok: true, email: row.new_email });
+}));
+
+// Change my password while signed in: the current password is needed
+app.post('/api/profile/password', auth, route(async (req, res) => {
+  const current = String(req.body.current_password || '');
+  const next = String(req.body.new_password || '');
+  if (next.length < 8) throw new HttpError(400, 'The new password must be at least 8 characters.');
+  if (Buffer.byteLength(next) > 72) throw new HttpError(400, 'The new password is too long. Please use up to 72 characters.');
+  if (next === current) throw new HttpError(400, 'The new password must be different from the current one.');
+  const me = await queryOne(pool, 'SELECT email, password_hash FROM users WHERE user_id = $1', [req.user.user_id]);
+  if (!(await bcrypt.compare(current, me.password_hash))) throw new HttpError(400, 'Your current password is wrong.');
+  await pool.query('UPDATE users SET password_hash = $1 WHERE user_id = $2', [await bcrypt.hash(next, 10), req.user.user_id]);
+  await logActivity(pool, req.user.user_id, null, 'password_changed', null);
+  sendSecurityNotice(me.email, 'Your SecureTrade password was changed',
+    'The password on your SecureTrade account was just changed. If this was not you, reset your password now and contact Support.');
+  res.json({ ok: true });
 }));
 
 // Change my email: send the PIN again
@@ -2217,7 +2456,7 @@ app.post('/api/verification/submit', auth, uploadVerification, route(async (req,
 
 // A verification picture. Only its owner and admins can open it, and only while it is being reviewed.
 app.get('/api/verifications/:id/:kind', auth, route(async (req, res) => {
-  if (!/^\d+$/.test(req.params.id) || !['id', 'selfie'].includes(req.params.kind)) throw new HttpError(404, 'File not found.');
+  if (!isDbId(req.params.id) || !['id', 'selfie'].includes(req.params.kind)) throw new HttpError(404, 'File not found.');
   const v = await queryOne(pool, 'SELECT user_id, id_file, selfie_file FROM verifications WHERE verification_id = $1', [req.params.id]);
   const allowed = v && (sameId(v.user_id, req.user.user_id) || (await isAdmin(req.user.user_id)));
   const name = v && (req.params.kind === 'id' ? v.id_file : v.selfie_file);
@@ -2227,6 +2466,21 @@ app.get('/api/verifications/:id/:kind', auth, route(async (req, res) => {
 }));
 
 // ---------- Admin ----------
+
+// An admin who is one of the two people in a trade must not decide it
+function assertNotOwnTrade(trade, adminId) {
+  if (isParty(trade, adminId)) throw new HttpError(403, 'You are part of this trade, so another admin must decide it.');
+}
+
+// Payments that arrived for a trade that could not accept them, and that no admin has handled yet
+const OPEN_PAYMENT_REVIEWS_SQL = `activity_log a
+     WHERE a.action = 'payment_needs_review'
+       AND NOT EXISTS (
+         SELECT 1 FROM activity_log done
+         WHERE done.action IN ('payment_review_refunded', 'payment_review_closed')
+           AND done.transaction_id = a.transaction_id
+           AND done.detail LIKE 'Review #' || a.log_id || ':%'
+       )`;
 
 function getTradeChat(transactionId) {
   return queryAll(
@@ -2268,6 +2522,7 @@ app.get('/api/admin/overview', auth, adminOnly, route(async (req, res) => {
        (SELECT COUNT(DISTINCT user_id) FROM support_messages WHERE NOT from_admin AND read_at IS NULL) AS unread_support,
        (SELECT COUNT(*) FROM review_reports WHERE status = 'open') AS open_reports,
        (SELECT COUNT(*) FROM activity_log WHERE action = 'login_blocked' AND created_at > now() - interval '7 days') AS login_alerts,
+       (SELECT COUNT(*) FROM ${OPEN_PAYMENT_REVIEWS_SQL}) AS payment_reviews,
        (SELECT COUNT(*) FROM transactions t
           ${JOIN_BUYER_SELLER}
          WHERE t.status::text IN ('paid', 'delivered')
@@ -2282,8 +2537,83 @@ app.get('/api/admin/overview', auth, adminOnly, route(async (req, res) => {
     unread_support: Number(stats.unread_support),
     open_reports: Number(stats.open_reports),
     login_alerts: Number(stats.login_alerts),
+    payment_reviews: Number(stats.payment_reviews),
     needs_admin_trades: Number(stats.needs_admin_trades),
   });
+}));
+
+// ---------- Admin: payments to review ----------
+
+app.get('/api/admin/payment-reviews', auth, adminOnly, route(async (req, res) => {
+  const rows = await queryAll(
+    pool,
+    `SELECT r.log_id, r.transaction_id, r.detail, r.created_at, r.total_count,
+            t.item_description, t.amount, t.status::text AS trade_status,
+            b.username AS buyer_username, s.username AS seller_username
+     FROM (SELECT a.*, COUNT(*) OVER() AS total_count FROM ${OPEN_PAYMENT_REVIEWS_SQL}
+           ORDER BY a.created_at, a.log_id
+           LIMIT ${ADMIN_PAGE_SIZE} OFFSET ${pageOffset(req.query.page)}) r
+     JOIN transactions t ON t.transaction_id = r.transaction_id
+     ${JOIN_BUYER_SELLER}
+     ORDER BY r.created_at, r.log_id`
+  );
+  res.json(pageResult(rows, r => ({ ...r, amount: Number(r.amount) })));
+}));
+
+// The Xendit payment a review is about, as it was written in the log
+async function findReviewPaymentId(client, detail) {
+  const match = /^Xendit payment (\S+)/.exec(detail || '');
+  if (!match) return null;
+  if (match[1].startsWith('py-')) return match[1];
+  const session = await queryOne(client, 'SELECT payment_id FROM xendit_sessions WHERE session_id = $1', [match[1]]);
+  return session && session.payment_id;
+}
+
+// Refund the buyer through Xendit, or close the review because it was handled another way.
+// The trade stays locked during the refund, so two admins can never refund the same payment.
+app.post('/api/admin/payment-reviews/:id/resolve', auth, adminOnly, route(async (req, res) => {
+  const action = req.body.action;
+  const note = String(req.body.note || '').trim();
+  requireNumeric(req.params.id, 'Invalid review.');
+  if (!['refund', 'close'].includes(action)) throw new HttpError(400, 'Choose refund or close.');
+  requireNote(note, 300, 'Write a short note that explains why.');
+
+  const me = await findUsername(req.user.user_id);
+  await withTx(async client => {
+    const review = await queryOne(client, `SELECT * FROM activity_log WHERE log_id = $1 AND action = 'payment_needs_review'`, [req.params.id]);
+    if (!review) throw new HttpError(404, 'Review not found.');
+    const t = await queryOne(client, 'SELECT * FROM transactions WHERE transaction_id = $1 FOR UPDATE', [review.transaction_id]);
+    assertNotOwnTrade(t, req.user.user_id);
+
+    const handled = await queryOne(
+      client,
+      `SELECT 1 FROM activity_log
+       WHERE action IN ('payment_review_refunded', 'payment_review_closed') AND transaction_id = $1 AND detail LIKE $2`,
+      [review.transaction_id, 'Review #' + review.log_id + ':%']
+    );
+    if (handled) throw new HttpError(409, 'This payment was already handled.');
+
+    let done = 'closed';
+    if (action === 'refund') {
+      if (!checkoutEnabled) throw new HttpError(503, 'Online payment is not set up on this server.');
+      const paymentId = await findReviewPaymentId(client, review.detail);
+      if (!paymentId) throw new HttpError(409, 'The Xendit payment ID is missing. Refund it in the Xendit dashboard, then close this review.');
+      const refund = await xenditRequest('POST', '/v3/refunds', {
+        reference_id: 'review-' + review.log_id,
+        payment_id: paymentId,
+        reason: 'CANCELLATION',
+      }, {
+        headers: { 'api-version': '2024-11-11' },
+        failMessage: 'Xendit did not accept this refund. Check the server log, or refund it in the Xendit dashboard and then close this review.',
+      });
+      if (refund.status === 'FAILED') throw new HttpError(502, 'Xendit could not complete this refund (' + (refund.failure_code || 'no reason given') + ').');
+      done = 'refund ' + refund.refund_id + ' is ' + refund.status;
+    }
+    await logActivity(client, req.user.user_id, t.transaction_id,
+      action === 'refund' ? 'payment_review_refunded' : 'payment_review_closed',
+      'Review #' + review.log_id + ': ' + done + ', by @' + me.username + ': ' + note);
+  });
+  res.json({ ok: true });
 }));
 
 // Verification requests: ?status=pending (default) or all
@@ -2417,8 +2747,10 @@ app.get('/api/admin/support/:userId', auth, adminOnly, route(async (req, res) =>
 
   const messages = await queryAll(
     pool,
-    `SELECT message_id, from_admin, content, sent_at FROM support_messages
-     WHERE user_id = $1 ORDER BY sent_at, message_id LIMIT 300`,
+    `SELECT * FROM (
+       SELECT message_id, from_admin, content, sent_at FROM support_messages
+       WHERE user_id = $1 ORDER BY sent_at DESC, message_id DESC LIMIT 300
+     ) newest ORDER BY sent_at, message_id`,
     [u.user_id]
   );
   await pool.query(
@@ -2632,6 +2964,7 @@ app.post('/api/admin/disputes/:id/resolve', auth, adminOnly, route(async (req, r
 
     const t = await queryOne(client, 'SELECT * FROM transactions WHERE transaction_id = $1 FOR UPDATE', [d.transaction_id]);
     if (!t || t.status !== 'disputed') throw new HttpError(409, 'This trade is not in dispute anymore.');
+    assertNotOwnTrade(t, req.user.user_id);
 
     await assertPaymentHeld(client, t.transaction_id, 'There is no payment held for this trade.');
 
@@ -2750,6 +3083,8 @@ app.get('/api/admin/transactions/:id', auth, adminOnly, route(async (req, res) =
     seller_status: t.seller_status,
     needs_admin: held && (t.buyer_status !== 'active' || t.seller_status !== 'active'),
     can_refund: held && !!payment && payment.status === 'held' && !dispute,
+    can_release: t.status === 'delivered' && !!payment && payment.status === 'held' && !dispute
+      && (t.buyer_status !== 'active' || t.seller_status !== 'active'),
     cancel_reason: t.cancel_reason,
     payment,
     payout_method: t.payout_method,
@@ -2771,6 +3106,7 @@ app.post('/api/admin/transactions/:id/refund', auth, adminOnly, route(async (req
   await withTx(async client => {
     const t = await queryOne(client, 'SELECT * FROM transactions WHERE transaction_id = $1 FOR UPDATE', [req.params.id]);
     if (!t) throw new HttpError(404, 'Trade not found.');
+    assertNotOwnTrade(t, req.user.user_id);
     if (t.status === 'disputed') {
       throw new HttpError(409, 'This trade is in dispute. Decide it from the dispute review.');
     }
@@ -2782,6 +3118,34 @@ app.post('/api/admin/transactions/:id/refund', auth, adminOnly, route(async (req
     await markPaymentRefunded(client, t.transaction_id);
     await client.query(`UPDATE transactions SET status = 'refunded', cancel_reason = $1 WHERE transaction_id = $2`, [note, t.transaction_id]);
     await logActivity(client, req.user.user_id, t.transaction_id, 'admin_refund', note);
+  });
+  res.json({ ok: true });
+}));
+
+// Pay the seller when the item was delivered but one of the two accounts is suspended or banned,
+// so the trade cannot finish by itself. A note is needed.
+app.post('/api/admin/transactions/:id/release', auth, adminOnly, route(async (req, res) => {
+  const note = String(req.body.note || '').trim();
+  requireNumeric(req.params.id, 'Invalid trade.');
+  requireNote(note, 300, 'Write a short note that explains why.');
+
+  await withTx(async client => {
+    const t = await queryOne(
+      client,
+      `SELECT t.*, b.account_status::text AS buyer_status, s.account_status::text AS seller_status
+       FROM transactions t ${JOIN_BUYER_SELLER}
+       WHERE t.transaction_id = $1 FOR UPDATE OF t`,
+      [req.params.id]
+    );
+    if (!t) throw new HttpError(404, 'Trade not found.');
+    assertNotOwnTrade(t, req.user.user_id);
+    if (t.status !== 'delivered') throw new HttpError(409, 'Only a delivered trade can be released this way.');
+    if (t.buyer_status === 'active' && t.seller_status === 'active') {
+      throw new HttpError(409, 'Both accounts are active, so this trade finishes by itself.');
+    }
+    await assertPaymentHeld(client, t.transaction_id, 'There is no held payment for this trade.');
+    await releasePayment(client, t.transaction_id);
+    await logActivity(client, req.user.user_id, t.transaction_id, 'admin_release', note);
   });
   res.json({ ok: true });
 }));
@@ -2980,7 +3344,7 @@ setInterval(async () => {
   }
 }, 60 * 1000);
 
-// Auto-release: if the buyer does nothing 2 hours after delivery, pay the seller.
+// Auto-release: if the buyer does nothing for AUTO_RELEASE_HOURS after delivery, pay the seller.
 // A trade in dispute is not released, and neither is a trade where the buyer or the seller is
 // suspended or banned: it waits for an admin to decide.
 setInterval(async () => {
@@ -2989,7 +3353,7 @@ setInterval(async () => {
       `SELECT t.transaction_id
        FROM transactions t
        ${JOIN_BUYER_SELLER}
-       WHERE t.status = 'delivered' AND t.delivered_at < now() - interval '2 hours'
+       WHERE t.status = 'delivered' AND t.delivered_at < now() - interval '${AUTO_RELEASE_HOURS} hours'
          AND b.account_status::text = 'active' AND s.account_status::text = 'active'`
     );
     for (const row of due.rows) {

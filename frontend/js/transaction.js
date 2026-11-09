@@ -15,6 +15,7 @@ const rateCard = $('rate-card');
 let data = null;
 let lastSignature = '';
 let lastMessageSignature = '';
+let pendingPaymentNote = '';   // shown once after coming back from the checkout page
 
 // Rating state
 let myScore = null;         // my rating for this trade, once I have rated
@@ -56,9 +57,9 @@ function noticeFor(d, role, partner, net) {
         : { text: '@' + partner + ' sent you this request. Accept or decline it on your dashboard. It is cancelled automatically if nobody answers in 12 hours.' };
     case 'accepted':
       return role === 'buyer'
-        ? { text: (d.checkout_enabled ? 'Pay with GCash on the secure checkout page. ' : 'Enter the GCash number you are paying from. ')
+        ? { text: (d.simulated_payments ? 'Enter the GCash number you are paying from. ' : 'Pay with GCash on the secure checkout page. ')
             + 'The money goes to SecureTrade, not to the seller, and stays there until you confirm the item arrived.'
-            + (d.checkout_enabled ? ' After you pay, this page updates by itself.' : ' Payments are simulated for now.') }
+            + (d.simulated_payments ? ' Payments are simulated for now.' : ' After you pay, this page updates by itself.') }
         : { text: 'Waiting for the buyer to pay into escrow. Do not hand over the item until the payment is held.' };
     case 'paid':
       return role === 'buyer'
@@ -188,7 +189,7 @@ function addGcashInput(placeholder, label) {
 
 // Buyer: type the GCash number to pay from
 function addPayControls(price) {
-  if (data.checkout_enabled) {
+  if (!data.simulated_payments) {
     addButton('Pay ' + peso(price) + ' with GCash', goToCheckout);
     return;
   }
@@ -202,11 +203,28 @@ async function goToCheckout(button) {
   showActionError('');
   button.disabled = true;
   try {
-    const { checkout_url: url } = await postJson('/transactions/' + tradeId + '/pay');
-    window.location.href = url;
+    const reply = await postJson('/transactions/' + tradeId + '/pay');
+    if (reply.checkout_url) window.location.href = reply.checkout_url;
+    else await load();   // the payment had already gone through
   } catch (err) {
     showActionError(netError(err));
     button.disabled = false;
+  }
+}
+
+// Back from the checkout page: ask whether the payment went through (it can take a moment to appear)
+async function checkReturnedPayment() {
+  if (new URLSearchParams(location.search).get('payment') !== 'returned') return;
+  history.replaceState(null, '', 'transaction.html?id=' + tradeId);
+  try {
+    for (let tries = 0; tries < 3; tries++) {
+      const { status } = await postJson('/transactions/' + tradeId + '/pay/check');
+      if (status !== 'accepted') return;
+      await new Promise(resolve => setTimeout(resolve, 2000));
+    }
+    pendingPaymentNote = 'No payment has been confirmed yet. If you paid, this page updates by itself within a minute or two. Please do not pay again.';
+  } catch (err) {
+    pendingPaymentNote = netError(err);
   }
 }
 
@@ -293,7 +311,8 @@ function renderView() {
   // Notice
   const n = noticeFor(d, role, partner, net);
   notice.className = 'notice' + (n.ok ? ' ok' : '');
-  notice.textContent = n.text;
+  notice.textContent = n.text + (['completed', 'refunded'].includes(d.status) ? ' ' + ST.testModeNote : '');
+  $('chat-form').hidden = ['completed', 'refunded', 'cancelled'].includes(d.status);
 
   // Actions
   actions.innerHTML = '';
@@ -476,6 +495,10 @@ async function load() {
     lastSignature = signature;
     renderView();
   }
+  if (pendingPaymentNote) {
+    showActionError(pendingPaymentNote);
+    pendingPaymentNote = '';
+  }
 
   const messageSignature = data.messages.map(m => m.message_id + (m.avatar_file || '') + m.username).join('|');
   if (messageSignature !== lastMessageSignature) {
@@ -505,6 +528,8 @@ $('chat-form').addEventListener('submit', async e => {
 if (!/^\d+$/.test(String(tradeId))) {
   showPageError('No trade selected. Open a trade from your dashboard.');
 } else {
-  load();
-  setInterval(load, 5000);   // pick up new messages and status changes
+  checkReturnedPayment().finally(() => {
+    load();
+    setInterval(load, 5000);   // pick up new messages and status changes
+  });
 }

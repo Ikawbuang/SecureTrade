@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Dashboard – SecureTrade</title>
+  <link rel="icon" href="data:,">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=Figtree:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -215,20 +216,20 @@
       <div class="row-2">
         <div class="field">
           <label for="tf-game">Game</label>
-          <input id="tf-game" type="text" placeholder="e.g. Mobile Legends" required>
+          <input id="tf-game" type="text" maxlength="60" placeholder="e.g. Mobile Legends" required>
         </div>
         <div class="field">
           <label for="tf-price">Price (₱)</label>
-          <input id="tf-price" type="number" min="1" step="1" placeholder="0" required>
+          <input id="tf-price" type="number" min="1" max="100000" step="1" placeholder="0" required>
         </div>
       </div>
       <div class="field">
         <label for="tf-item">Item name</label>
-        <input id="tf-item" type="text" placeholder="Example: Mythic account, 120 skins" required>
+        <input id="tf-item" type="text" maxlength="120" placeholder="Example: Mythic account, 120 skins" required>
       </div>
       <div class="field">
         <label for="tf-details">Item details</label>
-        <textarea id="tf-details" rows="3" placeholder="Describe exactly what will be handed over, so both sides agree."></textarea>
+        <textarea id="tf-details" rows="3" maxlength="800" placeholder="Describe exactly what will be handed over, so both sides agree."></textarea>
       </div>
 
       <div class="fee-line"><span>Item price</span><span id="tf-s-price">₱0.00</span></div>

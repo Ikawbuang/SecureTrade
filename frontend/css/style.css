@@ -10,7 +10,7 @@
 .page-head h1 { margin: 0; font-size: 1.9rem; }
 .page-head p { margin: .25rem 0 0; color: var(--text-soft); }
 .card-head h2 { margin: 0; }
-.table-wrap { overflow-x: auto; }
+.table-wrap { overflow-x: auto; position: relative; }   /* relative keeps the hidden screen-reader labels inside the scrolling area */
 .filters input:focus, .filters select:focus { outline: none; border-color: var(--gold); }
 .thumbs { display: flex; flex-wrap: wrap; gap: .6rem; margin: .5rem 0 0; padding: 0; list-style: none; }
 .thumbs button:hover { border-color: var(--gold); }
@@ -35,6 +35,7 @@
 .pager-info { margin-right: auto; color: var(--text-soft); font-size: .9rem; }
 .pager .btn:disabled { opacity: .5; cursor: not-allowed; }
 .more-btn { margin-top: .5rem; }
+.more-btn[hidden], .chat-form[hidden] { display: none; }
 
 /* ---------- admin-dashboard ---------- */
 :where(.page-admin-dashboard) {

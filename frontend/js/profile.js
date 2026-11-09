@@ -212,6 +212,36 @@ emailResend.addEventListener('click', async () => {
   } catch (err) { say('pf-email', netError(err)); emailResend.disabled = false; }
 });
 
+// ---------- Password: change it while signed in ----------
+function closePasswordEdit() {
+  $('pf-password-form').reset();
+  $('pf-password-form').hidden = true;
+  $('pf-password-edit').hidden = false;
+}
+$('pf-password-edit').addEventListener('click', () => {
+  say('pf-password', '');
+  $('pf-password-form').hidden = false;
+  $('pf-password-edit').hidden = true;
+  $('pf-password-current').focus();
+});
+$('pf-password-cancel').addEventListener('click', () => { say('pf-password', ''); closePasswordEdit(); });
+$('pf-password-form').addEventListener('submit', async e => {
+  e.preventDefault();
+  say('pf-password', '');
+  if ($('pf-password-new').value !== $('pf-password-confirm').value) {
+    say('pf-password', 'The new passwords do not match.');
+    return;
+  }
+  const btn = $('pf-password-save');
+  btn.disabled = true;
+  try {
+    await postJson('/profile/password', { current_password: $('pf-password-current').value, new_password: $('pf-password-new').value });
+    closePasswordEdit();
+    say('pf-password', 'Your password was changed.', true);
+  } catch (err) { say('pf-password', netError(err)); }
+  btn.disabled = false;
+});
+
 // ---------- Identity verification ----------
 function renderVerification() {
   const v = verification;

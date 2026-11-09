@@ -170,7 +170,7 @@ function renderThread() {
   resolution.hidden = d.dispute_status !== 'resolved';
   if (d.dispute_status === 'resolved') {
     resolution.className = 'notice ok';
-    resolution.textContent = d.resolution || 'The admin made a decision.';
+    resolution.textContent = (d.resolution || 'The admin made a decision.') + ' ' + ST.testModeNote;
   }
 
   $('thread').hidden = false;
@@ -205,7 +205,7 @@ async function load() {
   const signature = [
     info.trade.status,
     d ? d.dispute_status : 'none',
-    d ? (d.reply || '').length : 0,
+    d ? (d.reply || '') : '',
     d ? d.evidence.length : 0,
     d ? (d.resolution || '') : ''
   ].join(':');

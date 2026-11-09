@@ -6,16 +6,22 @@
    The real data (users, trades, messages) comes from the database.
    ========================================================== */
 
-const API = 'http://localhost:3000/api';
+// The server also hosts these pages, so the API is at the same address (localhost, ngrok, or a real domain).
+// Live Server (port 5500) or a page opened as a file still uses the local server.
+const API = location.protocol === 'file:' || location.port === '5500'
+  ? 'http://localhost:3000/api'
+  : location.origin + '/api';
 
 const ST = {
 
   /* ---------- Branding ---------- */
   brand: { first: 'Secure', second: 'Trade' },   // shown as SecureTrade (second part is gold)
 
+  testModeNote: '(Test mode: payouts and refunds are simulated, so no real money moved.)',
+
   /* ---------- Rules (shown on the pages; the server applies the real 3%) ---------- */
   feeRate: 0.03,            // 3% service fee
-  autoReleaseHours: 2,      // payment releases this many hours after delivery
+  autoReleaseHours: 24,     // payment releases this many hours after delivery (matches AUTO_RELEASE_HOURS on the server)
 
   /* ---------- Status key -> [badge class, label] ---------- */
   status: {

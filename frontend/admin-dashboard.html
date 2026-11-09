@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Admin – SecureTrade</title>
+  <link rel="icon" href="data:,">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=Figtree:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -20,6 +21,7 @@
       <a href="#verifications">Verifications <span class="count" id="nav-verif-count" hidden></span></a>
       <a href="#messages">Messages <span class="count" id="nav-msg-count" hidden></span></a>
       <a href="#disputes">Disputes</a>
+      <a href="#payment-reviews">Payments to review <span class="count" id="nav-payreview-count" hidden></span></a>
       <a href="#reports">Reports <span class="count" id="nav-report-count" hidden></span></a>
       <a href="#alerts">Sign-in alerts <span class="count" id="nav-alert-count" hidden></span></a>
       <a href="#transactions">Transactions</a>
@@ -138,6 +140,23 @@
             </table>
           </div>
           <p class="empty" id="d-empty" hidden>No disputes here.</p>
+        </section>
+
+        <!-- Payments that arrived for a trade that could not accept them -->
+        <section class="card block" id="payment-reviews" aria-labelledby="p-title">
+          <div class="card-head">
+            <h2 id="p-title">Payments to review</h2>
+            <span>Money that arrived after a trade was cancelled, or with the wrong amount. It is not held for the trade, so refund the buyer.</span>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr><th>Trade</th><th>Item</th><th>Buyer</th><th>Seller</th><th>Amount</th><th>What happened</th><th>When</th><th><span class="sr-only">Actions</span></th></tr>
+              </thead>
+              <tbody id="p-rows"></tbody>
+            </table>
+          </div>
+          <p class="empty" id="p-empty" hidden>No payments need a review.</p>
         </section>
 
         <!-- Reported reviews -->
@@ -436,11 +455,12 @@
 
       <!-- Refund without a dispute (the payment is held) -->
       <div class="decision" id="td-refund" hidden>
-        <label for="td-refund-note"><b>Refund the buyer</b> (the note is shown to both people)</label>
+        <label for="td-refund-note"><b>Decide this trade</b> (the note is saved in the log)</label>
         <textarea id="td-refund-note" rows="2" maxlength="300" placeholder="Example: the seller account was banned."></textarea>
         <p class="form-error" id="td-refund-error" role="alert" hidden></p>
         <div class="decide">
           <button class="btn btn-danger" type="button" id="td-refund-btn">Refund the buyer in full</button>
+          <button class="btn btn-primary" type="button" id="td-release-btn" hidden>Release to the seller</button>
         </div>
       </div>
 

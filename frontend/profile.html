@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>My profile – SecureTrade</title>
+  <link rel="icon" href="data:,">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=Figtree:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -143,6 +144,31 @@
 
               <p class="form-error" id="pf-email-error" role="alert" hidden></p>
               <p class="form-ok" id="pf-email-ok" role="status" hidden></p>
+            </div>
+
+            <div class="info-row">
+              <p class="info-label">Password</p>
+              <button class="btn btn-outline btn-small" type="button" id="pf-password-edit">Change</button>
+              <form class="edit-panel" id="pf-password-form" hidden>
+                <div class="field">
+                  <label for="pf-password-current">Current password</label>
+                  <input id="pf-password-current" type="password" autocomplete="current-password" required>
+                </div>
+                <div class="field">
+                  <label for="pf-password-new">New password (at least 8 characters)</label>
+                  <input id="pf-password-new" type="password" autocomplete="new-password" minlength="8" maxlength="72" required>
+                </div>
+                <div class="field">
+                  <label for="pf-password-confirm">Type the new password again</label>
+                  <input id="pf-password-confirm" type="password" autocomplete="new-password" minlength="8" maxlength="72" required>
+                </div>
+                <div class="decide">
+                  <button class="btn btn-primary" type="submit" id="pf-password-save">Save password</button>
+                  <button class="btn btn-outline" type="button" id="pf-password-cancel">Cancel</button>
+                </div>
+              </form>
+              <p class="form-error" id="pf-password-error" role="alert" hidden></p>
+              <p class="form-ok" id="pf-password-ok" role="status" hidden></p>
             </div>
 
             <div class="info-row">

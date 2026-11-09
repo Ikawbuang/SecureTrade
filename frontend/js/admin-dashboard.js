@@ -30,7 +30,8 @@ const pagers = {
   reports: adminPager('reports', () => loadReports()),
   alerts: adminPager('alerts', () => loadAlerts()),
   transactions: adminPager('transactions', () => loadTrades()),
-  users: adminPager('users', () => loadUsers())
+  users: adminPager('users', () => loadUsers()),
+  paymentReviews: adminPager('payment-reviews', () => loadPaymentReviews())
 };
 
 // A list inside a dialog, with its "nothing here" line
@@ -177,6 +178,8 @@ function describe(a) {
     case 'verification_rejected':  return 'verification rejected ' + detail;
     case 'login_blocked':          return 'had sign-in blocked after too many wrong passwords ' + detail;
     case 'payment_needs_review':   return 'has a payment that needs an admin: ' + detail;
+    case 'payment_review_refunded': return 'refunded a payment under review. ' + detail;
+    case 'payment_review_closed':  return 'closed a payment under review. ' + detail;
     case 'account_active':         return 'account reactivated ' + detail;
     case 'account_suspended':      return 'account suspended ' + detail;
     case 'account_banned':         return 'account banned ' + detail;
@@ -189,6 +192,8 @@ function activityText(a, showWho) {
   if (a.action === 'request_expired') return 'The request expired: ' + (a.detail || 'nobody answered');
   if (a.action === 'dispute_resolved') return (showWho ? who + ' decided: ' : 'Admin decided: ') + (a.detail || '');
   if (a.action === 'admin_refund') return (showWho ? who : 'Admin') + ' refunded the buyer in full: ' + (a.detail || '');
+  if (a.action === 'admin_release') return (showWho ? who : 'Admin') + ' released the payment to the seller: ' + (a.detail || '');
+  if (a.action === 'password_changed') return showWho ? who + ' changed the password' : 'Changed the password';
   if (a.action === 'review_deleted') {
     return showWho
       ? 'A review written by ' + who + ' was deleted ' + (a.detail || '')
@@ -236,6 +241,7 @@ function renderOverview(o) {
   navCount('nav-verif-count', o.pending_verifications);
   navCount('nav-msg-count', o.unread_support);
   navCount('nav-report-count', o.open_reports);
+  navCount('nav-payreview-count', o.payment_reviews);
 }
 
 // ---------- Verification requests ----------
@@ -304,6 +310,44 @@ function markAlertsSeen() {
   if (!alertTimes.length) return;
   try { localStorage.setItem(ALERTS_SEEN_KEY, String(Math.max(alertsSeenAt(), ...alertTimes))); } catch { /* storage is blocked */ }
   navCount('nav-alert-count', 0);
+}
+
+// ---------- Payments to review ----------
+async function decidePaymentReview(r, action, button) {
+  const question = action === 'refund'
+    ? 'Why is this payment being refunded? (at least 5 characters, saved in the log)'
+    : 'How was this payment handled? (at least 5 characters, saved in the log)';
+  const note = window.prompt(question);
+  if (note === null) return;
+  if (note.trim().length < 5) { window.alert('Write a short note that explains why.'); return; }
+  if (action === 'refund' && !window.confirm('Refund ' + peso(r.amount) + ' to @' + r.buyer_username + ' through Xendit? This cannot be undone.')) return;
+
+  button.disabled = true;
+  try {
+    await postJson('/admin/payment-reviews/' + r.log_id + '/resolve', { action, note: note.trim() });
+    await load();
+  } catch (err) {
+    window.alert(netError(err));
+    button.disabled = false;
+  }
+}
+
+async function loadPaymentReviews() {
+  const list = await fetchPage(pagers.paymentReviews, '/admin/payment-reviews');
+  renderRows('p-rows', 'p-empty', list, r => {
+    const actions = el('div', 'row-actions');
+    actions.append(
+      linkButton('Refund buyer', button => decidePaymentReview(r, 'refund', button)),
+      linkButton('Close', button => decidePaymentReview(r, 'close', button))
+    );
+    return [
+      linkButton('#' + r.transaction_id, () => openTrade(r.transaction_id)),
+      r.item_description, '@' + r.buyer_username, '@' + r.seller_username, peso(r.amount),
+      'Payment ' + String(r.detail || '').replace(/^Xendit payment \S+ /, ''),
+      fmtTime(r.created_at),
+      actions
+    ];
+  });
 }
 
 async function loadAlerts() {
@@ -403,7 +447,7 @@ async function load() {
     renderOverview(overview);
     allDisputes = disputes;
     renderDisputes();
-    await Promise.all([loadVerifications(), loadSupport(), loadReports(), loadAlerts(), loadTrades(), loadUsers()]);
+    await Promise.all([loadVerifications(), loadSupport(), loadReports(), loadPaymentReviews(), loadAlerts(), loadTrades(), loadUsers()]);
 
     // Opened from a link such as admin-dashboard.html#messages
     if (!scrolledToHash) {
@@ -933,6 +977,8 @@ async function openTrade(id) {
   $('td-refund-note').value = '';
   setMessage('td-refund-error', '');
   $('td-refund-btn').disabled = false;
+  $('td-release-btn').hidden = !t.can_release;
+  $('td-release-btn').disabled = false;
 
   fillTimeline('td-timeline', 'td-timeline-none', t.activity, true);
   fillChat('td-chat', 'td-chat-none', t.messages);
@@ -950,7 +996,24 @@ $('td-refund-btn').addEventListener('click', () => {
     path: '/admin/transactions/' + currentTrade.transaction_id + '/refund',
     body: { note },
     errorId: 'td-refund-error',
-    buttonIds: ['td-refund-btn'],
+    buttonIds: ['td-refund-btn', 'td-release-btn'],
+    dialogId: 'trade-dialog',
+    onDone: () => { currentTrade = null; }
+  });
+});
+
+$('td-release-btn').addEventListener('click', () => {
+  if (!currentTrade) return;
+  setMessage('td-refund-error', '');
+  const note = $('td-refund-note').value.trim();
+  if (note.length < 5) { setMessage('td-refund-error', 'Write a short note that explains why.'); return; }
+  if (!window.confirm('Release ' + peso(currentTrade.amount) + ' to @' + currentTrade.seller_username + '? This cannot be undone.')) return;
+
+  submitDecision({
+    path: '/admin/transactions/' + currentTrade.transaction_id + '/release',
+    body: { note },
+    errorId: 'td-refund-error',
+    buttonIds: ['td-refund-btn', 'td-release-btn'],
     dialogId: 'trade-dialog',
     onDone: () => { currentTrade = null; }
   });
