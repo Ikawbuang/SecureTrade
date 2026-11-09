@@ -153,6 +153,7 @@ function describe(a) {
     case 'verification_approved':  return 'was verified ' + detail;
     case 'verification_rejected':  return 'verification rejected ' + detail;
     case 'login_blocked':          return 'had sign-in blocked after too many wrong passwords ' + detail;
+    case 'payment_needs_review':   return 'has a payment that needs an admin: ' + detail;
     case 'account_active':         return 'account reactivated ' + detail;
     case 'account_suspended':      return 'account suspended ' + detail;
     case 'account_banned':         return 'account banned ' + detail;

@@ -15,6 +15,9 @@ const app = express();
 const allowedOrigins = (process.env.CORS_ORIGINS || '').split(',').map(origin => origin.trim()).filter(Boolean);
 app.use(cors(allowedOrigins.length ? { origin: allowedOrigins } : undefined));
 app.use(express.json());
+// The website itself, so Xendit can send buyers back to a real address
+app.use(express.static(path.join(__dirname, '..', 'frontend')));
+
 // A request with no JSON body gets an empty one, so the checks answer "required" instead of crashing
 app.use((req, res, next) => {
   req.body = req.body || {};
@@ -1111,6 +1114,7 @@ app.post('/api/transactions/:id/cancel', auth, route(async (req, res) => {
       throw new HttpError(409, 'This trade is already finished.');
     }
   });
+  if (outcome === 'cancelled') await cancelOpenCheckouts(req.params.id);
   res.json({ ok: true, status: outcome });
 }));
 
@@ -1211,6 +1215,7 @@ app.get('/api/transactions/:id', auth, route(async (req, res) => {
 
   res.json({
     ...trade,
+    checkout_enabled: checkoutEnabled,
     payout_masked: maskNumber(payout_number),
     payment,
     receipt: receipt.rows[0] || null,
@@ -1218,18 +1223,145 @@ app.get('/api/transactions/:id', auth, route(async (req, res) => {
   });
 }));
 
-// Buyer pays into escrow (simulated for now). Only GCash is accepted: the buyer says which GCash number they pay from.
+// ---------- Xendit (online GCash payment) ----------
+// It turns on when all three settings are in .env. Otherwise the simulated payment is used.
+const XENDIT_KEY = process.env.XENDIT_SECRET_KEY || '';
+const XENDIT_WEBHOOK_TOKEN = process.env.XENDIT_WEBHOOK_TOKEN || '';
+const PUBLIC_URL = (process.env.PUBLIC_URL || '').replace(/\/$/, '');
+const checkoutEnabled = !!(XENDIT_KEY && XENDIT_WEBHOOK_TOKEN && PUBLIC_URL);
+
+if (XENDIT_KEY && !XENDIT_KEY.startsWith('xnd_development_') && process.env.XENDIT_ALLOW_LIVE !== 'true') {
+  throw new Error('XENDIT_SECRET_KEY must be a test key (xnd_development_...). Real money is turned off.');
+}
+
+async function xenditPost(apiPath, body) {
+  const res = await fetch('https://api.xendit.co' + apiPath, {
+    method: 'POST',
+    headers: {
+      Authorization: 'Basic ' + Buffer.from(XENDIT_KEY + ':').toString('base64'),
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(body),
+    signal: AbortSignal.timeout(15000),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    console.error('Xendit error:', res.status, data.error_code, data.message);
+    throw new HttpError(502, 'The payment service is not available right now. Please try again.');
+  }
+  return data;
+}
+
+// Hold the buyer's money for this trade
+async function markTradePaid(client, trade, payerNumber) {
+  await client.query(
+    `INSERT INTO escrow_payments (transaction_id, payment_method, payer_number, amount_held, payment_status)
+     VALUES ($1, 'gcash', $2, $3, 'held')`,
+    [trade.transaction_id, payerNumber, trade.amount]
+  );
+  await client.query(`UPDATE transactions SET status = 'paid' WHERE transaction_id = $1`, [trade.transaction_id]);
+  await logActivity(client, trade.buyer_id, trade.transaction_id, 'paid', 'with GCash, ₱' + Number(trade.amount));
+}
+
+// Give the buyer a Xendit checkout page. A page that is still open is reused, so a trade is never charged twice.
+function startCheckout(tradeId, buyerId) {
+  return withTx(async client => {
+    const t = await lockTrade(client, tradeId, buyerId, { role: 'buyer', status: 'accepted' });
+    const open = await queryOne(
+      client,
+      `SELECT payment_link_url FROM xendit_sessions
+       WHERE transaction_id = $1 AND status = 'ACTIVE' AND expires_at > now()`,
+      [t.transaction_id]
+    );
+    if (open) return open.payment_link_url;
+
+    await client.query(`UPDATE xendit_sessions SET status = 'EXPIRED' WHERE transaction_id = $1 AND status = 'ACTIVE'`, [t.transaction_id]);
+    const returnUrl = PUBLIC_URL + '/api/xendit/return?id=' + t.transaction_id;
+    const session = await xenditPost('/sessions', {
+      reference_id: 'trade-' + t.transaction_id + '-' + Date.now(),
+      session_type: 'PAY',
+      mode: 'PAYMENT_LINK',
+      amount: Number(t.amount),
+      currency: 'PHP',
+      country: 'PH',
+      allowed_payment_channels: ['GCASH'],
+      description: String(t.item_description).slice(0, 1000),
+      success_return_url: returnUrl,
+      cancel_return_url: returnUrl,
+    });
+    await client.query(
+      `INSERT INTO xendit_sessions (session_id, transaction_id, payment_link_url, amount, expires_at)
+       VALUES ($1, $2, $3, $4, $5)`,
+      [session.payment_session_id, t.transaction_id, session.payment_link_url, t.amount, session.expires_at]
+    );
+    return session.payment_link_url;
+  });
+}
+
+// The trade was cancelled, so close any checkout page that is still open
+async function cancelOpenCheckouts(tradeId) {
+  if (!checkoutEnabled) return;
+  const open = await queryAll(pool, `SELECT session_id FROM xendit_sessions WHERE transaction_id = $1 AND status = 'ACTIVE'`, [tradeId]);
+  for (const { session_id: sessionId } of open) {
+    try {
+      await xenditPost('/sessions/' + sessionId + '/cancel', {});
+      await pool.query(`UPDATE xendit_sessions SET status = 'CANCELED' WHERE session_id = $1 AND status = 'ACTIVE'`, [sessionId]);
+    } catch (err) {
+      console.error('Could not close checkout', sessionId, err.message);
+    }
+  }
+}
+
+function isValidWebhookToken(received) {
+  const hash = value => crypto.createHash('sha256').update(String(value)).digest();
+  return !!XENDIT_WEBHOOK_TOKEN && crypto.timingSafeEqual(hash(received), hash(XENDIT_WEBHOOK_TOKEN));
+}
+
+// Xendit says a checkout was paid. Xendit can send this more than once, so a repeat does nothing.
+async function completeCheckout(client, session, data) {
+  await client.query(`UPDATE xendit_sessions SET status = 'COMPLETED', payment_id = $1 WHERE session_id = $2`, [data.payment_id || data.payment_request_id || null, session.session_id]);
+  const t = await queryOne(client, 'SELECT * FROM transactions WHERE transaction_id = $1 FOR UPDATE', [session.transaction_id]);
+  const amountMatches = data.amount === undefined || Number(data.amount) === Number(session.amount);
+
+  if (t.status === 'accepted' && amountMatches) return markTradePaid(client, t, null);
+  // Money arrived that the trade cannot accept, so an admin must look at it
+  await logActivity(client, t.buyer_id, t.transaction_id, 'payment_needs_review',
+    'Xendit payment ' + (data.payment_id || session.session_id) + (amountMatches ? ' arrived while the trade was ' + t.status : ' had the wrong amount'));
+}
+
+// Xendit reports what happened to a checkout page (it signs in with the webhook token, not a user login)
+app.post('/api/webhooks/xendit', route(async (req, res) => {
+  if (!isValidWebhookToken(req.headers['x-callback-token'] || '')) throw new HttpError(401, 'Invalid token.');
+  const { event, data } = req.body;
+  const finished = event === 'payment_session.completed' || event === 'payment_session.expired';
+  const sessionId = data && (data.id || data.payment_session_id);   // Xendit sends "id"; its docs show "payment_session_id"
+  if (finished && sessionId) {
+    await withTx(async client => {
+      const session = await queryOne(client, 'SELECT * FROM xendit_sessions WHERE session_id = $1 FOR UPDATE', [sessionId]);
+      if (!session || session.status === 'COMPLETED') return;
+      if (event === 'payment_session.completed') await completeCheckout(client, session, data);
+      else await client.query(`UPDATE xendit_sessions SET status = 'EXPIRED' WHERE session_id = $1`, [session.session_id]);
+    });
+  }
+  res.json({ ok: true });
+}));
+
+// After the checkout page, Xendit sends the buyer back here (it only allows https addresses)
+app.get('/api/xendit/return', (req, res) => {
+  const site = (process.env.FRONTEND_URL || 'http://localhost:' + PORT).replace(/\/$/, '');
+  res.redirect(/^\d+$/.test(req.query.id) ? site + '/transaction.html?id=' + req.query.id : site + '/dashboard.html');
+});
+
+// Buyer pays into escrow. With Xendit the buyer gets a checkout page; otherwise the payment is simulated.
 app.post('/api/transactions/:id/pay', auth, route(async (req, res) => {
+  if (checkoutEnabled) {
+    requireNumeric(req.params.id, 'Invalid trade.');
+    return res.json({ checkout_url: await startCheckout(req.params.id, req.user.user_id) });
+  }
   const number = readGcashNumber(req, 'Enter the 11-digit GCash number you are paying from (it starts with 09).');
   await withTx(async client => {
     const t = await lockTrade(client, req.params.id, req.user.user_id, { role: 'buyer', status: 'accepted' });
-    await client.query(
-      `INSERT INTO escrow_payments (transaction_id, payment_method, payer_number, amount_held, payment_status)
-       VALUES ($1, 'gcash', $2, $3, 'held')`,
-      [t.transaction_id, number, t.amount]
-    );
-    await client.query(`UPDATE transactions SET status = 'paid' WHERE transaction_id = $1`, [t.transaction_id]);
-    await logActivity(client, req.user.user_id, t.transaction_id, 'paid', 'with GCash, ₱' + Number(t.amount));
+    await markTradePaid(client, t, number);
   });
   res.json({ ok: true });
 }));

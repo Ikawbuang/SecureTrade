@@ -56,7 +56,9 @@ function noticeFor(d, role, partner, net) {
         : { text: '@' + partner + ' sent you this request. Accept or decline it on your dashboard. It is cancelled automatically if nobody answers in 12 hours.' };
     case 'accepted':
       return role === 'buyer'
-        ? { text: 'Enter the GCash number you are paying from. The money goes to SecureTrade, not to the seller, and stays there until you confirm the item arrived. Payments are simulated for now.' }
+        ? { text: (d.checkout_enabled ? 'Pay with GCash on the secure checkout page. ' : 'Enter the GCash number you are paying from. ')
+            + 'The money goes to SecureTrade, not to the seller, and stays there until you confirm the item arrived.'
+            + (d.checkout_enabled ? ' After you pay, this page updates by itself.' : ' Payments are simulated for now.') }
         : { text: 'Waiting for the buyer to pay into escrow. Do not hand over the item until the payment is held.' };
     case 'paid':
       return role === 'buyer'
@@ -186,9 +188,26 @@ function addGcashInput(placeholder, label) {
 
 // Buyer: type the GCash number to pay from
 function addPayControls(price) {
+  if (data.checkout_enabled) {
+    addButton('Pay ' + peso(price) + ' with GCash', goToCheckout);
+    return;
+  }
   const number = addGcashInput('GCash number 09XXXXXXXXX', 'GCash number you are paying from');
   addButton('Pay ' + peso(price) + ' with GCash', btn =>
     act('/pay', { method: 'gcash', number: number.value }, btn));
+}
+
+// Buyer: open the Xendit checkout page
+async function goToCheckout(button) {
+  showActionError('');
+  button.disabled = true;
+  try {
+    const { checkout_url: url } = await postJson('/transactions/' + tradeId + '/pay');
+    window.location.href = url;
+  } catch (err) {
+    showActionError(netError(err));
+    button.disabled = false;
+  }
 }
 
 // Seller: type the GCash number to receive the money, then mark the item as delivered
