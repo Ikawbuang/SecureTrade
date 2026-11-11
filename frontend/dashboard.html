@@ -224,6 +224,14 @@
         </div>
       </div>
       <div class="field">
+        <label for="tf-type">What is being sold</label>
+        <select id="tf-type" required>
+          <option value="item">In-game item</option>
+          <option value="currency">In-game currency</option>
+          <option value="account">Game account (protected for 7 days)</option>
+        </select>
+      </div>
+      <div class="field">
         <label for="tf-item">Item name</label>
         <input id="tf-item" type="text" maxlength="120" placeholder="Example: Mythic account, 120 skins" required>
       </div>

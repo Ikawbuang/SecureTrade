@@ -267,7 +267,7 @@ function makeReportControls({ openText, panelClass, reviewRef, onStart, onSent, 
 
 // Evidence pictures need the login token, so they are fetched and shown as previews.
 // The preview links are added to blobUrls so the page can clean them up later.
-function addEvidenceThumbs(listEl, items, blobUrls, titleOf) {
+function addEvidenceThumbs(listEl, items, blobUrls, titleOf, pathOf = item => '/evidence/' + item.evidence_id + '/file') {
   listEl.innerHTML = '';
   items.forEach(item => {
     const title = titleOf(item);
@@ -280,7 +280,7 @@ function addEvidenceThumbs(listEl, items, blobUrls, titleOf) {
     li.appendChild(btn);
     listEl.appendChild(li);
 
-    fetchPrivateImage('/evidence/' + item.evidence_id + '/file')
+    fetchPrivateImage(pathOf(item))
       .then(url => {
         blobUrls.push(url);
         img.src = url;

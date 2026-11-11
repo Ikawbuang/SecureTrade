@@ -94,7 +94,9 @@ Browser (HTML, CSS, JS)  ──►  Express REST API (backend/server.js)  ──
 
 2. **Database:** create the tables listed below in Supabase (SQL Editor). The server needs all of them.
 
-3. **Start the server:**
+3. **Database changes:** run each file in `backend/migrations/` in the Supabase SQL Editor, in number order.
+
+4. **Start the server:**
 
    ```
    node server.js
@@ -102,9 +104,9 @@ Browser (HTML, CSS, JS)  ──►  Express REST API (backend/server.js)  ──
 
    Check `http://localhost:3000/api/health`. It should answer `{"status":"ok"}`.
 
-4. **Frontend:** the server hosts the pages too, so open `http://localhost:3000/login.html`. The pages call the API at the same address, so this also works through ngrok or a real domain.
+5. **Frontend:** the server hosts the pages too, so open `http://localhost:3000/login.html`. The pages call the API at the same address, so this also works through ngrok or a real domain.
 
-5. **First admin:** sign up normally, then in Supabase run:
+6. **First admin:** sign up normally, then in Supabase run:
 
    ```sql
    UPDATE users SET role = 'admin', verified_at = now() WHERE email = 'your_email@example.com';
@@ -287,7 +289,12 @@ SecureTrade/
 │   ├── css/            (global.css, style.css)
 │   └── js/             (data.js, api.js, nav-badge.js, and one file per page)
 ├── backend/
-│   ├── server.js
+│   ├── server.js       (starts the server and the background jobs)
+│   ├── app.js          (security settings, then each feature's routes)
+│   ├── lib/            (shared parts: core, auth, mail, escrow, xendit, uploads, jobs)
+│   ├── routes/         (one file per feature: account, trades, payments, disputes, admin, ...)
+│   ├── migrations/     (SQL to run in Supabase when the database changes)
+│   ├── test/           (automated tests, run with npm test)
 │   ├── package.json
 │   └── uploads/        (created automatically, not in Git)
 └── docs/

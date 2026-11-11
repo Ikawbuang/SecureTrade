@@ -373,6 +373,7 @@ $('trade-form').addEventListener('submit', async e => {
       partner_username: tfPartner.username,
       my_role: role,
       item_description: description,
+      item_type: $('tf-type').value,
       amount: parseFloat($('tf-price').value)
     });
     // Go straight to the trade page: the process starts there

@@ -15,6 +15,7 @@ const rateCard = $('rate-card');
 let data = null;
 let lastSignature = '';
 let lastMessageSignature = '';
+const proofUrls = [];
 let pendingPaymentNote = '';   // shown once after coming back from the checkout page
 
 // Rating state
@@ -47,7 +48,8 @@ function badgeFor(d, role) {
 }
 
 function noticeFor(d, role, partner, net) {
-  const hours = ST.autoReleaseHours;
+  const hours = d.auto_release_hours || ST.autoReleaseHours;
+  const releaseDate = d.release_at ? fmtDate(d.release_at) : '';
   const price = peso(Number(d.amount));
   const iCancelled = d.cancelled_by && String(d.cancelled_by) === String(me.user_id);
   switch (d.status) {
@@ -57,7 +59,7 @@ function noticeFor(d, role, partner, net) {
         : { text: '@' + partner + ' sent you this request. Accept or decline it on your dashboard. It is cancelled automatically if nobody answers in 12 hours.' };
     case 'accepted':
       return role === 'buyer'
-        ? { text: (d.simulated_payments ? 'Enter the GCash number you are paying from. ' : 'Pay with GCash on the secure checkout page. ')
+            ? { text: (d.simulated_payments ? 'Enter the GCash number you are paying from. ' : 'Pay by scanning a QR code with GCash, Maya, or your bank app, or use the GCash checkout page. ')
             + 'The money goes to SecureTrade, not to the seller, and stays there until you confirm the item arrived.'
             + (d.simulated_payments ? ' Payments are simulated for now.' : ' After you pay, this page updates by itself.') }
         : { text: 'Waiting for the buyer to pay into escrow. Do not hand over the item until the payment is held.' };
@@ -67,8 +69,12 @@ function noticeFor(d, role, partner, net) {
         : { text: 'The payment is safe in escrow. Hand over the item in-game. When you mark it as delivered, enter the GCash number where you want to receive your money. If you cannot deliver, you can cancel and the buyer is refunded in full.' };
     case 'delivered':
       return role === 'buyer'
-        ? { text: 'Check your game account first. If you do nothing, payment releases to the seller automatically ' + hours + ' hours after delivery.' }
-        : { text: '@' + partner + ' has ' + hours + ' hours to confirm. If they do not respond, ' + peso(net) + ' releases to you automatically.' };
+        ? { text: d.item_type === 'account'
+            ? 'Check the account now and change its password and recovery details. This account is protected for 7 days: if the seller takes it back, press "Something is wrong". The payment releases to the seller on ' + releaseDate + '.'
+            : 'Check your game account first. If you do nothing, payment releases to the seller automatically ' + hours + ' hours after delivery.' }
+        : { text: d.item_type === 'account'
+            ? 'This game account is protected for 7 days. ' + peso(net) + ' releases to you on ' + releaseDate + ' unless the buyer opens a dispute.'
+            : '@' + partner + ' has ' + hours + ' hours to confirm. If they do not respond, ' + peso(net) + ' releases to you automatically.' };
     case 'completed':
       return {
         ok: true,
@@ -190,12 +196,63 @@ function addGcashInput(placeholder, label) {
 // Buyer: type the GCash number to pay from
 function addPayControls(price) {
   if (!data.simulated_payments) {
-    addButton('Pay ' + peso(price) + ' with GCash', goToCheckout);
+    addButton('Pay ' + peso(price) + ' with QR code', showQrCode);
+    const page = addButton('Pay on the GCash page instead', goToCheckout);
+    page.className = 'btn btn-outline';
     return;
   }
   const number = addGcashInput('GCash number 09XXXXXXXXX', 'GCash number you are paying from');
   addButton('Pay ' + peso(price) + ' with GCash', btn =>
     act('/pay', { method: 'gcash', number: number.value }, btn));
+}
+
+// Buyer: show a QR Ph code to scan with GCash, Maya, or a bank app. The page checks for the payment by itself.
+let qrTimer = null;
+async function showQrCode(button) {
+  showActionError('');
+  button.disabled = true;
+  try {
+    const reply = await postJson('/transactions/' + tradeId + '/pay-qr');
+    if (reply.paid) { await load(); return; }
+
+    const box = el('div', 'qr-box wide');
+    const img = el('img');
+    img.src = reply.qr_image;
+    img.alt = 'QR Ph code for ' + peso(Number(data.amount));
+    const title = el('strong', '', 'Scan to pay ' + peso(Number(data.amount)));
+    const steps = el('p', 'hint', 'Open GCash, tap "Scan QR", and scan this code. Maya and most bank apps can scan it too. Do not close this page.');
+    const status = el('p', 'qr-status', 'Waiting for your payment…');
+    const until = el('p', 'hint', 'This code works until ' + new Date(reply.expires_at).toLocaleTimeString('en-PH', { hour: 'numeric', minute: '2-digit' }) + '.');
+    box.append(title, img, steps, status, until);
+    if (data.qr_test_mode) {
+      const simulate = makeButton('btn btn-outline btn-small', 'Simulate payment (test mode)', async b => {
+        b.disabled = true;
+        try {
+          await postJson('/transactions/' + tradeId + '/pay-qr/simulate');
+          status.textContent = 'Payment sent. Confirming…';
+        } catch (err) {
+          showActionError(netError(err));
+          b.disabled = false;
+        }
+      });
+      box.appendChild(simulate);
+    }
+    actions.prepend(box);
+    button.hidden = true;
+
+    // Ask the server every few seconds until the payment is confirmed
+    clearInterval(qrTimer);
+    qrTimer = setInterval(async () => {
+      if (!document.body.contains(box)) { clearInterval(qrTimer); return; }
+      try {
+        const { status: tradeStatus } = await postJson('/transactions/' + tradeId + '/pay/check');
+        if (tradeStatus !== 'accepted') { clearInterval(qrTimer); await load(); }
+      } catch (err) { /* the next check tries again */ }
+    }, 5000);
+  } catch (err) {
+    showActionError(netError(err));
+    button.disabled = false;
+  }
 }
 
 // Buyer: open the Xendit checkout page
@@ -231,8 +288,30 @@ async function checkReturnedPayment() {
 // Seller: type the GCash number to receive the money, then mark the item as delivered
 function addDeliverControls() {
   const number = addGcashInput('Your GCash number to receive the money', 'GCash number to receive your money');
-  addButton('I delivered the item', btn =>
-    act('/deliver', { method: 'gcash', number: number.value }, btn));
+  const proof = el('input', 'wide');
+  proof.type = 'file';
+  proof.multiple = true;
+  proof.accept = 'image/jpeg,image/png,image/webp,image/gif';
+  proof.setAttribute('aria-label', 'Screenshots that prove the delivery');
+  const hint = el('p', 'hint wide', 'Add 1 to 5 screenshots that prove the delivery, such as the in-game trade result. Each must be 5 MB or smaller.');
+  actions.append(proof, hint);
+
+  addButton('I delivered the item', async btn => {
+    showActionError('');
+    if (proof.files.length < 1 || proof.files.length > 5) { showActionError('Add 1 to 5 screenshots that prove the delivery.'); return; }
+    const form = new FormData();
+    form.append('method', 'gcash');
+    form.append('number', number.value);
+    [...proof.files].forEach(f => form.append('files', f));
+    btn.disabled = true;
+    try {
+      await apiUpload('/transactions/' + tradeId + '/deliver', form);
+      await load();
+    } catch (err) {
+      showActionError(err.message);
+      btn.disabled = false;
+    }
+  });
 }
 
 // Cancel: the request (by the sender), the trade before payment (either person),
@@ -319,7 +398,7 @@ function renderView() {
   showActionError('');
   if (role === 'buyer' && d.status === 'accepted') addPayControls(price);
   if (role === 'seller' && d.status === 'paid') addDeliverControls();
-  if (role === 'buyer' && d.status === 'delivered') {
+  if (role === 'buyer' && d.status === 'delivered' && d.item_type !== 'account') {
     addButton('I received the item', btn => act('/confirm', {}, btn));
   }
   addCancelControls(d, role);
@@ -353,6 +432,11 @@ function renderView() {
   }
   if (d.receipt) rows.push(['Receipt', d.receipt.receipt_number]);
   rows.push(['Started', fmtDate(d.created_at)]);
+  if (d.delivery_proofs && d.delivery_proofs.length) {
+    const ul = el('ul', 'thumbs proof-thumbs');
+    addEvidenceThumbs(ul, d.delivery_proofs, proofUrls, item => item.name, item => '/delivery-proofs/' + item.proof_id + '/file');
+    rows.push(['Delivery proof', ul]);
+  }
 
   const dl = $('details');
   dl.innerHTML = '';
@@ -481,6 +565,7 @@ async function load() {
   // Only redraw what changed, so typed numbers are not reset
   const signature = [
     data.status,
+    (data.delivery_proofs || []).length,
     data.payment ? data.payment.payment_status + (data.payment.payer_masked || '') : '',
     data.receipt ? 'r' : '',
     data.payout_method || '',

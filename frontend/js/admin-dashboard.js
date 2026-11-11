@@ -831,6 +831,13 @@ function renderParty(container, label, p, d, moneyLine) {
   container.appendChild(ul);
   addEvidenceThumbs(ul, items, blobUrls, item => item.name + ' (from @' + item.submitted_by_username + ')');
   if (items.length === 0) container.appendChild(el('p', 'hint', 'No screenshots from @' + p.username + '.'));
+
+  if (p === d.seller && d.delivery_proofs && d.delivery_proofs.length) {
+    container.appendChild(el('p', 'ev-title', 'Delivery proof'));
+    const proofs = el('ul', 'thumbs');
+    container.appendChild(proofs);
+    addEvidenceThumbs(proofs, d.delivery_proofs, blobUrls, item => item.name, item => '/delivery-proofs/' + item.proof_id + '/file');
+  }
 }
 
 // Trade steps, chat messages, and dispute events in one list, oldest first
@@ -971,6 +978,9 @@ async function openTrade(id) {
 
   openTradeDisputeId = t.dispute ? t.dispute.dispute_id : null;
   $('td-dispute').hidden = !t.dispute;
+
+  $('td-proof-box').hidden = !t.delivery_proofs.length;
+  addEvidenceThumbs($('td-proof'), t.delivery_proofs, blobUrls, item => item.name, item => '/delivery-proofs/' + item.proof_id + '/file');
 
   // Refund the buyer without a dispute
   $('td-refund').hidden = !t.can_refund;
