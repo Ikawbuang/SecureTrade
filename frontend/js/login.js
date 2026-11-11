@@ -288,6 +288,9 @@ resetResend.addEventListener('click', async () => {
   }
 });
 
+// Coming from the landing page's "Create account" button
+if (location.hash === '#register') show('register');
+
 // ---------- Why was I sent here? (signed out on another device, or inactive) ----------
 const logoutReason = localStorage.getItem('st_logout_reason');
 if (logoutReason) {
