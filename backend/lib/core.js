@@ -7,11 +7,15 @@ const path = require('path');
 const ROOT = path.join(__dirname, '..');
 
 
-// Supabase's certificate proves we are talking to the real database. On this computer it is the file
-// backend/supabase-ca.crt; on a host, paste the file's text into the SUPABASE_CA_CERT setting instead.
-const SUPABASE_CA = process.env.SUPABASE_CA_CERT
-  ? process.env.SUPABASE_CA_CERT.replace(/\\n/g, '\n')
-  : fs.readFileSync(path.join(ROOT, 'supabase-ca.crt'), 'utf8');
+// Supabase's certificate proves we are talking to the real database. It is Supabase's PUBLIC root
+// certificate (nothing secret in it), kept in backend/supabase-ca.crt and in Git, so hosts need no
+// setting. The file wins; SUPABASE_CA_CERT is only used if the file is missing.
+function readSupabaseCa() {
+  const file = path.join(ROOT, 'supabase-ca.crt');
+  if (fs.existsSync(file) || !process.env.SUPABASE_CA_CERT) return fs.readFileSync(file, 'utf8');
+  return process.env.SUPABASE_CA_CERT.trim().replace(/^["']|["']$/g, '').replace(/\\n/g, '\n').replace(/\r/g, '');
+}
+const SUPABASE_CA = readSupabaseCa();
 
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,

@@ -96,7 +96,7 @@ Browser (HTML, CSS, JS)  ──►  Express REST API (backend/server.js)  ──
 
    **When hosting online** also set: `TRUST_PROXY=1` (one proxy in front, as on Railway or Render), `NODE_ENV=production` (turns on HTTPS-only), `PUBLIC_URL` to your site, and `SUPABASE_URL` + `SUPABASE_SERVICE_KEY` (+ optional `SUPABASE_BUCKET`, default `uploads`) so pictures are kept in a **private** Supabase Storage bucket instead of the server disk, which hosts wipe on restart. Copy existing pictures once with `node scripts/copy-uploads-to-storage.js`.
 
-   Download the SSL certificate from Supabase (**Project Settings → Database → SSL Configuration**) and save it as `backend/supabase-ca.crt`. The server will not start without it. It is not in Git, so copy it to every computer that runs the backend.
+   `backend/supabase-ca.crt` is Supabase's public root certificate (Supabase Root 2021 CA, valid until 2031) and is included in Git, so nothing needs copying. For a different Supabase project, download it from **Project Settings → Database → SSL Configuration** and replace the file.
 
 2. **Database:** create the tables listed below in Supabase (SQL Editor). The server needs all of them.
 
