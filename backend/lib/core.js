@@ -7,10 +7,15 @@ const path = require('path');
 const ROOT = path.join(__dirname, '..');
 
 
+// Supabase's certificate proves we are talking to the real database. On this computer it is the file
+// backend/supabase-ca.crt; on a host, paste the file's text into the SUPABASE_CA_CERT setting instead.
+const SUPABASE_CA = process.env.SUPABASE_CA_CERT
+  ? process.env.SUPABASE_CA_CERT.replace(/\\n/g, '\n')
+  : fs.readFileSync(path.join(ROOT, 'supabase-ca.crt'), 'utf8');
+
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
-  // Supabase's certificate proves we are talking to the real database
-  ssl: { ca: fs.readFileSync(path.join(ROOT, 'supabase-ca.crt'), 'utf8'), rejectUnauthorized: true },
+  ssl: { ca: SUPABASE_CA, rejectUnauthorized: true },
 });
 
 // An idle connection can drop (internet or Supabase hiccup). Without this handler Node stops the whole

@@ -1,0 +1,13 @@
+{
+  "name": "securetrade",
+  "private": true,
+  "description": "SecureTrade: escrow for game trades. The server is in backend/, the pages in frontend/.",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "build": "npm ci --prefix backend --omit=dev",
+    "start": "node backend/server.js",
+    "test": "npm test --prefix backend"
+  }
+}
