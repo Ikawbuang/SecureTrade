@@ -2,7 +2,7 @@ const { auth } = require('../lib/auth');
 const { ACCOUNT_HOLD_HOURS, CHAT_PER_MINUTE, FINISHED_STATUSES, HttpError, PORT, assertBothActive, isDbId, isParty, logActivity, pool, queryOne, requireNumeric, route, sameId, withTx } = require('../lib/core');
 const { lockTrade, markTradePaid, readGcashNumber, releasePayment } = require('../lib/escrow');
 const QRCode = require('qrcode');
-const { PUBLIC_URL, applySessionResult, checkoutEnabled, isValidWebhookToken, simulateQrPayment, simulatedPayments, startCheckout, startQrPayment, syncTradeCheckouts } = require('../lib/xendit');
+const { PUBLIC_URL, applySessionResult, checkoutEnabled, isValidWebhookToken, qrEnabled, simulateQrPayment, simulatedPayments, startCheckout, startQrPayment, syncSessionSafely, syncTradeCheckouts } = require('../lib/xendit');
 
 // The trade, if this user is its buyer
 async function findBuyerTrade(id, userId) {
@@ -25,7 +25,9 @@ function register(app) {
     const finished = event === 'payment_session.completed' || event === 'payment_session.expired';
     const sessionId = data && (data.id || data.payment_session_id);   // Xendit sends "id"; its docs show "payment_session_id"
     if (finished && sessionId) {
-      await applySessionResult(sessionId, event === 'payment_session.completed' ? 'COMPLETED' : 'EXPIRED', data);
+      // A completed payment is only trusted with its amount; if the message has none, ask Xendit for the full record
+      if (event === 'payment_session.completed' && (data.amount === undefined || data.amount === null)) await syncSessionSafely(sessionId);
+      else await applySessionResult(sessionId, event === 'payment_session.completed' ? 'COMPLETED' : 'EXPIRED', data);
     }
     // A QR Ph payment was captured (Payment Request API)
     if (event === 'payment.capture' && data && data.payment_request_id) {
@@ -43,7 +45,8 @@ function register(app) {
   app.get('/api/xendit/return', (req, res) => {
     // Back to the address the buyer started from, so they are still signed in there
     const site = (process.env.FRONTEND_URL || (req.query.to === 'local' || !PUBLIC_URL ? 'http://localhost:' + PORT : PUBLIC_URL)).replace(/\/$/, '');
-    res.redirect(/^\d+$/.test(req.query.id) ? site + '/transaction.html?id=' + req.query.id + '&payment=returned' : site + '/dashboard.html');
+    const payment = req.query.result === 'cancel' ? 'cancelled' : 'returned';
+    res.redirect(/^\d+$/.test(req.query.id) ? site + '/transaction.html?id=' + req.query.id + '&payment=' + payment : site + '/dashboard.html');
   });
 
 
@@ -62,6 +65,7 @@ function register(app) {
   // Buyer pays by scanning a QR Ph code (GCash, Maya, or a bank app). Answers with the QR picture.
   app.post('/api/transactions/:id/pay-qr', auth, route(async (req, res) => {
     if (!checkoutEnabled) throw new HttpError(503, 'Online payment is not set up on this server yet. Please contact Support.');
+    if (!qrEnabled) throw new HttpError(404, 'QR payment is not available. Please pay on the GCash page.');
     await findBuyerTrade(req.params.id, req.user.user_id);
     await syncTradeCheckouts(req.params.id);
     const t = await findBuyerTrade(req.params.id, req.user.user_id);
@@ -75,6 +79,7 @@ function register(app) {
 
   // Test mode only: pretend the buyer paid the QR code, so the flow can be shown without a phone
   app.post('/api/transactions/:id/pay-qr/simulate', auth, route(async (req, res) => {
+    if (!qrEnabled) throw new HttpError(404, 'QR payment is not available.');
     const t = await findBuyerTrade(req.params.id, req.user.user_id);
     if (t.status !== 'accepted') throw new HttpError(409, 'This trade is not waiting for payment.');
     await simulateQrPayment(req.params.id);
@@ -111,7 +116,7 @@ function register(app) {
       if (t.item_type === 'account' && Date.now() < new Date(t.delivered_at).getTime() + ACCOUNT_HOLD_HOURS * 3600000) {
         throw new HttpError(409, 'A game account is protected for 7 days, so the payment is released automatically after that. If something is wrong, open a dispute.');
       }
-      await releasePayment(client, t.transaction_id);
+      await releasePayment(client, t.transaction_id, 'The buyer confirmed receipt.');
       await logActivity(client, req.user.user_id, t.transaction_id, 'confirmed', null);
     });
     res.json({ ok: true });

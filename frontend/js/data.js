@@ -22,6 +22,8 @@ const ST = {
   /* ---------- Rules (shown on the pages; the server applies the real 3%) ---------- */
   feeRate: 0.03,            // 3% service fee
   autoReleaseHours: 24,     // payment releases this many hours after delivery (matches AUTO_RELEASE_HOURS on the server)
+  deliveryDueHours: 48,     // a paid trade not delivered in this many hours: the buyer may cancel (matches DELIVERY_DUE_HOURS)
+  paymentDueHours: 24,      // an accepted trade not paid in this many hours is cancelled (matches PAYMENT_DUE_HOURS)
 
   /* ---------- Status key -> [badge class, label] ---------- */
   status: {
@@ -204,6 +206,17 @@ ST.footerText = () => '© ' + new Date().getFullYear() + ' ' + ST.brand.first + 
 
 // "GCash 09••••••123"
 ST.methodLabel = (method, masked) => (ST.methodNames[method] || method) + (masked ? ' ' + masked : '');
+
+// What is being sold, and when its payment is released (matches ITEM_TYPES on the server)
+ST.itemTypes = {
+  item:     { label: 'In-game item',     release: 'released 24h after delivery' },
+  currency: { label: 'In-game currency', release: 'released 24h after delivery' },
+  account:  { label: 'Game account',     release: '7-day protection' },
+};
+ST.itemTypeText = type => {
+  const t = ST.itemTypes[type] || ST.itemTypes.item;
+  return t.label + ' · ' + t.release;
+};
 
 // The game, item and details are saved together as: "Game – Item. Details"
 ST.splitDescription = desc => {

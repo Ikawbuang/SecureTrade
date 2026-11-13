@@ -70,6 +70,17 @@
     sidebar.insertBefore(feedback, spacer || null);
   }
 
+  // 🔔 Updates: trade news, opened as a list on the dashboard (traders only)
+  let showUpdates = function () {};
+  if (!suspended && user.role !== 'admin') {
+    const updates = document.createElement('a');
+    updates.href = 'dashboard.html#updates';
+    updates.textContent = '🔔 Updates';
+    const dash = linkTo('dashboard.html');
+    sidebar.insertBefore(updates, dash ? dash.nextSibling : (spacer || null));
+    showUpdates = makeCounter(updates, ' unread update', ' unread updates');
+  }
+
   const showRequests = suspended ? function () {} :
     makeCounter(linkTo('dashboard.html'), ' trade request is waiting', ' trade requests are waiting');
   const showSupport = makeCounter(support, ' unread message from the admins', ' unread messages from the admins');
@@ -77,12 +88,19 @@
   // The pages call these right after something changes
   window.setNavRequestCount = showRequests;
   window.setNavSupportCount = showSupport;
+  window.setNavUpdatesCount = n => showUpdates(n);
 
   async function refresh() {
     if (!suspended) {
       try {
         const list = await apiFetch('/requests');
         showRequests(list.length);
+      } catch (err) { /* the menu number is optional */ }
+    }
+    if (!suspended && user.role !== 'admin') {
+      try {
+        const u = await apiFetch('/notifications/unread');
+        showUpdates(u.unread);
       } catch (err) { /* the menu number is optional */ }
     }
     try {

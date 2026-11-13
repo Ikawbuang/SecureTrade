@@ -388,7 +388,8 @@ $('trade-form').addEventListener('submit', async e => {
 const body = $('trade-rows');
 const reqList = $('request-list');
 
-let trades = [];      // all my trades, from the database
+let trades = [];      // my trades in progress and the newest finished ones, from the database
+let completedCount = 0;   // all my completed trades (the list above only has the newest)
 let requests = [];    // requests other users sent me
 let filter = 'all';
 
@@ -438,7 +439,7 @@ function renderTrades() {
   $('held-amount').textContent = ST.pesoShort(held);
   $('active-count').textContent = active.length;
   $('open-disputes').textContent = trades.filter(t => t.status === 'disputed').length;
-  $('completed-count').textContent = trades.filter(t => t.status === 'completed').length;
+  $('completed-count').textContent = completedCount;
 }
 
 // Incoming requests. Accept goes straight to the trade page; Decline just removes the request.
@@ -473,7 +474,8 @@ function renderRequests() {
       ? '@' + r.from_username + ' wants to buy from you'
       : '@' + r.from_username + ' wants to sell to you';
     const parts = ST.splitDescription(r.item_description);
-    const rest = [parts.game, parts.title].filter(Boolean).join(' | ')
+    // The type comes first, so nobody accepts a game account thinking it is a plain item
+    const rest = [ST.itemTypeText(r.item_type), parts.game, parts.title].filter(Boolean).join(' | ')
       + ' | ' + ST.pesoShort(Number(r.amount)) + ' | You would be the ' + r.my_role;
 
     const line = el('p', 'line');
@@ -503,7 +505,8 @@ async function load() {
   try {
     const [t, r] = await Promise.all([apiFetch('/transactions'), apiFetch('/requests')]);
     const myId = String((getUser() || {}).user_id);
-    trades = t.map(x => {
+    completedCount = t.completed_count;
+    trades = t.rows.map(x => {
       const iAmBuyer = String(x.buyer_id) === myId;
       return {
         id: x.transaction_id,
@@ -527,6 +530,48 @@ async function load() {
   renderTrades();
 }
 
+// ---------- 🔔 Updates ----------
+// Messages that start with "Trade #12:" link to that trade
+async function loadUpdates() {
+  let data;
+  try {
+    data = await apiFetch('/notifications');
+  } catch (err) { return; }   // the trades above still work without it
+  const list = $('update-list');
+  list.innerHTML = '';
+  data.rows.forEach(n => {
+    const li = el('li', n.is_read ? '' : 'unread');
+    // The link and the message stay together in the first column, the time in the second
+    const msg = el('span', 'msg');
+    const m = /^Trade #(\d+): ([\s\S]*)$/.exec(n.message);
+    if (m) {
+      const link = el('a', '', 'Trade #' + m[1]);
+      link.href = 'transaction.html?id=' + m[1];
+      msg.append(link, ' ' + m[2]);
+    } else {
+      msg.append(n.message);
+    }
+    li.append(msg, el('time', '', fmtTime(n.sent_at)));
+    list.appendChild(li);
+  });
+  $('upd-empty').hidden = data.rows.length > 0;
+  $('upd-badge').hidden = !data.unread;
+  $('upd-badge').textContent = data.unread + ' new';
+  $('upd-read').hidden = !data.unread;
+  if (window.setNavUpdatesCount) window.setNavUpdatesCount(data.unread);
+}
+
+$('upd-read').addEventListener('click', async () => {
+  $('upd-read').disabled = true;
+  try {
+    await postJson('/notifications/read');
+    await loadUpdates();
+  } catch (err) {
+    showPageError(netError(err));
+  }
+  $('upd-read').disabled = false;
+});
+
 // Buying / Selling / All tabs
 bindTabs('[data-filter]', 'aria-selected', btn => {
   filter = btn.dataset.filter;
@@ -537,7 +582,9 @@ loadMe();
 load();
 loadPeople();
 loadRateReminders();
-setInterval(load, 30000);              // new requests (a request being answered keeps its own error line)
+loadUpdates();
+setInterval(load, 30000);
+setInterval(loadUpdates, 30000);              // new requests (a request being answered keeps its own error line)
 setInterval(loadPeople, 30000);        // online / offline
 setInterval(loadMe, 60000);            // verification result and "someone tried to trade with you"
 setInterval(loadRateReminders, 60000); // trades waiting for a rating

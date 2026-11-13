@@ -17,6 +17,16 @@ function mailConfigured() {
 }
 
 
+// Email must work before other people use the site: sign-up PINs and trade updates depend on it
+if (!mailConfigured()) {
+  if (process.env.NODE_ENV === 'production' && process.env.DEV_LOG_PIN === 'true') {
+    throw new Error('DEV_LOG_PIN must be off in production: PINs would only appear in the server log. Set up SMTP_* instead.');
+  }
+  console.warn('Email is OFF: set SMTP_HOST, SMTP_USER, SMTP_KEY and MAIL_FROM in .env.'
+    + (process.env.DEV_LOG_PIN === 'true' ? ' For now, PINs and updates are only printed here (DEV_LOG_PIN).' : ' Nobody can sign up until it is set.'));
+}
+
+
 let transporter = null;
 
 function getTransporter() {

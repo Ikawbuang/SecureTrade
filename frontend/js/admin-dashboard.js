@@ -164,6 +164,10 @@ function describe(a) {
     case 'trade_declined':         return 'declined the request';
     case 'trade_cancelled':        return detail ? detail : 'cancelled the trade';
     case 'seller_cancelled':       return 'cancelled after payment, so the buyer was refunded' + (detail ? ': ' + detail : '');
+    case 'buyer_cancelled_late':   return 'cancelled because the item was not delivered in time, so the buyer was refunded' + (detail ? ': ' + detail : '');
+    case 'reminder_release':       return 'was reminded that the payment releases soon';
+    case 'reminder_delivery':      return 'was reminded to deliver';
+    case 'delivery_overdue':       return 'was told the delivery deadline passed';
     case 'paid':                   return 'paid into escrow' + (detail ? ' ' + detail : '');
     case 'delivered':              return 'marked the item as delivered' + (detail ? ' (' + detail + ')' : '');
     case 'confirmed':              return 'confirmed receipt, so the payment was released';
@@ -190,6 +194,7 @@ function activityText(a, showWho) {
   const who = a.username ? '@' + a.username : 'System';
   if (a.action === 'auto_released') return 'The payment was released automatically';
   if (a.action === 'request_expired') return 'The request expired: ' + (a.detail || 'nobody answered');
+  if (a.action === 'payment_expired') return 'The trade was cancelled: ' + (a.detail || 'the buyer did not pay in time');
   if (a.action === 'dispute_resolved') return (showWho ? who + ' decided: ' : 'Admin decided: ') + (a.detail || '');
   if (a.action === 'admin_refund') return (showWho ? who : 'Admin') + ' refunded the buyer in full: ' + (a.detail || '');
   if (a.action === 'admin_release') return (showWho ? who : 'Admin') + ' released the payment to the seller: ' + (a.detail || '');
@@ -242,6 +247,14 @@ function renderOverview(o) {
   navCount('nav-msg-count', o.unread_support);
   navCount('nav-report-count', o.open_reports);
   navCount('nav-payreview-count', o.payment_reviews);
+
+  const errors = o.server_errors || [];
+  $('server-errors').hidden = errors.length === 0;
+  $('err-list').replaceChildren(...errors.map(e => {
+    const li = el('li');
+    li.append(el('time', '', fmtTime(e.at)), ' ' + e.message);
+    return li;
+  }));
 }
 
 // ---------- Verification requests ----------

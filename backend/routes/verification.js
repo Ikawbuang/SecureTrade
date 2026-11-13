@@ -2,7 +2,7 @@ const path = require('path');
 const { auth } = require('../lib/auth');
 const { HttpError, ID_TYPES, NAME_PART_RE, VERIFY_CODE_HOURS, cleanName, isAdmin, isDbId, logActivity, pool, queryAll, queryOne, route, sameId, withTx } = require('../lib/core');
 const { newSixDigitCode } = require('../lib/mail');
-const { VERIF_DIR, assertRealImages, removeFiles, sendPrivateImage, uploadVerification } = require('../lib/uploads');
+const { VERIF_DIR, assertRealImages, removeFiles, saveUploads, sendPrivateImage, uploadVerification } = require('../lib/uploads');
 
 
 
@@ -92,6 +92,7 @@ function register(app) {
       const selfie = req.files && req.files.selfie && req.files.selfie[0];
       if (!idPhoto || !selfie) throw new HttpError(400, 'Add a picture of your ID and a selfie holding it.');
       await assertRealImages([idPhoto, selfie], 'One of the pictures is not a valid JPG, PNG, or WEBP image.');
+      await saveUploads([idPhoto, selfie]);
 
       await withTx(async client => {
         const id = req.user.user_id;

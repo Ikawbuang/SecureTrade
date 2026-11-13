@@ -59,14 +59,28 @@ function noticeFor(d, role, partner, net) {
         : { text: '@' + partner + ' sent you this request. Accept or decline it on your dashboard. It is cancelled automatically if nobody answers in 12 hours.' };
     case 'accepted':
       return role === 'buyer'
-            ? { text: (d.simulated_payments ? 'Enter the GCash number you are paying from. ' : 'Pay by scanning a QR code with GCash, Maya, or your bank app, or use the GCash checkout page. ')
+            ? { text: (d.simulated_payments ? 'Enter the GCash number you are paying from. '
+                : d.qr_enabled ? 'Pay by scanning a QR code with GCash, Maya, or your bank app, or use the GCash checkout page. '
+                : 'Pay on the GCash checkout page. On a phone the GCash app opens; on a computer you log in to GCash on its payment page. ')
             + 'The money goes to SecureTrade, not to the seller, and stays there until you confirm the item arrived.'
-            + (d.simulated_payments ? ' Payments are simulated for now.' : ' After you pay, this page updates by itself.') }
-        : { text: 'Waiting for the buyer to pay into escrow. Do not hand over the item until the payment is held.' };
-    case 'paid':
-      return role === 'buyer'
-        ? { text: 'Your payment of ' + price + ' is safe in escrow. You can confirm once the seller marks the item as delivered. If the seller cancels, you are refunded in full.' }
-        : { text: 'The payment is safe in escrow. Hand over the item in-game. When you mark it as delivered, enter the GCash number where you want to receive your money. If you cannot deliver, you can cancel and the buyer is refunded in full.' };
+            + (d.simulated_payments ? ' Payments are simulated for now.' : ' After you pay, this page updates by itself.')
+            + ' Pay within ' + ST.paymentDueHours + ' hours of the seller accepting, or the trade is cancelled automatically.' }
+        : { text: 'Waiting for the buyer to pay into escrow. Do not hand over the item until the payment is held. If the buyer does not pay within ' + ST.paymentDueHours + ' hours, the trade is cancelled automatically.' };
+    case 'paid': {
+      const due = d.delivery_due_at ? fmtTime(d.delivery_due_at) : '';
+      const late = d.delivery_due_at && new Date(d.delivery_due_at) <= new Date();
+      if (role === 'buyer') {
+        return { text: 'Your payment of ' + price + ' is safe in escrow. You can confirm once the seller marks the item as delivered. '
+          + (late
+            ? 'The seller did not deliver within ' + ST.deliveryDueHours + ' hours, so you can cancel now and get a full refund, or keep waiting.'
+            : 'If it is not delivered by ' + due + ', you can cancel and get a full refund.') };
+      }
+      return { text: 'The payment is safe in escrow. Hand over the item in-game. When you mark it as delivered, enter the GCash number where you want to receive your money. '
+        + (late
+          ? 'The delivery deadline (' + due + ') has passed, so the buyer can now cancel and get a full refund. Deliver as soon as you can.'
+          : 'Deliver by ' + due + ': after that, the buyer can cancel and get a full refund.')
+        + ' If you cannot deliver, you can cancel and the buyer is refunded in full.' };
+    }
     case 'delivered':
       return role === 'buyer'
         ? { text: d.item_type === 'account'
@@ -87,8 +101,9 @@ function noticeFor(d, role, partner, net) {
       return { text: 'This trade is in dispute. An admin will review it.' };
     case 'refunded':
       if (d.cancelled_by_username) {
+        const buyerCancelled = String(d.cancelled_by) === String(d.buyer_id);
         return {
-          text: (iCancelled ? 'You cancelled this trade. ' : 'The seller cancelled this trade. ')
+          text: (iCancelled ? 'You cancelled this trade. ' : (buyerCancelled ? 'The buyer cancelled this trade. ' : 'The seller cancelled this trade. '))
             + (role === 'buyer' ? 'Your payment of ' + price + ' was refunded in full.' : 'The buyer was refunded in full.')
             + (d.cancel_reason ? ' Reason: ' + d.cancel_reason : '')
         };
@@ -108,6 +123,7 @@ function noticeFor(d, role, partner, net) {
             + (d.cancel_reason ? ' Reason: ' + d.cancel_reason : '')
         };
       }
+      if (d.cancel_reason) return { text: 'This trade was cancelled automatically. Reason: ' + d.cancel_reason + '.' };
       return { text: 'This request expired because nobody answered in 12 hours, or it was cancelled.' };
     default:
       return { text: '' };
@@ -196,6 +212,10 @@ function addGcashInput(placeholder, label) {
 // Buyer: type the GCash number to pay from
 function addPayControls(price) {
   if (!data.simulated_payments) {
+    if (!data.qr_enabled) {
+      addButton('Pay ' + peso(price) + ' with GCash', goToCheckout);
+      return;
+    }
     addButton('Pay ' + peso(price) + ' with QR code', showQrCode);
     const page = addButton('Pay on the GCash page instead', goToCheckout);
     page.className = 'btn btn-outline';
@@ -271,15 +291,19 @@ async function goToCheckout(button) {
 
 // Back from the checkout page: ask whether the payment went through (it can take a moment to appear)
 async function checkReturnedPayment() {
-  if (new URLSearchParams(location.search).get('payment') !== 'returned') return;
+  const how = new URLSearchParams(location.search).get('payment');
+  if (how !== 'returned' && how !== 'cancelled') return;
   history.replaceState(null, '', 'transaction.html?id=' + tradeId);
   try {
-    for (let tries = 0; tries < 3; tries++) {
+    // Pressing cancel on the GCash page means nothing was paid, so one check is enough
+    for (let tries = 0; tries < (how === 'cancelled' ? 1 : 3); tries++) {
       const { status } = await postJson('/transactions/' + tradeId + '/pay/check');
       if (status !== 'accepted') return;
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      if (how === 'returned') await new Promise(resolve => setTimeout(resolve, 2000));
     }
-    pendingPaymentNote = 'No payment has been confirmed yet. If you paid, this page updates by itself within a minute or two. Please do not pay again.';
+    pendingPaymentNote = how === 'cancelled'
+      ? 'You left the GCash page before paying, so you were not charged. Press the pay button to try again.'
+      : 'Your payment has not arrived yet. If GCash showed an error, such as not enough balance, you were not charged: add money to GCash and press the pay button again. If GCash said the payment was successful, wait a minute: this page updates by itself. Please do not pay twice.';
   } catch (err) {
     pendingPaymentNote = netError(err);
   }
@@ -344,6 +368,15 @@ function addCancelControls(d, role) {
       if (text.length < 5) { showActionError('Write a short reason for cancelling.'); return; }
       if (!window.confirm('Cancel this trade and refund the buyer in full? This cannot be undone.')) return;
       act('/cancel', { reason: text }, btn);
+    });
+    b.className = 'btn btn-danger';
+  }
+
+  // The buyer, once the seller missed the delivery deadline
+  if (d.status === 'paid' && role === 'buyer' && d.delivery_due_at && new Date(d.delivery_due_at) <= new Date()) {
+    const b = addButton('Cancel and get a refund', btn => {
+      if (!window.confirm('Cancel this trade? You get your full payment back. This cannot be undone.')) return;
+      act('/cancel', {}, btn);
     });
     b.className = 'btn btn-danger';
   }
@@ -414,6 +447,7 @@ function renderView() {
   partnerCell.appendChild(makeStar(partner, d.partner_is_favorite));
 
   const rows = [];
+  rows.push(['What is sold', ST.itemTypeText(d.item_type)]);
   if (info.game) rows.push(['Game', info.game]);
   if (info.details) rows.push(['Item details', info.details]);
   rows.push([role === 'buyer' ? 'Seller' : 'Buyer', partnerCell]);

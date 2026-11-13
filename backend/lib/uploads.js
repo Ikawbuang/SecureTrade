@@ -3,6 +3,7 @@ const fs = require('fs');
 const multer = require('multer');
 const path = require('path');
 const { HttpError, sendError } = require('./core');
+const { makeStorage } = require('./storage');
 const ROOT = path.join(__dirname, '..');
 
 
@@ -52,13 +53,11 @@ function readUpload(multerStep, { tooBigMessage, tooManyMessage, failStatus, fai
 }
 
 
-// Send a private picture from one of the upload folders
+// Send a private picture from one of the upload folders (on disk, or in the Supabase bucket)
 function sendPrivateImage(res, file, root, cacheControl) {
-  res.setHeader('Content-Type', MIME_BY_EXT[path.extname(file).toLowerCase()] || 'application/octet-stream');
-  res.setHeader('X-Content-Type-Options', 'nosniff');
-  res.setHeader('Cache-Control', cacheControl);
-  res.sendFile(file, { root }, err => {
-    if (err && !res.headersSent) res.status(404).json({ message: 'File not found.' });
+  return storage.send(res, folderOf(root), file, {
+    contentType: MIME_BY_EXT[path.extname(file).toLowerCase()] || 'application/octet-stream',
+    cacheControl,
   });
 }
 
@@ -81,8 +80,19 @@ const uploadFiles = readUpload(
 );
 
 
+// Undo an upload that will not be used: the disk copy, and the bucket copy if it was already moved
 async function removeFiles(files) {
-  await Promise.all((files || []).map(f => fs.promises.unlink(f.path).catch(() => {})));
+  await Promise.all((files || []).map(async f => {
+    await fs.promises.unlink(f.path).catch(() => {});
+    if (storage.remote) await storage.remove(folderOf(path.dirname(f.path)), f.filename);
+  }));
+}
+
+
+// Keep checked uploads for good: online they move to the Supabase bucket. Call it after the image
+// checks and before saving the file names in the database.
+async function saveUploads(files) {
+  for (const f of files || []) await storage.put(folderOf(path.dirname(f.path)), f);
 }
 
 
@@ -134,10 +144,15 @@ async function assertRealImages(files, message) {
 }
 
 
-// Delete one saved file by name (a missing file is fine)
+// Delete one saved file by name. A missing file is fine; any other problem is logged,
+// so a picture that should be gone (an ID, for example) is not left behind unnoticed.
 function removeSavedFile(dir, name) {
   if (!name) return Promise.resolve();
-  return fs.promises.unlink(path.join(dir, path.basename(name))).catch(() => {});
+  const folder = folderOf(dir);
+  if (folder) return storage.remove(folder, name);
+  return fs.promises.unlink(path.join(dir, path.basename(name))).catch(err => {
+    if (err.code !== 'ENOENT') console.error('Could not delete file', path.basename(name), err.message);
+  });
 }
 
 
@@ -168,4 +183,22 @@ const uploadVerification = readUpload(
   }).fields([{ name: 'id_photo', maxCount: 1 }, { name: 'selfie', maxCount: 1 }]),
   { tooBigMessage: 'Each picture must be ' + VERIF_MAX_MB + ' MB or smaller.', failStatus: 400, failMessage: 'Could not read the pictures.' }
 );
-module.exports = { UPLOAD_DIR, IMAGE_TYPES, MIME_BY_EXT, MAX_FILES, MAX_FILE_MB, imageUploader, readUpload, sendPrivateImage, uploadFiles, removeFiles, AVATAR_DIR, AVATAR_TYPES, AVATAR_MAX_MB, uploadAvatar, looksLikeImage, assertRealImages, removeSavedFile, removeAvatarFile, removeVerifFile, VERIF_DIR, VERIF_MAX_MB, uploadVerification };
+// ---------- Storage: this computer's disk, or a private Supabase bucket when hosted ----------
+const DIRS = { files: UPLOAD_DIR, avatars: AVATAR_DIR, verifications: VERIF_DIR };
+
+const storage = makeStorage({
+  url: process.env.SUPABASE_URL,
+  key: process.env.SUPABASE_SERVICE_KEY,
+  bucket: process.env.SUPABASE_BUCKET || 'uploads',
+  dirs: DIRS,
+});
+
+if (storage.remote) console.log('Uploads are kept in the Supabase Storage bucket "' + (process.env.SUPABASE_BUCKET || 'uploads') + '".');
+
+// The storage folder for one of the upload directories (null for any other folder)
+function folderOf(dir) {
+  const wanted = path.resolve(dir);
+  return Object.keys(DIRS).find(k => path.resolve(DIRS[k]) === wanted) || null;
+}
+
+module.exports = { storage, saveUploads, folderOf, UPLOAD_DIR, IMAGE_TYPES, MIME_BY_EXT, MAX_FILES, MAX_FILE_MB, imageUploader, readUpload, sendPrivateImage, uploadFiles, removeFiles, AVATAR_DIR, AVATAR_TYPES, AVATAR_MAX_MB, uploadAvatar, looksLikeImage, assertRealImages, removeSavedFile, removeAvatarFile, removeVerifFile, VERIF_DIR, VERIF_MAX_MB, uploadVerification };

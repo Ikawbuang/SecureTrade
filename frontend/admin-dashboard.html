@@ -69,6 +69,15 @@
           <a class="stat" href="#transactions"><p class="num" id="st-needs">0</p><p class="cap">Trades needing your decision</p></a>
         </div>
 
+        <!-- Server errors since the last restart (only shown when there are some) -->
+        <section class="card block" id="server-errors" aria-labelledby="err-title" hidden>
+          <div class="card-head">
+            <h2 id="err-title">Recent server errors</h2>
+            <span>Since the server last started. The full details are in the server log.</span>
+          </div>
+          <ul class="err-list" id="err-list"></ul>
+        </section>
+
         <!-- Verification requests -->
         <section class="card block" id="verifications" aria-labelledby="v-title">
           <div class="card-head">

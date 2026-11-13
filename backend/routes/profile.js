@@ -3,7 +3,7 @@ const path = require('path');
 const { auth } = require('../lib/auth');
 const { AVG_RATING_SQL, EMAIL_RE, HttpError, PROCESS_STATUSES, RATING_COUNT_SQL, USERNAME_COOLDOWN_DAYS, USERNAME_RE, cleanEmail, logActivity, numberOrNull, pool, queryOne, route, verifiedSql, withTx } = require('../lib/core');
 const { MAX_PIN_TRIES, deleteEmailChange, issueEmailChangePin, sendSecurityNotice } = require('../lib/mail');
-const { AVATAR_DIR, looksLikeImage, removeAvatarFile, uploadAvatar } = require('../lib/uploads');
+const { MIME_BY_EXT, looksLikeImage, removeAvatarFile, saveUploads, storage, uploadAvatar } = require('../lib/uploads');
 
 
 
@@ -14,10 +14,9 @@ function register(app) {
   app.get('/api/avatars/:file', (req, res) => {
     if (!/^[a-f0-9]{32}\.(jpg|png|webp)$/.test(req.params.file)) return res.status(404).end();
     res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
-    res.setHeader('X-Content-Type-Options', 'nosniff');
-    res.setHeader('Cache-Control', 'public, max-age=86400');
-    res.sendFile(req.params.file, { root: AVATAR_DIR }, err => {
-      if (err && !res.headersSent) res.status(404).end();
+    storage.send(res, 'avatars', req.params.file, {
+      contentType: MIME_BY_EXT[path.extname(req.params.file)],
+      cacheControl: 'public, max-age=86400',
     });
   });
 
@@ -68,6 +67,7 @@ function register(app) {
       if (!(await looksLikeImage(file.path, path.extname(file.filename)))) {
         throw new HttpError(400, 'That file is not a valid JPG, PNG, or WEBP image.');
       }
+      await saveUploads([file]);
       const old = await queryOne(pool, 'SELECT avatar_file FROM users WHERE user_id = $1', [req.user.user_id]);
       await pool.query('UPDATE users SET avatar_file = $1 WHERE user_id = $2', [file.filename, req.user.user_id]);
       await removeAvatarFile(old && old.avatar_file);

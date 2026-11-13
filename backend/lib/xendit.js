@@ -25,6 +25,9 @@ const xenditTestMode = checkoutEnabled && XENDIT_KEY.startsWith('xnd_development
 const PAYMENT_REQUEST_HEADERS = { 'api-version': '2024-11-11' };
 const QR_MINUTES = 15;            // a QR code is shown for 15 minutes, then a new one is made
 const QR_MAX_AMOUNT = 50000;      // QR Ph does not accept more than this
+// Off unless QR_PAYMENTS=on: Xendit cannot refund a QR Ph payment automatically, so a cancelled
+// trade would need the buyer's GCash number and a manual transfer. The GCash checkout is refundable.
+const qrEnabled = checkoutEnabled && process.env.QR_PAYMENTS === 'on';
 
 
 if (XENDIT_KEY && !XENDIT_KEY.startsWith('xnd_development_') && process.env.XENDIT_ALLOW_LIVE !== 'true') {
@@ -127,7 +130,7 @@ async function startCheckout(tradeId, buyerId, fromThisComputer) {
     allowed_payment_channels: ['GCASH'],
     description: String(t.item_description).slice(0, MAX_ITEM_LENGTH),
     success_return_url: returnUrl,
-    cancel_return_url: returnUrl,
+    cancel_return_url: returnUrl + '&result=cancel',
   });
 
   // While waiting, the trade may have been cancelled, or a second click may have made another page
@@ -246,7 +249,7 @@ function isValidWebhookToken(received) {
 async function completeCheckout(client, session, data) {
   await client.query(`UPDATE xendit_sessions SET status = 'COMPLETED', payment_id = $1 WHERE session_id = $2`, [data.payment_id || data.payment_request_id || null, session.session_id]);
   const t = await queryOne(client, 'SELECT * FROM transactions WHERE transaction_id = $1 FOR UPDATE', [session.transaction_id]);
-  const amountMatches = data.amount === undefined || Number(data.amount) === Number(session.amount);
+  const amountMatches = data.amount !== undefined && data.amount !== null && Number(data.amount) === Number(session.amount);
 
   if (t.status === 'accepted' && amountMatches) return markTradePaid(client, t, null);
   // Money arrived that the trade cannot accept, so an admin must look at it
@@ -301,4 +304,4 @@ async function syncTradeCheckouts(tradeId) {
   const open = await queryAll(pool, `SELECT session_id FROM xendit_sessions WHERE transaction_id = $1 AND status = 'ACTIVE'`, [tradeId]);
   for (const { session_id: sessionId } of open) await syncSessionSafely(sessionId);
 }
-module.exports = { xenditTestMode, QR_MAX_AMOUNT, startQrPayment, simulateQrPayment, XENDIT_KEY, XENDIT_WEBHOOK_TOKEN, PUBLIC_URL, checkoutEnabled, simulatedPayments, CHECKOUT_FAILED, xenditRequest, xenditPost, OPEN_CHECKOUT_SQL, startCheckout, cancelOpenCheckouts, isValidWebhookToken, completeCheckout, applySessionResult, syncSession, syncSessionSafely, syncTradeCheckouts };
+module.exports = { xenditTestMode, qrEnabled, QR_MAX_AMOUNT, startQrPayment, simulateQrPayment, XENDIT_KEY, XENDIT_WEBHOOK_TOKEN, PUBLIC_URL, checkoutEnabled, simulatedPayments, CHECKOUT_FAILED, xenditRequest, xenditPost, OPEN_CHECKOUT_SQL, startCheckout, cancelOpenCheckouts, isValidWebhookToken, completeCheckout, applySessionResult, syncSession, syncSessionSafely, syncTradeCheckouts };

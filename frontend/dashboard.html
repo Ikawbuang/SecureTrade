@@ -45,6 +45,16 @@
         <div id="request-list"></div>
       </section>
 
+      <!-- 🔔 Updates: what happened in my trades (also emailed) -->
+      <section class="card updates" aria-labelledby="upd-title" id="updates">
+        <div class="card-head">
+          <h2 id="upd-title">🔔 Updates <span class="badge badge-held" id="upd-badge" hidden></span></h2>
+          <button class="btn btn-outline btn-small" type="button" id="upd-read" hidden>Mark all as read</button>
+        </div>
+        <ul class="update-list" id="update-list"></ul>
+        <p class="update-empty" id="upd-empty" hidden>No updates yet. You will see news about your trades here, and get it by email.</p>
+      </section>
+
       <!-- Verification banner -->
       <div class="banner" id="verify-banner" hidden>
         <p id="verify-text"></p>

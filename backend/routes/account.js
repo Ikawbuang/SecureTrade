@@ -1,7 +1,10 @@
 const bcrypt = require('bcryptjs');
 const { MAX_FAILS_PER_ACCOUNT, addLoginFailure, assertLoginAllowed, auth, loginFailures, warnAboutBlockedLogin } = require('../lib/auth');
 const { EMAIL_RE, HttpError, IDLE_MINUTES, NAME_PART_RE, USERNAME_RE, cleanEmail, cleanName, pool, queryOne, route, signToken, splitFullName, startSession, verifiedSql } = require('../lib/core');
-const { checkPin, deletePins, issuePin } = require('../lib/mail');
+const { checkPin, deletePins, issuePin, sendSecurityNotice } = require('../lib/mail');
+
+// Compared against when the email is unknown, so a wrong email is as slow as a wrong password
+const DUMMY_HASH = bcrypt.hashSync('no account has this password', 10);
 
 
 
@@ -34,6 +37,7 @@ function register(app) {
     const adult = req.body.is_adult === true || req.body.is_adult === 'true';
 
     if (!first_name || !last_name || !username || !EMAIL_RE.test(email) || password.length < 8) throw new HttpError(400, 'First name, last name, username, a valid email, and a password of at least 8 characters are required.');
+    if (Buffer.byteLength(password) > 72) throw new HttpError(400, 'The password is too long. Please use up to 72 characters.');
     if (!adult) throw new HttpError(400, 'SecureTrade is for users 18 and older. Please confirm that you are 18 years old or older.');
     if (!NAME_PART_RE.test(first_name) || !NAME_PART_RE.test(last_name)) throw new HttpError(400, 'Names can have letters, spaces, dots, apostrophes, and hyphens only (up to 45 characters each).');
     if (!USERNAME_RE.test(username)) throw new HttpError(400, 'Username must be 3 to 30 letters, numbers, or underscores.');
@@ -41,8 +45,16 @@ function register(app) {
       'SELECT email, username FROM users WHERE email = $1 OR lower(username) = lower($2)',
       [email, username]
     );
-    if (taken.rows.some(u => u.email === email)) throw new HttpError(409, 'That email is already registered.');
-    if (taken.rows.length > 0) throw new HttpError(409, 'That username is taken.');
+    if (taken.rows.some(u => u.username.toLowerCase() === username.toLowerCase() && u.email !== email)) throw new HttpError(409, 'That username is taken.');
+    // An email that already has an account gets the same answer as a new one, so nobody can test
+    // which emails are registered. The owner gets an email that explains what to do instead.
+    if (taken.rows.some(u => u.email === email)) {
+      sendSecurityNotice(email, 'Someone tried to create a SecureTrade account with your email',
+        'Someone tried to create a new SecureTrade account with this email, but you already have one.\n\n' +
+        'If this was you, sign in instead, or use "Forgot password" to set a new password.\n' +
+        'If this was not you, you can ignore this email. Your account was not changed.');
+      return res.json({ ok: true, email });
+    }
 
     const password_hash = await bcrypt.hash(password, 10);
     await issuePin(email, 'signup', { first_name, last_name, username, password_hash, adult_confirmed: true });
@@ -125,6 +137,7 @@ function register(app) {
     const email = cleanEmail(req.body.email);
     const newPassword = String(req.body.new_password || '');
     if (newPassword.length < 8) throw new HttpError(400, 'The new password must be at least 8 characters.');
+    if (Buffer.byteLength(newPassword) > 72) throw new HttpError(400, 'The new password is too long. Please use up to 72 characters.');
     await checkPin(email, 'reset', req.body.pin);
     const password_hash = await bcrypt.hash(newPassword, 10);
     const updated = await pool.query(
@@ -142,14 +155,16 @@ function register(app) {
   // If another device is active right now, the person is warned first (they send force: true to continue).
   // Banned accounts cannot sign in. Suspended accounts can, but they can only use Support.
   app.post('/api/login', route(async (req, res) => {
-    const { email, password } = req.body;
+    const email = typeof req.body.email === 'string' ? req.body.email.trim() : '';
+    const password = typeof req.body.password === 'string' ? req.body.password : '';
     const force = req.body.force === true;
     if (!email || !password) throw new HttpError(400, 'Email and password are required.');
     const accountKey = req.ip + '|' + String(email).toLowerCase();
     assertLoginAllowed(accountKey);
 
     const user = await queryOne(pool, 'SELECT * FROM users WHERE email = $1', [String(email).toLowerCase()]);
-    if (!user || !(await bcrypt.compare(password, user.password_hash))) {
+    // An unknown email still runs one password check, so the answer takes as long as for a real account
+    if (!user || !(await bcrypt.compare(password, user ? user.password_hash : DUMMY_HASH))) {
       const failures = addLoginFailure(accountKey);
       if (user && failures === MAX_FAILS_PER_ACCOUNT) warnAboutBlockedLogin(user, req.ip);
       throw new HttpError(401, 'Wrong email or password.');

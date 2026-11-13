@@ -9,8 +9,18 @@ const { sendError } = require('./lib/core');
 
 const app = express();
 
-// ngrok connects from this computer and says who the real visitor is. Nobody else is believed.
-app.set('trust proxy', 'loopback');
+// Who the real visitor is, for the sign-in limits. On this computer ngrok connects from here, so only
+// "loopback" is believed. On a host (Railway, Render) set TRUST_PROXY=1: one proxy sits in front.
+function trustProxySetting(value) {
+  if (!value) return 'loopback';
+  if (/^\d+$/.test(value)) return Number(value);
+  if (value === 'true') return true;
+  return value;   // for example "loopback, 10.0.0.0/8"
+}
+app.set('trust proxy', trustProxySetting(process.env.TRUST_PROXY));
+
+// Online over HTTPS, browsers are told to always use HTTPS for this site (HSTS). Not on this computer.
+const httpsSite = /^https:\/\//.test(process.env.PUBLIC_URL || '') && process.env.NODE_ENV === 'production';
 
 app.use(helmet({
   contentSecurityPolicy: {
@@ -26,7 +36,7 @@ app.use(helmet({
     },
   },
   crossOriginResourcePolicy: { policy: 'cross-origin' },
-  strictTransportSecurity: false,
+  strictTransportSecurity: httpsSite ? { maxAge: 180 * 24 * 3600, includeSubDomains: false } : false,
 }));
 
 // Set CORS_ORIGINS in .env (comma-separated) to choose which sites may call the API.
@@ -79,6 +89,7 @@ require('./routes/disputes').register(app);
 require('./routes/profile').register(app);
 require('./routes/verification').register(app);
 require('./routes/admin').register(app);
+require('./routes/notifications').register(app);
 
 
 // Anything no route handled (for example broken JSON) still gets a JSON answer
@@ -88,3 +99,4 @@ app.use((err, req, res, next) => {
 });
 
 module.exports = app;
+module.exports.trustProxySetting = trustProxySetting;

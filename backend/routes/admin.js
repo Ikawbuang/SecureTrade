@@ -1,7 +1,8 @@
 const { adminOnly, auth } = require('../lib/auth');
-const { ADMIN_MAX_PAGE, ADMIN_PAGE_SIZE, ALL_TRADE_STATUSES, AVG_RATING_SQL, HttpError, JOIN_BUYER_SELLER, ONLINE_SQL, PAID_STATUSES, PROCESS_STATUSES, RATING_COUNT_SQL, SUPPORT_MAX, cleanSearch, findUsername, isParty, logActivity, maskNumber, numberOrNull, pageOffset, pageResult, pool, queryAll, queryOne, requireNote, requireNumeric, route, sameId, splitFullName, verifiedSql, withTx } = require('../lib/core');
+const { recentErrors, ADMIN_MAX_PAGE, ADMIN_PAGE_SIZE, ALL_TRADE_STATUSES, AVG_RATING_SQL, HttpError, JOIN_BUYER_SELLER, ONLINE_SQL, PAID_STATUSES, PROCESS_STATUSES, RATING_COUNT_SQL, SUPPORT_MAX, cleanSearch, findUsername, isParty, logActivity, maskNumber, numberOrNull, pageOffset, pageResult, pool, queryAll, queryOne, requireNote, requireNumeric, route, sameId, splitFullName, verifiedSql, withTx } = require('../lib/core');
 const { assertPaymentHeld, getDeliveryProofs, markPaymentRefunded, releasePayment } = require('../lib/escrow');
 const { removeVerifFile } = require('../lib/uploads');
+const { notify } = require('../lib/notify');
 const { checkoutEnabled, xenditRequest } = require('../lib/xendit');
 
 
@@ -140,6 +141,7 @@ function register(app) {
       login_alerts: Number(stats.login_alerts),
       payment_reviews: Number(stats.payment_reviews),
       needs_admin_trades: Number(stats.needs_admin_trades),
+      server_errors: recentErrors.slice(0, 10),
     });
   }));
 
@@ -580,10 +582,12 @@ function register(app) {
         if (!t.payout_method) {
           throw new HttpError(409, 'The seller never said where to receive the money, because the item was not marked as delivered. You can refund the buyer instead.');
         }
-        await releasePayment(client, t.transaction_id);
+        await releasePayment(client, t.transaction_id, 'The admin decided the dispute in your favour.');
+        await notify(client, [t.buyer_id], t.transaction_id, 'The admin decided the dispute: the payment was released to the seller. Note: ' + note);
       } else {
-        await markPaymentRefunded(client, t.transaction_id);
+        await markPaymentRefunded(client, t.transaction_id, 'The admin decided the dispute in your favour.');
         await client.query(`UPDATE transactions SET status = 'refunded' WHERE transaction_id = $1`, [t.transaction_id]);
+        await notify(client, [t.seller_id], t.transaction_id, 'The admin decided the dispute: the buyer was refunded. Note: ' + note);
       }
 
       const summary = decision === 'release'
@@ -722,8 +726,9 @@ function register(app) {
       }
       await assertPaymentHeld(client, t.transaction_id, 'There is no held payment for this trade.');
 
-      await markPaymentRefunded(client, t.transaction_id);
+      await markPaymentRefunded(client, t.transaction_id, 'An admin refunded this trade. Reason: ' + note + '.');
       await client.query(`UPDATE transactions SET status = 'refunded', cancel_reason = $1 WHERE transaction_id = $2`, [note, t.transaction_id]);
+      await notify(client, [t.seller_id], t.transaction_id, 'An admin refunded the buyer. Reason: ' + note);
       await logActivity(client, req.user.user_id, t.transaction_id, 'admin_refund', note);
     });
     res.json({ ok: true });
@@ -752,8 +757,9 @@ function register(app) {
         throw new HttpError(409, 'Both accounts are active, so this trade finishes by itself.');
       }
       await assertPaymentHeld(client, t.transaction_id, 'There is no held payment for this trade.');
-      await releasePayment(client, t.transaction_id);
+      await releasePayment(client, t.transaction_id, 'An admin released the payment.');
       await logActivity(client, req.user.user_id, t.transaction_id, 'admin_release', note);
+      await notify(client, [t.buyer_id], t.transaction_id, 'An admin released the payment to the seller. Reason: ' + note);
     });
     res.json({ ok: true });
   }));

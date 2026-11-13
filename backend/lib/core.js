@@ -13,6 +13,13 @@ const pool = new Pool({
   ssl: { ca: fs.readFileSync(path.join(ROOT, 'supabase-ca.crt'), 'utf8'), rejectUnauthorized: true },
 });
 
+// An idle connection can drop (internet or Supabase hiccup). Without this handler Node stops the whole
+// server. The pool already throws the broken connection away and opens a new one on the next query.
+// Only the code is logged: the error object also holds the connection settings.
+pool.on('error', err => {
+  console.error('Database connection lost (' + (err.code || err.message) + '). It reconnects on the next request.');
+});
+
 
 // A user counts as online if we heard from them in the last 2 minutes
 const ONLINE_SQL = `(last_seen IS NOT NULL AND last_seen > now() - interval '2 minutes')`;
@@ -46,6 +53,13 @@ const IDLE_MINUTES = Number(process.env.IDLE_MINUTES || 15);
 
 // A trade request nobody answers is cancelled after this many hours
 const REQUEST_EXPIRE_HOURS = 12;
+// An accepted trade the buyer does not pay for is cancelled after this many hours
+const PAYMENT_DUE_HOURS = 24;
+// A paid trade the seller does not deliver: after this many hours the buyer may cancel for a full refund
+const DELIVERY_DUE_HOURS = 48;
+
+// When the buyer paid (from the activity log), for one trade t
+const PAID_AT_SQL = `(SELECT max(a.created_at) FROM activity_log a WHERE a.transaction_id = t.transaction_id AND a.action = 'paid')`;
 
 // What is being sold. A game account can be taken back by the seller later, so it is protected for longer.
 const ITEM_TYPES = ['account', 'item', 'currency'];
@@ -90,9 +104,19 @@ class HttpError extends Error {
 }
 
 
+// The last server errors since the server started, for the admin overview (details stay in the log)
+const recentErrors = [];
+
+function rememberError(err) {
+  recentErrors.unshift({ at: new Date().toISOString(), message: String((err && (err.code || err.message)) || err).slice(0, 200) });
+  recentErrors.length = Math.min(recentErrors.length, 20);
+}
+
+
 function sendError(res, err) {
   if (err instanceof HttpError) return res.status(err.status).json({ message: err.message });
   console.error(err);
+  rememberError(err);
   res.status(500).json({ message: 'Server error.' });
 }
 
@@ -208,18 +232,24 @@ function findUsername(userId) {
 }
 
 
-// Run several queries as one unit: all succeed or none are saved
+// Run several queries as one unit: all succeed or none are saved.
+// Work pushed to client.afterCommit (such as notifications) runs only once everything is saved.
 async function withTx(fn) {
   const client = await pool.connect();
+  const afterCommit = [];
+  client.afterCommit = afterCommit;
   try {
     await client.query('BEGIN');
     const result = await fn(client);
     await client.query('COMMIT');
+    client.afterCommit = undefined;
+    for (const job of afterCommit) await job();
     return result;
   } catch (err) {
-    await client.query('ROLLBACK').catch(() => {});
+    if (client.afterCommit) await client.query('ROLLBACK').catch(() => {});
     throw err;
   } finally {
+    client.afterCommit = undefined;
     client.release();
   }
 }
@@ -319,4 +349,4 @@ const USERNAME_COOLDOWN_DAYS = 30;
 
 
 const PORT = process.env.PORT || 3000;
-module.exports = { pool, ONLINE_SQL, verifiedSql, JOIN_BUYER_SELLER, AVG_RATING_SQL, RATING_COUNT_SQL, PROCESS_STATUSES, ALL_TRADE_STATUSES, PAID_STATUSES, IDLE_MINUTES, REQUEST_EXPIRE_HOURS, ITEM_TYPES, ACCOUNT_HOLD_HOURS, AUTO_RELEASE_HOURS, holdHours, MAX_TRADE_AMOUNT, MAX_ITEM_LENGTH, MAX_PENDING_SENT, CHAT_PER_MINUTE, CHAT_MAX_SHOWN, MAX_EVIDENCE_PER_PERSON, FINISHED_STATUSES, ID_TYPES, VERIFY_CODE_HOURS, MAX_FAVORITES, SUPPORT_MAX, SUPPORT_PER_MINUTE, HttpError, sendError, route, queryOne, queryAll, isDbId, requireNumeric, assertBothActive, requireNote, numberOrNull, sameId, isParty, cleanEmail, cleanHandle, cleanSearch, ADMIN_PAGE_SIZE, ADMIN_MAX_PAGE, pageOffset, pageResult, findUsername, withTx, maskNumber, NAME_PART_RE, cleanName, splitFullName, isAdmin, assertVerified, recordTradeAttempt, logActivity, signToken, startSession, EMAIL_RE, USERNAME_RE, USERNAME_COOLDOWN_DAYS, PORT };
+module.exports = { recentErrors, rememberError, pool, ONLINE_SQL, verifiedSql, JOIN_BUYER_SELLER, AVG_RATING_SQL, RATING_COUNT_SQL, PROCESS_STATUSES, ALL_TRADE_STATUSES, PAID_STATUSES, IDLE_MINUTES, REQUEST_EXPIRE_HOURS, PAYMENT_DUE_HOURS, DELIVERY_DUE_HOURS, PAID_AT_SQL, ITEM_TYPES, ACCOUNT_HOLD_HOURS, AUTO_RELEASE_HOURS, holdHours, MAX_TRADE_AMOUNT, MAX_ITEM_LENGTH, MAX_PENDING_SENT, CHAT_PER_MINUTE, CHAT_MAX_SHOWN, MAX_EVIDENCE_PER_PERSON, FINISHED_STATUSES, ID_TYPES, VERIFY_CODE_HOURS, MAX_FAVORITES, SUPPORT_MAX, SUPPORT_PER_MINUTE, HttpError, sendError, route, queryOne, queryAll, isDbId, requireNumeric, assertBothActive, requireNote, numberOrNull, sameId, isParty, cleanEmail, cleanHandle, cleanSearch, ADMIN_PAGE_SIZE, ADMIN_MAX_PAGE, pageOffset, pageResult, findUsername, withTx, maskNumber, NAME_PART_RE, cleanName, splitFullName, isAdmin, assertVerified, recordTradeAttempt, logActivity, signToken, startSession, EMAIL_RE, USERNAME_RE, USERNAME_COOLDOWN_DAYS, PORT };

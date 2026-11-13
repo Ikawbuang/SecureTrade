@@ -1,9 +1,10 @@
 const path = require('path');
 const { auth } = require('../lib/auth');
-const { CHAT_MAX_SHOWN, HttpError, ITEM_TYPES, JOIN_BUYER_SELLER, MAX_ITEM_LENGTH, MAX_PENDING_SENT, MAX_TRADE_AMOUNT, assertBothActive, assertVerified, cleanHandle, holdHours, isAdmin, isDbId, isParty, logActivity, maskNumber, pool, queryOne, recordTradeAttempt, requireNumeric, route, sameId, verifiedSql, withTx } = require('../lib/core');
+const { PROCESS_STATUSES, CHAT_MAX_SHOWN, DELIVERY_DUE_HOURS, PAID_AT_SQL, findUsername, HttpError, ITEM_TYPES, JOIN_BUYER_SELLER, MAX_ITEM_LENGTH, MAX_PENDING_SENT, MAX_TRADE_AMOUNT, assertBothActive, assertVerified, cleanHandle, holdHours, isAdmin, isDbId, isParty, logActivity, maskNumber, pool, queryOne, recordTradeAttempt, requireNumeric, route, sameId, verifiedSql, withTx } = require('../lib/core');
 const { assertPaymentHeld, getDeliveryProofs, lockTrade, markPaymentRefunded, readGcashNumber } = require('../lib/escrow');
-const { UPLOAD_DIR, assertRealImages, removeFiles, sendPrivateImage, uploadFiles } = require('../lib/uploads');
-const { cancelOpenCheckouts, checkoutEnabled, simulatedPayments, syncTradeCheckouts, xenditTestMode } = require('../lib/xendit');
+const { UPLOAD_DIR, assertRealImages, removeFiles, saveUploads, sendPrivateImage, uploadFiles } = require('../lib/uploads');
+const { manilaTime, notify, peso } = require('../lib/notify');
+const { cancelOpenCheckouts, checkoutEnabled, qrEnabled, simulatedPayments, syncTradeCheckouts, xenditTestMode } = require('../lib/xendit');
 
 
 
@@ -72,30 +73,45 @@ function register(app) {
       [buyer_id, seller_id, item_description, amount, req.user.user_id, item_type]
     );
     await logActivity(pool, req.user.user_id, trade.transaction_id, 'trade_created', 'as the ' + my_role + ', ₱' + Number(amount));
+    const me = await findUsername(req.user.user_id);
+    const typeLabel = { account: 'game account', item: 'in-game item', currency: 'in-game currency' }[item_type];
+    await notify(pool, [partnerId], trade.transaction_id,
+      '@' + me.username + ' wants to ' + (my_role === 'buyer' ? 'buy from' : 'sell to') + ' you: ' + typeLabel + ', ' + peso(amount) + '. Accept or decline it on your dashboard.');
     res.status(201).json(trade);
   }));
 
 
-  // List my transactions
+  // List my transactions: every trade still in progress, plus the newest finished ones
+  // (all finished trades are in History). The counts cover everything.
+  const RECENT_FINISHED = 50;
   app.get('/api/transactions', auth, route(async (req, res) => {
     const result = await pool.query(
-      `SELECT t.transaction_id, t.buyer_id, t.seller_id, t.item_description, t.amount, t.service_fee,
-              t.status, t.created_at, t.created_by,
-              b.username AS buyer_username, s.username AS seller_username
-       FROM transactions t
-       ${JOIN_BUYER_SELLER}
-       WHERE t.buyer_id = $1 OR t.seller_id = $1
-       ORDER BY t.created_at DESC`,
-      [req.user.user_id]
+      `(SELECT t.transaction_id, t.buyer_id, t.seller_id, t.item_description, t.amount, t.service_fee,
+               t.status, t.created_at, t.created_by, t.item_type,
+               b.username AS buyer_username, s.username AS seller_username
+        FROM transactions t ${JOIN_BUYER_SELLER}
+        WHERE (t.buyer_id = $1 OR t.seller_id = $1) AND t.status::text = ANY($2))
+       UNION ALL
+       (SELECT t.transaction_id, t.buyer_id, t.seller_id, t.item_description, t.amount, t.service_fee,
+               t.status, t.created_at, t.created_by, t.item_type,
+               b.username AS buyer_username, s.username AS seller_username
+        FROM transactions t ${JOIN_BUYER_SELLER}
+        WHERE (t.buyer_id = $1 OR t.seller_id = $1) AND NOT (t.status::text = ANY($2))
+        ORDER BY t.created_at DESC LIMIT ${RECENT_FINISHED})
+       ORDER BY created_at DESC`,
+      [req.user.user_id, PROCESS_STATUSES]
     );
-    res.json(result.rows);
+    const counts = await queryOne(pool,
+      `SELECT COUNT(*) FILTER (WHERE status = 'completed') AS completed
+       FROM transactions WHERE buyer_id = $1 OR seller_id = $1`, [req.user.user_id]);
+    res.json({ rows: result.rows, completed_count: Number(counts.completed) });
   }));
 
 
   // Requests that other users sent me (waiting for my answer)
   app.get('/api/requests', auth, route(async (req, res) => {
     const result = await pool.query(
-      `SELECT t.transaction_id, t.item_description, t.amount, t.created_at,
+      `SELECT t.transaction_id, t.item_description, t.amount, t.created_at, t.item_type,
               CASE WHEN t.buyer_id = $1 THEN 'buyer' ELSE 'seller' END AS my_role,
               c.username AS from_username
        FROM transactions t
@@ -124,20 +140,26 @@ function register(app) {
       `UPDATE transactions SET ${newValues}
        WHERE transaction_id = $1 AND status = 'pending'
          AND created_by <> $2 AND (buyer_id = $2 OR seller_id = $2)
-       RETURNING transaction_id, status`,
+       RETURNING transaction_id, status, created_by`,
       [req.params.id, req.user.user_id]
     );
     if (!result.rows[0]) throw new HttpError(404, 'Request not found, or it was already answered.');
-    await logActivity(pool, req.user.user_id, result.rows[0].transaction_id,
+    const answered = result.rows[0];
+    await logActivity(pool, req.user.user_id, answered.transaction_id,
       action === 'accept' ? 'trade_accepted' : 'trade_declined', null);
-    res.json(result.rows[0]);
+    const me = await findUsername(req.user.user_id);
+    await notify(pool, [answered.created_by], answered.transaction_id, action === 'accept'
+      ? '@' + me.username + ' accepted your trade request. The buyer has 24 hours to pay into escrow.'
+      : '@' + me.username + ' declined your trade request.');
+    res.json({ transaction_id: answered.transaction_id, status: answered.status });
   }));
 
 
   // Cancel a trade. What is allowed depends on where the trade is:
   //   pending   : only the person who sent the request
   //   accepted  : either person (nothing was paid yet)
-  //   paid      : only the seller, with a reason, and the buyer is refunded in full
+  //   paid      : the seller, with a reason; or the buyer once DELIVERY_DUE_HOURS passed without delivery.
+  //               Either way the buyer is refunded in full.
   // After delivery or during a dispute the trade cannot be cancelled here.
   app.post('/api/transactions/:id/cancel', auth, route(async (req, res) => {
     const reason = String(req.body.reason || '').trim();
@@ -147,9 +169,11 @@ function register(app) {
     await syncTradeCheckouts(req.params.id);
 
     let outcome;
+    let t;
+    const me = await findUsername(req.user.user_id);
     await withTx(async client => {
       const userId = req.user.user_id;
-      const t = await queryOne(client, 'SELECT * FROM transactions WHERE transaction_id = $1 FOR UPDATE', [req.params.id]);
+      t = await queryOne(client, 'SELECT * FROM transactions WHERE transaction_id = $1 FOR UPDATE', [req.params.id]);
       if (!t || !isParty(t, userId)) {
         throw new HttpError(404, 'Trade not found.');
       }
@@ -163,16 +187,33 @@ function register(app) {
           [userId, reason || null, t.transaction_id]);
         const what = t.status === 'pending' ? 'cancelled the request' : 'cancelled before payment';
         await logActivity(client, userId, t.transaction_id, 'trade_cancelled', what + (reason ? ': ' + reason : ''));
+        const other = sameId(t.buyer_id, userId) ? t.seller_id : t.buyer_id;
+        await notify(client, [other], t.transaction_id,
+          '@' + me.username + (t.status === 'pending' ? ' cancelled the trade request.' : ' cancelled the trade before payment.') + (reason ? ' Reason: ' + reason : ''));
         outcome = 'cancelled';
 
-      } else if (t.status === 'paid') {
-        if (!isSeller) {
-          throw new HttpError(403, 'Only the seller can cancel after payment. If something is wrong, open a dispute.');
+      } else if (t.status === 'paid' && !isSeller) {
+        // The buyer: only once the seller missed the delivery deadline
+        const paid = await queryOne(client, `SELECT ${PAID_AT_SQL} AS paid_at FROM transactions t WHERE t.transaction_id = $1`, [t.transaction_id]);
+        const dueAt = paid && paid.paid_at ? new Date(paid.paid_at).getTime() + DELIVERY_DUE_HOURS * 3600000 : Infinity;
+        if (Date.now() < dueAt) {
+          throw new HttpError(403, 'You can cancel if the seller has not delivered within ' + DELIVERY_DUE_HOURS + ' hours of your payment. If something is wrong now, open a dispute.');
         }
+        await assertPaymentHeld(client, t.transaction_id, 'There is no held payment for this trade.');
+        const why = reason || 'The item was not delivered within ' + DELIVERY_DUE_HOURS + ' hours';
+        await markPaymentRefunded(client, t.transaction_id, 'You cancelled because the item was not delivered in time.');
+        await client.query(`UPDATE transactions SET status = 'refunded', cancelled_by = $1, cancel_reason = $2 WHERE transaction_id = $3`,
+          [userId, why, t.transaction_id]);
+        await logActivity(client, userId, t.transaction_id, 'buyer_cancelled_late', why);
+        await notify(client, [t.seller_id], t.transaction_id,
+          '@' + me.username + ' cancelled because the item was not delivered within ' + DELIVERY_DUE_HOURS + ' hours. The buyer is refunded in full.');
+        outcome = 'refunded';
+
+      } else if (t.status === 'paid') {
         if (reason.length < 5) throw new HttpError(400, 'Write a short reason for cancelling.');
         await assertPaymentHeld(client, t.transaction_id, 'There is no held payment for this trade.');
 
-        await markPaymentRefunded(client, t.transaction_id);
+        await markPaymentRefunded(client, t.transaction_id, '@' + me.username + ' cancelled after you paid. Reason: ' + reason + '.');
         await client.query(`UPDATE transactions SET status = 'refunded', cancelled_by = $1, cancel_reason = $2 WHERE transaction_id = $3`,
           [userId, reason, t.transaction_id]);
         await logActivity(client, userId, t.transaction_id, 'seller_cancelled', reason);
@@ -204,7 +245,8 @@ function register(app) {
               EXISTS (SELECT 1 FROM favorites fv WHERE fv.user_id = $2
                       AND fv.favorite_user_id = (CASE WHEN t.buyer_id = $2 THEN t.seller_id ELSE t.buyer_id END)) AS partner_is_favorite,
               CASE WHEN t.buyer_id = $2 THEN 'buyer' ELSE 'seller' END AS my_role,
-              (t.created_by = $2) AS created_by_me
+              (t.created_by = $2) AS created_by_me,
+              ${PAID_AT_SQL} AS paid_at
        FROM transactions t
        ${JOIN_BUYER_SELLER}
        LEFT JOIN users c ON c.user_id = t.cancelled_by
@@ -247,8 +289,10 @@ function register(app) {
       ...trade,
       checkout_enabled: checkoutEnabled,
       simulated_payments: simulatedPayments,
+      qr_enabled: qrEnabled,
       qr_test_mode: xenditTestMode,
       auto_release_hours: holdHours(row.item_type),
+      delivery_due_at: row.paid_at ? new Date(new Date(row.paid_at).getTime() + DELIVERY_DUE_HOURS * 3600000) : null,
       release_at: row.delivered_at ? new Date(new Date(row.delivered_at).getTime() + holdHours(row.item_type) * 3600000) : null,
       delivery_proofs: await getDeliveryProofs(req.params.id),
       payout_masked: maskNumber(payout_number),
@@ -266,9 +310,14 @@ function register(app) {
       const number = readGcashNumber(req, 'Enter the 11-digit GCash number (it starts with 09) where you want to receive your money.');
       if (files.length === 0) throw new HttpError(400, 'Add at least one screenshot that proves the delivery.');
       await assertRealImages(files, 'One of the files is not a valid JPG, PNG, WEBP, or GIF image.');
+      await saveUploads(files);
       await withTx(async client => {
         const t = await lockTrade(client, req.params.id, req.user.user_id, { role: 'seller', status: 'paid' });
         await assertBothActive(client, t);
+        const me = await findUsername(req.user.user_id);
+        const releaseAt = new Date(Date.now() + holdHours(t.item_type) * 3600000);
+        await notify(client, [t.buyer_id], t.transaction_id,
+          '@' + me.username + ' marked the item as delivered. Check it now. The payment releases to the seller on ' + manilaTime(releaseAt) + ' unless you report a problem on the trade page.');
         for (const f of files) {
           await client.query(
             'INSERT INTO delivery_proofs (transaction_id, submitted_by, file_url, description) VALUES ($1, $2, $3, $4)',

@@ -73,7 +73,7 @@ Browser (HTML, CSS, JS)  ──►  Express REST API (backend/server.js)  ──
 
    ```
    cd backend
-   npm install bcryptjs cors dotenv express jsonwebtoken multer nodemailer pg
+   npm install
    ```
 
    Create `backend/.env`:
@@ -83,12 +83,18 @@ Browser (HTML, CSS, JS)  ──►  Express REST API (backend/server.js)  ──
    PORT=3000
    JWT_SECRET=<a long random text>
    IDLE_MINUTES=15
-   DEV_LOG_PIN=true
+   SMTP_HOST=smtp-relay.brevo.com
+   SMTP_PORT=587
+   SMTP_USER=<your Brevo SMTP login>
+   SMTP_KEY=<your Brevo SMTP key>
+   MAIL_FROM=<a sender email verified in Brevo>
    ```
 
    Online payment needs `XENDIT_SECRET_KEY`, `XENDIT_WEBHOOK_TOKEN` and `PUBLIC_URL`. Without them nobody can pay. For local testing only, `ALLOW_SIMULATED_PAYMENTS=true` turns on a fake payment instead.
 
-   Use the **Session pooler** string and **port 6543**. `DEV_LOG_PIN=true` prints PINs in the terminal instead of sending email. Remove it once real email is set up. Never commit `.env`. When you deploy, add `CORS_ORIGINS=https://your-site.com` (comma-separated) so only your own site can call the API; leave it out for local development.
+   Use the **Session pooler** string and **port 6543**. Email (sign-up PINs and trade updates) uses any SMTP service; Brevo is free for 300 emails a day. Without it, `DEV_LOG_PIN=true` prints PINs in the terminal instead, for testing on your own computer only. Never commit `.env`. When you deploy, add `CORS_ORIGINS=https://your-site.com` (comma-separated) so only your own site can call the API; leave it out for local development.
+
+   **When hosting online** also set: `TRUST_PROXY=1` (one proxy in front, as on Railway or Render), `NODE_ENV=production` (turns on HTTPS-only), `PUBLIC_URL` to your site, and `SUPABASE_URL` + `SUPABASE_SERVICE_KEY` (+ optional `SUPABASE_BUCKET`, default `uploads`) so pictures are kept in a **private** Supabase Storage bucket instead of the server disk, which hosts wipe on restart. Copy existing pictures once with `node scripts/copy-uploads-to-storage.js`.
 
    Download the SSL certificate from Supabase (**Project Settings → Database → SSL Configuration**) and save it as `backend/supabase-ca.crt`. The server will not start without it. It is not in Git, so copy it to every computer that runs the backend.
 

@@ -1,7 +1,8 @@
 const path = require('path');
 const { auth } = require('../lib/auth');
 const { HttpError, JOIN_BUYER_SELLER, MAX_EVIDENCE_PER_PERSON, PAID_STATUSES, isAdmin, isParty, logActivity, pool, queryOne, requireNumeric, route, sameId, withTx } = require('../lib/core');
-const { UPLOAD_DIR, assertRealImages, removeFiles, sendPrivateImage, uploadFiles } = require('../lib/uploads');
+const { notify } = require('../lib/notify');
+const { UPLOAD_DIR, assertRealImages, removeFiles, saveUploads, sendPrivateImage, uploadFiles } = require('../lib/uploads');
 
 
 const REASONS = {
@@ -167,6 +168,7 @@ function register(app) {
       if (!description) throw new HttpError(400, 'Tell us what happened.');
       if (description.length > 2000) throw new HttpError(400, 'Please keep the description under 2000 characters.');
       await assertRealImages(files, 'One of the files is not a valid JPG, PNG, WEBP, or GIF image.');
+      await saveUploads(files);
 
       await withTx(async client => {
         const t = await queryOne(client, 'SELECT * FROM transactions WHERE transaction_id = $1 FOR UPDATE', [req.params.id]);
@@ -194,6 +196,8 @@ function register(app) {
         await saveEvidence(client, created.rows[0].dispute_id, userId, files);
         await client.query(`UPDATE transactions SET status = 'disputed' WHERE transaction_id = $1`, [t.transaction_id]);
         await logActivity(client, userId, t.transaction_id, 'dispute_opened', reason);
+        await notify(client, [role === 'buyer' ? t.seller_id : t.buyer_id], t.transaction_id,
+          'The ' + role + ' opened a dispute: "' + reason + '". The payment stays held until an admin decides. Reply with your side on the dispute page.');
       });
       res.status(201).json({ ok: true });
     } catch (err) {
@@ -212,6 +216,7 @@ function register(app) {
       if (!message) throw new HttpError(400, 'Write your reply.');
       if (message.length > 2000) throw new HttpError(400, 'Please keep the reply under 2000 characters.');
       await assertRealImages(files, 'One of the files is not a valid JPG, PNG, WEBP, or GIF image.');
+      await saveUploads(files);
 
       await withTx(async client => {
         const userId = req.user.user_id;
@@ -241,6 +246,7 @@ function register(app) {
         );
         await saveEvidence(client, d.dispute_id, userId, files);
         await logActivity(client, userId, d.transaction_id, 'dispute_reply', null);
+        await notify(client, [d.filed_by], d.transaction_id, 'The other person replied to your dispute. An admin will review both sides.');
       });
       res.json({ ok: true });
     } catch (err) {
