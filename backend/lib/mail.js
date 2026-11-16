@@ -51,7 +51,9 @@ function makeBrevoApiSender(apiKey, fetchImpl = (...a) => fetch(...a)) {
       }
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
-        throw new Error('Brevo refused the email: ' + res.status + ' ' + String(data.code || '').slice(0, 40));
+        // Brevo's reason tells a wrong key from a blocked IP address. It never contains the key.
+        throw new Error('Brevo refused the email: ' + res.status + ' ' + String(data.code || '').slice(0, 40)
+          + (data.message ? ' (' + String(data.message).slice(0, 160) + ')' : ''));
       }
     },
   };
