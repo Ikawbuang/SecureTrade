@@ -12,8 +12,49 @@ const MAX_PIN_TRIES = 5;      // wrong tries before the PIN is cancelled
 const RESEND_SECONDS = 60;    // wait before asking for another PIN
 
 
+// Email goes out in one of two ways:
+//   BREVO_API_KEY  Brevo's web API over HTTPS. Use this on a host: many hosts (Railway among them)
+//                  block the SMTP ports, and every email then fails with "Connection timeout".
+//   SMTP_*         plain SMTP, fine on your own computer.
+// If both are set, the web API is used.
+const BREVO_API_URL = 'https://api.brevo.com/v3/smtp/email';
+
+const brevoApiKey = () => (process.env.BREVO_API_KEY || '').trim().replace(/^["']|["']$/g, '');
+
 function mailConfigured() {
-  return process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_KEY && process.env.MAIL_FROM;
+  if (!process.env.MAIL_FROM) return false;
+  return !!(brevoApiKey() || (process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_KEY));
+}
+
+
+// Something with the same sendMail() the SMTP transporter has, but sending through Brevo's web API.
+// Only the status code is put in the error, never the key or the message text.
+function makeBrevoApiSender(apiKey, fetchImpl = (...a) => fetch(...a)) {
+  return {
+    async sendMail({ to, subject, text, html }) {
+      let res;
+      try {
+        res = await fetchImpl(BREVO_API_URL, {
+          method: 'POST',
+          headers: { 'api-key': apiKey, 'Content-Type': 'application/json', Accept: 'application/json' },
+          body: JSON.stringify({
+            sender: { name: 'SecureTrade', email: process.env.MAIL_FROM },
+            to: [{ email: to }],
+            subject,
+            textContent: text,
+            ...(html ? { htmlContent: html } : {}),
+          }),
+          signal: AbortSignal.timeout(15000),
+        });
+      } catch (err) {
+        throw new Error('Brevo could not be reached (' + (err.name === 'TimeoutError' ? 'timeout' : err.code || err.name) + ')');
+      }
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error('Brevo refused the email: ' + res.status + ' ' + String(data.code || '').slice(0, 40));
+      }
+    },
+  };
 }
 
 
@@ -22,7 +63,7 @@ if (!mailConfigured()) {
   if (process.env.NODE_ENV === 'production' && process.env.DEV_LOG_PIN === 'true') {
     throw new Error('DEV_LOG_PIN must be off in production: PINs would only appear in the server log. Set up SMTP_* instead.');
   }
-  console.warn('Email is OFF: set SMTP_HOST, SMTP_USER, SMTP_KEY and MAIL_FROM in .env.'
+  console.warn('Email is OFF: set MAIL_FROM and BREVO_API_KEY (or SMTP_HOST, SMTP_USER and SMTP_KEY) in .env.'
     + (process.env.DEV_LOG_PIN === 'true' ? ' For now, PINs and updates are only printed here (DEV_LOG_PIN).' : ' Nobody can sign up until it is set.'));
 }
 
@@ -30,6 +71,7 @@ if (!mailConfigured()) {
 let transporter = null;
 
 function getTransporter() {
+  if (!transporter && brevoApiKey()) transporter = makeBrevoApiSender(brevoApiKey());
   if (!transporter) {
     const port = Number(process.env.SMTP_PORT || 587);
     transporter = nodemailer.createTransport({
@@ -209,4 +251,4 @@ async function issueEmailChangePin(userId, newEmail) {
     throw err;
   }
 }
-module.exports = { PIN_MINUTES, MAX_PIN_TRIES, RESEND_SECONDS, mailConfigured, transporter, getTransporter, PIN_COPY, sendPinEmail, newSixDigitCode, assertCanResend, deletePins, deletePin, deleteEmailChange, issuePin, checkPin, sendSecurityNotice, issueEmailChangePin };
+module.exports = { makeBrevoApiSender, BREVO_API_URL, PIN_MINUTES, MAX_PIN_TRIES, RESEND_SECONDS, mailConfigured, transporter, getTransporter, PIN_COPY, sendPinEmail, newSixDigitCode, assertCanResend, deletePins, deletePin, deleteEmailChange, issuePin, checkPin, sendSecurityNotice, issueEmailChangePin };

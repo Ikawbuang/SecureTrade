@@ -592,3 +592,29 @@ test('my trade list has the trades and the full completed count', async () => {
   assert.equal(r.body.rows.length, 1);
   assert.equal(r.body.completed_count, 4);
 });
+
+// ---------- Email through Brevo's web API (for hosts that block SMTP) ----------
+test('an email goes to Brevo over HTTPS with the key in a header', async () => {
+  const { makeBrevoApiSender, BREVO_API_URL } = require('../lib/mail');
+  const calls = [];
+  const sender = makeBrevoApiSender('xkeysib-test', async (url, options) => { calls.push({ url, options }); return new Response('{"messageId":"1"}', { status: 201 }); });
+  process.env.MAIL_FROM = 'noreply@example.test';
+  await sender.sendMail({ to: 'buyer@example.test', subject: 'Your code', text: '123456', html: '<p>123456</p>' });
+  assert.equal(calls[0].url, BREVO_API_URL);
+  assert.equal(calls[0].options.headers['api-key'], 'xkeysib-test');
+  const body = JSON.parse(calls[0].options.body);
+  assert.deepEqual(body.to, [{ email: 'buyer@example.test' }]);
+  assert.equal(body.sender.email, 'noreply@example.test');
+  assert.equal(body.textContent, '123456');
+  assert.equal(body.htmlContent, '<p>123456</p>');
+});
+
+test('a refused email gives an error with the status only, never the key', async () => {
+  const { makeBrevoApiSender } = require('../lib/mail');
+  const sender = makeBrevoApiSender('xkeysib-secret', async () => new Response('{"code":"unauthorized","message":"Key not found"}', { status: 401 }));
+  await assert.rejects(sender.sendMail({ to: 'a@example.test', subject: 's', text: 't' }), err => {
+    assert.match(err.message, /401 unauthorized/);
+    assert.doesNotMatch(err.message, /xkeysib/);
+    return true;
+  });
+});
