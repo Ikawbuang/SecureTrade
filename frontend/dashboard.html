@@ -17,6 +17,7 @@
     <nav class="sidebar" aria-label="Main">
       <a class="brand" href="dashboard.html">Secure<span>Trade</span></a>
       <a href="dashboard.html" aria-current="page">Dashboard</a>
+      <a href="partners.html">Find partner</a>
       <a href="dispute.html">Disputes</a>
       <a href="history.html">History</a>
       <a href="profile.html">My profile</a>
@@ -32,10 +33,27 @@
           <h1>Hi, <span id="me-first"></span></h1>
           <p>Here is where your trades stand today.</p>
         </div>
-        <a class="btn btn-outline" id="admin-link" href="admin-dashboard.html" hidden>Admin panel</a>
+        <div class="head-actions">
+          <a class="btn btn-primary" href="partners.html">Find a trade partner</a>
+          <a class="btn btn-outline" id="admin-link" href="admin-dashboard.html" hidden>Admin panel</a>
+        </div>
       </header>
 
       <p class="form-error" id="page-error" role="alert" hidden></p>
+
+      <!-- My balance in escrow: the first thing on the page -->
+      <section class="vault" aria-label="Summary">
+        <div>
+          <p class="label">Held in escrow right now</p>
+          <p class="amount" id="held-amount">₱0</p>
+          <p class="note">Released once each buyer confirms receipt.</p>
+        </div>
+        <div class="vault-side">
+          <div><p class="num" id="active-count">0</p><p class="cap">Active trades</p></div>
+          <div><p class="num" id="open-disputes">0</p><p class="cap">Open dispute</p></div>
+          <div><p class="num" id="completed-count">0</p><p class="cap">Completed</p></div>
+        </div>
+      </section>
 
       <!-- Trade requests: right at the top, one line each, hidden when there are none -->
       <section class="card requests" aria-labelledby="req-title" id="requests" hidden>
@@ -81,23 +99,10 @@
         <a class="btn btn-outline" href="profile.html">Edit profile</a>
       </section>
 
-      <div class="dash-grid">
+      <div class="dash-grid one">
 
         <!-- Left: my trades -->
         <div class="col">
-
-          <section class="vault" aria-label="Summary">
-            <div>
-              <p class="label">Held in escrow right now</p>
-              <p class="amount" id="held-amount">₱0</p>
-              <p class="note">Released once each buyer confirms receipt.</p>
-            </div>
-            <div class="vault-side">
-              <div><p class="num" id="active-count">0</p><p class="cap">Active trades</p></div>
-              <div><p class="num" id="open-disputes">0</p><p class="cap">Open dispute</p></div>
-              <div><p class="num" id="completed-count">0</p><p class="cap">Completed</p></div>
-            </div>
-          </section>
 
           <section class="card" aria-labelledby="active-title">
             <div class="card-head">
@@ -123,147 +128,18 @@
                 <tbody id="trade-rows"></tbody>
               </table>
             </div>
-            <p class="empty" id="empty" hidden>No trades in this tab yet.</p>
+            <p class="empty" id="empty" hidden>No trades in this tab yet. <a href="partners.html">Find a trade partner</a> to start one.</p>
           </section>
 
         </div>
 
-        <!-- Right: find a trade partner -->
-        <aside class="col">
-          <section class="card finder" aria-labelledby="finder-title">
-            <h2 id="finder-title">Find a trade partner</h2>
-            <div class="seg" role="group" aria-label="Filter people">
-              <button type="button" data-status="all" aria-pressed="true">All</button>
-              <button type="button" data-status="recent" aria-pressed="false">Recent</button>
-              <button type="button" data-status="online" aria-pressed="false">Online</button>
-              <button type="button" data-status="offline" aria-pressed="false">Offline</button>
-              <button type="button" data-status="favorites" aria-pressed="false">★ Favs</button>
-            </div>
-            <label class="sr-only" for="people-search">Search users</label>
-            <input id="people-search" class="finder-search" type="search" placeholder="Search by username">
-            <ul class="people" id="people"></ul>
-            <p class="no-people" id="no-people" hidden></p>
-            <div class="more-wrap"><button class="btn btn-outline btn-small" type="button" id="more" hidden>Show more</button></div>
-            <p class="hint" style="margin-top:.75rem">Check a profile first, then press Trade to send a request. Both people must be verified.</p>
-          </section>
-        </aside>
 
       </div>
     </main>
   </div>
 
-  <!-- Profile card -->
-  <dialog id="profile-dialog" aria-labelledby="pd-name">
-    <div class="dlg">
-      <div class="dlg-top">
-        <span id="pd-avatar"></span>
-        <div>
-          <h2 id="pd-name"></h2>
-          <p id="pd-status" style="margin:.3rem 0 0"></p>
-          <p class="hint" id="pd-joined" style="margin:.2rem 0 0"></p>
-        </div>
-      </div>
-
-      <dl class="dlg-stats">
-        <div><dt>Completed trades</dt><dd id="pd-trades">0</dd></div>
-        <div><dt>Rating</dt><dd id="pd-rating">–</dd></div>
-        <div><dt>With you</dt><dd id="pd-together">0</dd></div>
-      </dl>
-
-      <div class="note-box" id="pd-note-box" hidden>
-        <h3>Your private note <span class="hint">(only you can see it)</span></h3>
-        <textarea id="pd-note" rows="2" maxlength="200" placeholder="Example: fast delivery, trusted"></textarea>
-        <div class="dlg-actions" style="margin-top:.5rem">
-          <button class="btn btn-outline btn-small" type="button" id="pd-note-save">Save note</button>
-        </div>
-        <p class="form-ok" id="pd-note-ok" role="status" hidden>Note saved.</p>
-      </div>
-
-      <h3>Recent reviews <span class="hint">(the writers' names are hidden)</span></h3>
-      <ul class="reviews" id="pd-reviews"></ul>
-      <p class="hint" id="pd-no-reviews" hidden>No reviews yet.</p>
-      <p class="form-ok" id="pd-rev-ok" role="status" hidden></p>
-      <p class="form-error" id="pd-rev-error" role="alert" hidden></p>
-
-      <div class="dlg-actions">
-        <span id="pd-star"></span>
-        <button class="btn btn-primary" type="button" id="pd-trade">Trade with this user</button>
-        <button class="btn btn-outline" type="button" id="pd-close">Close</button>
-      </div>
-    </div>
-  </dialog>
-
-  <!-- Cannot trade yet: you are not verified, or the other person is not -->
-  <dialog id="block-dialog" aria-labelledby="bk-title">
-    <div class="dlg">
-      <h2 id="bk-title"></h2>
-      <p id="bk-text" style="margin:.75rem 0 0; color:var(--text-soft)"></p>
-      <p class="form-ok" id="bk-ok" role="status" hidden></p>
-      <div class="dlg-actions">
-        <a class="btn btn-primary" id="bk-verify" href="profile.html" hidden>Verify now</a>
-        <button class="btn btn-outline" type="button" id="bk-close">Close</button>
-      </div>
-    </div>
-  </dialog>
-
-  <!-- Trade form -->
-  <dialog id="trade-dialog" aria-labelledby="tf-title">
-    <form class="dlg" id="trade-form">
-      <div class="dlg-top">
-        <span id="tf-avatar"></span>
-        <div>
-          <h2 id="tf-title">Start a trade</h2>
-          <p class="hint" id="tf-sub" style="margin:.2rem 0 0"></p>
-        </div>
-      </div>
-
-      <fieldset class="role-pick">
-        <legend>I am the</legend>
-        <label><input type="radio" name="role" value="buyer" checked><strong>Buyer</strong><span>I will pay into escrow.</span></label>
-        <label><input type="radio" name="role" value="seller"><strong>Seller</strong><span>I will hand over the item.</span></label>
-      </fieldset>
-
-      <div class="row-2">
-        <div class="field">
-          <label for="tf-game">Game</label>
-          <input id="tf-game" type="text" maxlength="60" placeholder="e.g. Mobile Legends" required>
-        </div>
-        <div class="field">
-          <label for="tf-price">Price (₱)</label>
-          <input id="tf-price" type="number" min="1" max="100000" step="1" placeholder="0" required>
-        </div>
-      </div>
-      <div class="field">
-        <label for="tf-type">What is being sold</label>
-        <select id="tf-type" required>
-          <option value="item">In-game item</option>
-          <option value="currency">In-game currency</option>
-          <option value="account">Game account (protected for 7 days)</option>
-        </select>
-      </div>
-      <div class="field">
-        <label for="tf-item">Item name</label>
-        <input id="tf-item" type="text" maxlength="120" placeholder="Example: Mythic account, 120 skins" required>
-      </div>
-      <div class="field">
-        <label for="tf-details">Item details</label>
-        <textarea id="tf-details" rows="3" maxlength="800" placeholder="Describe exactly what will be handed over, so both sides agree."></textarea>
-      </div>
-
-      <div class="fee-line"><span>Item price</span><span id="tf-s-price">₱0.00</span></div>
-      <div class="fee-line"><span>Service fee (<span id="tf-fee-pct"></span>)</span><span id="tf-s-fee">₱0.00</span></div>
-      <div class="fee-line total"><span>Seller receives</span><span id="tf-s-net">₱0.00</span></div>
-
-      <p class="form-error" id="tf-error" role="alert" hidden></p>
-
-      <div class="dlg-actions">
-        <button class="btn btn-primary" type="submit" id="tf-send">Send trade request</button>
-        <button class="btn btn-outline" type="button" id="tf-cancel">Cancel</button>
-      </div>
-    </form>
-  </dialog>
-
   <script src="js/data.js"></script>
+  <script src="js/ui.js"></script>
   <script src="js/api.js"></script>
   <script src="js/nav-badge.js"></script>
   <script src="js/dashboard.js"></script>

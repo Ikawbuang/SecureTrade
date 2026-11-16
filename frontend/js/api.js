@@ -197,7 +197,7 @@ function makeStar(username, isFavorite, onChange) {
       paint();
       if (onChange) onChange(fav);
     } catch (err) {
-      alert(err.message);
+      UI.alert(err.message);
     }
     btn.disabled = false;
   });
@@ -284,7 +284,7 @@ function addEvidenceThumbs(listEl, items, blobUrls, titleOf, pathOf = item => '/
       .then(url => {
         blobUrls.push(url);
         img.src = url;
-        btn.addEventListener('click', () => window.open(url, '_blank'));
+        btn.addEventListener('click', () => UI.viewImage(url, title || 'Picture'));
       })
       .catch(() => { btn.textContent = 'Could not load'; });
   });

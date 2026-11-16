@@ -327,20 +327,19 @@ function markAlertsSeen() {
 
 // ---------- Payments to review ----------
 async function decidePaymentReview(r, action, button) {
-  const question = action === 'refund'
-    ? 'Why is this payment being refunded? (at least 5 characters, saved in the log)'
-    : 'How was this payment handled? (at least 5 characters, saved in the log)';
-  const note = window.prompt(question);
+  const note = await UI.prompt('At least 5 characters. It is saved in the log.', {
+    title: action === 'refund' ? 'Why is this payment being refunded?' : 'How was this payment handled?',
+    placeholder: 'Your note', minLength: 5,
+  });
   if (note === null) return;
-  if (note.trim().length < 5) { window.alert('Write a short note that explains why.'); return; }
-  if (action === 'refund' && !window.confirm('Refund ' + peso(r.amount) + ' to @' + r.buyer_username + ' through Xendit? This cannot be undone.')) return;
+  if (action === 'refund' && !(await UI.confirm('Refund ' + peso(r.amount) + ' to @' + r.buyer_username + ' through Xendit? This cannot be undone.', { title: 'Refund this payment?', okText: 'Refund', danger: true }))) return;
 
   button.disabled = true;
   try {
-    await postJson('/admin/payment-reviews/' + r.log_id + '/resolve', { action, note: note.trim() });
+    await postJson('/admin/payment-reviews/' + r.log_id + '/resolve', { action, note });
     await load();
   } catch (err) {
-    window.alert(netError(err));
+    UI.alert(netError(err));
     button.disabled = false;
   }
 }
@@ -650,12 +649,12 @@ function openReport(r) {
   openDialog('report-dialog');
 }
 
-$('rp-delete').addEventListener('click', () => {
+$('rp-delete').addEventListener('click', async () => {
   if (!currentReport) return;
   setMessage('rp-error', '');
   const note = $('rp-note').value.trim();
   if (note.length < 5) { setMessage('rp-error', 'Write a short note that explains why.'); return; }
-  if (!window.confirm('Delete this review? It stops counting in the average and cannot be restored.')) return;
+  if (!(await UI.confirm('It stops counting in the average and cannot be restored.', { title: 'Delete this review?', okText: 'Delete review', danger: true }))) return;
   closeReport('/admin/reviews/' + currentReport.review_ref + '/delete', { note });
 });
 
@@ -691,8 +690,8 @@ function showVerifPicture(boxId, path, has) {
       const img = el('img');
       img.alt = '';
       img.src = url;
-      img.title = 'Click to open it bigger';
-      img.addEventListener('click', () => window.open(url, '_blank'));
+      img.title = 'Click to see it bigger';
+      img.addEventListener('click', () => UI.viewImage(url, 'Verification picture'));
       box.replaceChildren(img);
     })
     .catch(() => showNote('Could not load the picture.'));
@@ -739,7 +738,7 @@ $('vd-under18').addEventListener('click', () => {
   $('vd-reason').value = 'The ID shows that you are under 18. SecureTrade is for users 18 and older.';
 });
 
-function decideVerification(decision) {
+async function decideVerification(decision) {
   if (!currentVerif) return;
   setMessage('vd-error', '');
   const reason = $('vd-reason').value.trim();
@@ -750,7 +749,7 @@ function decideVerification(decision) {
   const question = decision === 'approve'
     ? 'Approve @' + currentVerif.username + '? You confirm the ID shows they are 18 or older. Their name becomes "' + currentVerif.typed_name + '" and the pictures are deleted.'
     : 'Reject @' + currentVerif.username + '? The pictures are deleted.';
-  if (!window.confirm(question)) return;
+  if (!(await UI.confirm(question, { title: decision === 'approve' ? 'Approve this verification?' : 'Reject this verification?', okText: decision === 'approve' ? 'Approve' : 'Reject', danger: decision !== 'approve' }))) return;
 
   submitDecision({
     path: '/admin/verifications/' + currentVerif.verification_id + '/decision',
@@ -933,7 +932,7 @@ async function openReview(id) {
 
 const DISPUTE_BUTTONS = ['refund', 'release'];
 
-function decide(decision) {
+async function decide(decision) {
   if (!current) return;
   setMessage('rv-error', '');
   const note = $('rv-note').value.trim();
@@ -944,7 +943,7 @@ function decide(decision) {
   const question = decision === 'refund'
     ? 'Refund ' + peso(current.amount) + ' to @' + current.buyer_username + '? This cannot be undone.'
     : 'Pay @' + current.seller_username + ' for this trade? This cannot be undone.';
-  if (!window.confirm(question)) return;
+  if (!(await UI.confirm(question, { title: decision === 'refund' ? 'Refund the buyer?' : 'Pay the seller?', okText: decision === 'refund' ? 'Refund' : 'Pay the seller', danger: true }))) return;
 
   submitDecision({
     path: '/admin/disputes/' + current.dispute_id + '/resolve',
@@ -1008,12 +1007,12 @@ async function openTrade(id) {
   openDialog('trade-dialog');
 }
 
-$('td-refund-btn').addEventListener('click', () => {
+$('td-refund-btn').addEventListener('click', async () => {
   if (!currentTrade) return;
   setMessage('td-refund-error', '');
   const note = $('td-refund-note').value.trim();
   if (note.length < 5) { setMessage('td-refund-error', 'Write a short note that explains why.'); return; }
-  if (!window.confirm('Refund ' + peso(currentTrade.amount) + ' to @' + currentTrade.buyer_username + '? This cannot be undone.')) return;
+  if (!(await UI.confirm('Refund ' + peso(currentTrade.amount) + ' to @' + currentTrade.buyer_username + '? This cannot be undone.', { title: 'Refund the buyer?', okText: 'Refund', danger: true }))) return;
 
   submitDecision({
     path: '/admin/transactions/' + currentTrade.transaction_id + '/refund',
@@ -1025,12 +1024,12 @@ $('td-refund-btn').addEventListener('click', () => {
   });
 });
 
-$('td-release-btn').addEventListener('click', () => {
+$('td-release-btn').addEventListener('click', async () => {
   if (!currentTrade) return;
   setMessage('td-refund-error', '');
   const note = $('td-refund-note').value.trim();
   if (note.length < 5) { setMessage('td-refund-error', 'Write a short note that explains why.'); return; }
-  if (!window.confirm('Release ' + peso(currentTrade.amount) + ' to @' + currentTrade.seller_username + '? This cannot be undone.')) return;
+  if (!(await UI.confirm('Release ' + peso(currentTrade.amount) + ' to @' + currentTrade.seller_username + '? This cannot be undone.', { title: 'Pay the seller?', okText: 'Release', danger: true }))) return;
 
   submitDecision({
     path: '/admin/transactions/' + currentTrade.transaction_id + '/release',
@@ -1053,16 +1052,15 @@ bindClose('trade-dialog', ['td-close']);
 let currentUser = null;
 
 async function deleteReview(review, button) {
-  const note = window.prompt('Why is this review being deleted? (at least 5 characters, saved in the log)');
+  const note = await UI.prompt('At least 5 characters. It is saved in the log.', { title: 'Why is this review being deleted?', placeholder: 'Your note', minLength: 5, okText: 'Delete review', danger: true });
   if (note === null) return;
-  if (note.trim().length < 5) { window.alert('Write a short note that explains why.'); return; }
   button.disabled = true;
   try {
-    await postJson('/admin/reviews/' + review.review_ref + '/delete', { note: note.trim() });
+    await postJson('/admin/reviews/' + review.review_ref + '/delete', { note });
     await openUser(currentUser.user_id);
     load();
   } catch (err) {
-    window.alert(netError(err));
+    UI.alert(netError(err));
     button.disabled = false;
   }
 }
@@ -1098,7 +1096,7 @@ function showMoreButton(kind, listId, toItem) {
       $(listId).append(...data.rows.map(toItem));
       button.hidden = !data.has_more;
     } catch (err) {
-      window.alert(netError(err));
+      UI.alert(netError(err));
     } finally {
       button.disabled = false;
     }
@@ -1161,7 +1159,7 @@ async function openUser(id) {
 
 const STATUS_BUTTONS = ['ud-suspend', 'ud-ban', 'ud-activate'];
 
-function changeStatus(status) {
+async function changeStatus(status) {
   if (!currentUser) return;
   setMessage('ud-error', '');
   const note = $('ud-note').value.trim();
@@ -1170,7 +1168,7 @@ function changeStatus(status) {
     return;
   }
   const verb = status === 'banned' ? 'Ban' : (status === 'suspended' ? 'Suspend' : 'Reactivate');
-  if (!window.confirm(verb + ' @' + currentUser.username + '?')) return;
+  if (!(await UI.confirm('This changes what @' + currentUser.username + ' can do on SecureTrade.', { title: verb + ' @' + currentUser.username + '?', okText: verb, danger: status !== 'active' }))) return;
 
   submitDecision({
     path: '/admin/users/' + currentUser.user_id + '/status',

@@ -174,6 +174,7 @@ $('form-register').addEventListener('submit', async e => {
       is_adult: $('reg-adult').checked
     });
     pendingEmail = email;
+    UI.forget($('form-register'));   // the typed details were sent; nothing to keep any more
     show('verify');
     $('verify-text').textContent =
       'We sent a 6-digit PIN to ' + email + '. Type it below to finish creating your account. It expires in 10 minutes.';
@@ -289,7 +290,9 @@ resetResend.addEventListener('click', async () => {
 });
 
 // Coming from the landing page's "Create account" button
-if (location.hash === '#register') show('register');
+// Open "Create account" when the link says so, or when sign-up details were kept from before a refresh
+const keptSignUp = ['reg-first', 'reg-last', 'reg-username', 'reg-email'].some(id => $(id).value);
+if (location.hash === '#register' || keptSignUp) show('register');
 
 // ---------- Why was I sent here? (signed out on another device, or inactive) ----------
 const logoutReason = localStorage.getItem('st_logout_reason');

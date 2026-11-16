@@ -76,8 +76,9 @@
     const updates = document.createElement('a');
     updates.href = 'dashboard.html#updates';
     updates.textContent = '🔔 Updates';
-    const dash = linkTo('dashboard.html');
-    sidebar.insertBefore(updates, dash ? dash.nextSibling : (spacer || null));
+    // Right after Dashboard and Find partner
+    const before = linkTo('partners.html') || linkTo('dashboard.html');
+    sidebar.insertBefore(updates, before ? before.nextSibling : (spacer || null));
     showUpdates = makeCounter(updates, ' unread update', ' unread updates');
   }
 

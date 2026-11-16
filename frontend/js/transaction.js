@@ -312,6 +312,7 @@ async function checkReturnedPayment() {
 // Seller: type the GCash number to receive the money, then mark the item as delivered
 function addDeliverControls() {
   const number = addGcashInput('Your GCash number to receive the money', 'GCash number to receive your money');
+  UI.keep(number, 'payout-number');
   const proof = el('input', 'wide');
   proof.type = 'file';
   proof.multiple = true;
@@ -330,6 +331,7 @@ function addDeliverControls() {
     btn.disabled = true;
     try {
       await apiUpload('/transactions/' + tradeId + '/deliver', form);
+      UI.forget(['payout-number']);
       await load();
     } catch (err) {
       showActionError(err.message);
@@ -342,15 +344,15 @@ function addDeliverControls() {
 // or after payment (the seller only, with a reason, and the buyer is refunded)
 function addCancelControls(d, role) {
   if (d.status === 'pending' && d.created_by_me) {
-    const b = addButton('Cancel request', btn => {
-      if (window.confirm('Cancel this request?')) act('/cancel', {}, btn);
+    const b = addButton('Cancel request', async btn => {
+      if (await UI.confirm('Your trade partner will no longer see this request.', { title: 'Cancel this request?', okText: 'Cancel request', danger: true })) act('/cancel', {}, btn);
     });
     b.className = 'btn btn-outline';
   }
 
   if (d.status === 'accepted') {
-    const b = addButton('Cancel trade', btn => {
-      if (window.confirm('Cancel this trade? Nothing was paid yet.')) act('/cancel', {}, btn);
+    const b = addButton('Cancel trade', async btn => {
+      if (await UI.confirm('Nothing was paid yet, so no money moves.', { title: 'Cancel this trade?', okText: 'Cancel trade', danger: true })) act('/cancel', {}, btn);
     });
     b.className = 'btn btn-outline';
   }
@@ -362,11 +364,13 @@ function addCancelControls(d, role) {
     reason.placeholder = 'Reason for cancelling (required)';
     reason.setAttribute('aria-label', 'Reason for cancelling');
     actions.appendChild(reason);
+    UI.keep(reason, 'cancel-reason');
 
-    const b = addButton('Cancel and refund the buyer', btn => {
+    const b = addButton('Cancel and refund the buyer', async btn => {
       const text = reason.value.trim();
       if (text.length < 5) { showActionError('Write a short reason for cancelling.'); return; }
-      if (!window.confirm('Cancel this trade and refund the buyer in full? This cannot be undone.')) return;
+      if (!(await UI.confirm('The buyer gets the full payment back. This cannot be undone.', { title: 'Cancel and refund the buyer?', okText: 'Cancel and refund', danger: true }))) return;
+      UI.forget(['cancel-reason']);
       act('/cancel', { reason: text }, btn);
     });
     b.className = 'btn btn-danger';
@@ -374,8 +378,8 @@ function addCancelControls(d, role) {
 
   // The buyer, once the seller missed the delivery deadline
   if (d.status === 'paid' && role === 'buyer' && d.delivery_due_at && new Date(d.delivery_due_at) <= new Date()) {
-    const b = addButton('Cancel and get a refund', btn => {
-      if (!window.confirm('Cancel this trade? You get your full payment back. This cannot be undone.')) return;
+    const b = addButton('Cancel and get a refund', async btn => {
+      if (!(await UI.confirm('You get your full payment back. This cannot be undone.', { title: 'Cancel this trade?', okText: 'Cancel and refund me', danger: true }))) return;
       act('/cancel', {}, btn);
     });
     b.className = 'btn btn-danger';

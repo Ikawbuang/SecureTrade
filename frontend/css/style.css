@@ -293,7 +293,7 @@
   @media (max-width: 1000px) { .overview, .overview.attention { grid-template-columns: 1fr 1fr; } }
   @media (max-width: 800px) {
     .summary { grid-template-columns: 1fr 1fr; }
-    .cols, .vpics { grid-template-columns: 1fr; }
+    .cols, .vpics { grid-template-columns: minmax(0, 1fr); }
   }
   @media (max-width: 520px) {
     .overview, .overview.attention, .summary { grid-template-columns: 1fr; }
@@ -380,7 +380,7 @@
   /* Two columns: my trades on the left, the people on the right */
   .dash-grid { display: grid; grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr); gap: 1.5rem; align-items: start; }
   .col > * + * { margin-top: 1.5rem; }
-  @media (max-width: 1100px) { .dash-grid { grid-template-columns: 1fr; } }
+  @media (max-width: 1100px) { .dash-grid { grid-template-columns: minmax(0, 1fr); } }
 
   /* The held-funds figure is the main thing on this page */
   .vault {
@@ -612,7 +612,7 @@
   }
   .notice.ok { background: #e3f7f2; border-color: var(--teal); }
   .form-ok { margin: .75rem 0 0; padding: .65rem .85rem; border-radius: 8px; background: #e3f7f2; color: #146b5a; font-size: .9rem; }
-  @media (max-width: 1000px) { .layout { grid-template-columns: 1fr; } }
+  @media (max-width: 1000px) { .layout { grid-template-columns: minmax(0, 1fr); } }
 }
 
 /* ---------- history ---------- */
@@ -712,7 +712,7 @@
   .sidebar .spacer { margin-top: 2rem; padding-top: 1rem; border-top: 1px solid var(--ink-3); }
   .page-head { margin-bottom: 1.5rem; }
   .layout { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr); gap: 1.5rem; align-items: start; }
-  @media (max-width: 1000px) { .layout { grid-template-columns: 1fr; } }
+  @media (max-width: 1000px) { .layout { grid-template-columns: minmax(0, 1fr); } }
   .section-title { margin: 0 0 .25rem; font-size: 1.15rem; }
   .section-sub { margin: 0 0 1rem; color: var(--text-soft); font-size: .92rem; }
   .btn-small { padding: .45rem .9rem; font-size: .92rem; }
@@ -940,7 +940,7 @@
   .msg.me { background: var(--ink); color: var(--text-on-dark); }
   .msg.me small { color: var(--text-on-dark-soft); }
   .no-msgs { color: var(--text-soft); margin: auto; }
-  @media (max-width: 1000px) { .layout { grid-template-columns: 1fr; } }
+  @media (max-width: 1000px) { .layout { grid-template-columns: minmax(0, 1fr); } }
   @media (max-width: 560px) {
     .tracker { grid-template-columns: 1fr 1fr; row-gap: 1.25rem; }
     .tracker li::after { display: none; }
@@ -1054,4 +1054,27 @@
     .lp-steps, .lp-cards, .lp-types { grid-template-columns: 1fr; }
     .lp-signin { display: none; }
   }
+}
+
+/* ---------- Dashboard: balance first, Find partner as a big button ---------- */
+.page-dashboard .head-actions { display: flex; gap: .6rem; flex-wrap: wrap; }
+.page-dashboard .main > .vault { margin-bottom: 1.25rem; }
+.page-dashboard .dash-grid.one { grid-template-columns: minmax(0, 1fr); }
+
+/* ---------- Find partner page: the list uses the full width ---------- */
+.page-partners .finder { max-width: 1100px; }
+.page-partners .seg { max-width: 560px; }
+.page-partners .finder-search { max-width: 560px; display: block; }
+@media (min-width: 900px) {
+  .page-partners .people { display: grid; grid-template-columns: repeat(auto-fill, minmax(380px, 1fr)); column-gap: 1.75rem; }
+}
+
+/* ---------- Phone fixes: long words wrap, partner rows stack ---------- */
+.page-dashboard .remind-row p { min-width: 0; overflow-wrap: anywhere; }
+.page-dashboard .person .lead > div { min-width: 0; overflow-wrap: anywhere; }
+@media (max-width: 560px) {
+  .page-dashboard .person { flex-wrap: wrap; }
+  .page-dashboard .person .lead { flex-basis: 100%; }
+  .page-dashboard .person .acts { margin-left: auto; }
+  .page-dashboard .vault { padding: 1.25rem; }
 }

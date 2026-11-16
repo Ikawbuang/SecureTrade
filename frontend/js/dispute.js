@@ -233,6 +233,7 @@ $('dispute-form').addEventListener('submit', async e => {
   btn.disabled = true;
   try {
     await apiUpload('/transactions/' + tradeId + '/dispute', form);
+    UI.forget($('dispute-form'));
     lastSignature = '';
     await load();
   } catch (err) {
