@@ -511,7 +511,7 @@ test('a completed payment without an amount is checked with Xendit first', async
 
 // ---------- Step 3: uploads in a Supabase Storage bucket (with a fake Supabase, nothing leaves this computer) ----------
 const { makeStorage } = require('../lib/storage');
-function fakeSupabase() {
+function fakeSupabase(key = 'aaa.bbb.ccc') {
   const calls = [];
   const fetchImpl = async (url, options = {}) => {
     calls.push({ url, method: options.method || 'GET', body: options.body, headers: options.headers });
@@ -519,7 +519,7 @@ function fakeSupabase() {
     if (url.includes('/authenticated/')) return url.endsWith('missing.png') ? new Response('', { status: 400 }) : new Response('PICTURE');
     return new Response('{}');
   };
-  return { calls, store: makeStorage({ url: 'https://proj.supabase.co', key: 'service-key', bucket: 'uploads', dirs: {}, fetchImpl }) };
+  return { calls, store: makeStorage({ url: 'https://proj.supabase.co', key, bucket: 'uploads', dirs: {}, fetchImpl }) };
 }
 
 test('a checked upload is moved into the private bucket', async () => {
@@ -529,8 +529,15 @@ test('a checked upload is moved into the private bucket', async () => {
   await store.put('files', { path: tmp, filename: 'abc.png', mimetype: 'image/png' });
   assert.equal(calls[0].method, 'POST');
   assert.equal(calls[0].url, 'https://proj.supabase.co/storage/v1/object/uploads/files/abc.png');
-  assert.equal(calls[0].headers.Authorization, 'Bearer service-key');
+  assert.equal(calls[0].headers.Authorization, 'Bearer aaa.bbb.ccc');
   assert.equal(fs.existsSync(tmp), false, 'the disk copy is removed');
+});
+
+test('a new-style secret key (not a JWT) is sent only as apikey, with stray quotes removed', async () => {
+  const { calls, store } = fakeSupabase(' "sb_secret_abc123" ');
+  await store.remove('files', 'x.png');
+  assert.equal(calls[0].headers.Authorization, undefined);
+  assert.equal(calls[0].headers.apikey, 'sb_secret_abc123');
 });
 
 test('a picture is sent from the bucket, and a missing one answers 404', async () => {

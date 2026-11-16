@@ -14,9 +14,14 @@ const { Readable } = require('stream');
 // Folders: "files" (delivery proof and dispute evidence), "avatars", "verifications" (ID pictures).
 
 function makeStorage({ url, key, bucket = 'uploads', dirs, fetchImpl = (...a) => fetch(...a) }) {
+  key = (key || '').trim().replace(/^["']|["']$/g, '');
+  url = (url || '').trim().replace(/^["']|["']$/g, '');
   const remote = !!(url && key);
-  const base = (url || '').replace(/\/$/, '') + '/storage/v1/object';
-  const headers = extra => ({ Authorization: 'Bearer ' + key, apikey: key, ...extra });
+  const base = url.replace(/\/$/, '') + '/storage/v1/object';
+  // The older service_role key is a JWT and also goes in Authorization. The newer secret key
+  // (sb_secret_...) is not a JWT: Supabase rejects it there ("Invalid Compact JWS"), so it is only sent as apikey.
+  const isJwt = key.split('.').length === 3;
+  const headers = extra => ({ ...(isJwt ? { Authorization: 'Bearer ' + key } : {}), apikey: key, ...extra });
   const objectPath = (folder, name) => encodeURIComponent(folder) + '/' + encodeURIComponent(path.basename(name));
 
   async function check(res, what) {
