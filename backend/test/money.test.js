@@ -533,10 +533,10 @@ test('a checked upload is moved into the private bucket', async () => {
   assert.equal(fs.existsSync(tmp), false, 'the disk copy is removed');
 });
 
-test('a new-style secret key (not a JWT) is sent only as apikey, with stray quotes removed', async () => {
+test('the storage key is sent in both headers, with stray quotes and spaces removed', async () => {
   const { calls, store } = fakeSupabase(' "sb_secret_abc123" ');
   await store.remove('files', 'x.png');
-  assert.equal(calls[0].headers.Authorization, undefined);
+  assert.equal(calls[0].headers.Authorization, 'Bearer sb_secret_abc123');
   assert.equal(calls[0].headers.apikey, 'sb_secret_abc123');
 });
 
