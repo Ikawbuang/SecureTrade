@@ -1,3 +1,4 @@
+const crypto = require('crypto');
 const jwt = require('jsonwebtoken');
 const { HttpError, IDLE_MINUTES, isAdmin, logActivity, pool, queryOne, sendError } = require('./core');
 const { getTransporter, mailConfigured } = require('./mail');
@@ -5,7 +6,8 @@ const { getTransporter, mailConfigured } = require('./mail');
 
 // ---------- Limit on wrong passwords ----------
 // Failures are counted per computer + email, so nobody can lock another person out from elsewhere.
-// The counts reset when the server restarts.
+// The counts are kept in the database (table login_failures, migration 005), so a restart or a new
+// deploy does not forget them. Until that migration is run, they are kept in memory as before.
 const LOGIN_LIMIT_MINUTES = 15;
 
 const MAX_FAILS_PER_ACCOUNT = 5;
@@ -27,9 +29,57 @@ function addLoginFailure(key) {
 }
 
 
-function assertLoginAllowed(accountKey) {
-  const account = currentLoginFailure(accountKey);
-  if (account && account.count >= MAX_FAILS_PER_ACCOUNT) {
+// Only a fingerprint of "computer + email" is saved, never the email or the address itself
+const failureKey = accountKey => crypto.createHash('sha256').update(String(accountKey)).digest('hex');
+
+let tableMissing = false;
+
+// Run a login_failures query. If the table does not exist yet, answer null (the caller then uses memory).
+async function failureQuery(sql, params) {
+  if (tableMissing) return null;
+  try {
+    return await pool.query(sql, params);
+  } catch (err) {
+    if (err.code !== '42P01') throw err;
+    tableMissing = true;
+    console.warn('Wrong-password counts are kept in memory: run migrations/005_login_failures.sql to keep them across restarts.');
+    return null;
+  }
+}
+
+
+// How many wrong tries this computer + email has right now
+async function countLoginFailures(accountKey) {
+  const r = await failureQuery('SELECT count FROM login_failures WHERE key = $1 AND reset_at > now()', [failureKey(accountKey)]);
+  if (!r) return (currentLoginFailure(accountKey) || { count: 0 }).count;
+  return r.rows[0] ? Number(r.rows[0].count) : 0;
+}
+
+
+// One more wrong try. Answers with the new count. A count whose time ran out starts again at 1.
+async function recordLoginFailure(accountKey) {
+  const r = await failureQuery(
+    `INSERT INTO login_failures (key, count, reset_at) VALUES ($1, 1, now() + interval '${LOGIN_LIMIT_MINUTES} minutes')
+     ON CONFLICT (key) DO UPDATE SET
+       count = CASE WHEN login_failures.reset_at > now() THEN login_failures.count + 1 ELSE 1 END,
+       reset_at = CASE WHEN login_failures.reset_at > now() THEN login_failures.reset_at ELSE EXCLUDED.reset_at END
+     RETURNING count`,
+    [failureKey(accountKey)]
+  );
+  if (!r) return addLoginFailure(accountKey);
+  return r.rows[0] ? Number(r.rows[0].count) : 1;
+}
+
+
+// The right password was typed: forget the wrong tries
+async function clearLoginFailures(accountKey) {
+  loginFailures.delete(accountKey);
+  await failureQuery('DELETE FROM login_failures WHERE key = $1', [failureKey(accountKey)]);
+}
+
+
+async function assertLoginAllowed(accountKey) {
+  if ((await countLoginFailures(accountKey)) >= MAX_FAILS_PER_ACCOUNT) {
     throw new HttpError(429, 'Too many wrong tries. Please wait ' + LOGIN_LIMIT_MINUTES + ' minutes, or reset your password.');
   }
 }
@@ -148,4 +198,4 @@ async function adminOnly(req, res, next) {
     sendError(res, err);
   }
 }
-module.exports = { LOGIN_LIMIT_MINUTES, MAX_FAILS_PER_ACCOUNT, loginFailures, currentLoginFailure, addLoginFailure, assertLoginAllowed, warnAboutBlockedLogin, sendLoginWarningEmail, SUSPENDED_ALLOWED, suspendedMayUse, auth, adminOnly };
+module.exports = { recordLoginFailure, clearLoginFailures, countLoginFailures, LOGIN_LIMIT_MINUTES, MAX_FAILS_PER_ACCOUNT, loginFailures, currentLoginFailure, addLoginFailure, assertLoginAllowed, warnAboutBlockedLogin, sendLoginWarningEmail, SUSPENDED_ALLOWED, suspendedMayUse, auth, adminOnly };

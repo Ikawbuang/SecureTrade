@@ -7,7 +7,7 @@ const path = require('path');
 
 Object.assign(process.env, {
   DATABASE_URL: 'postgres://test',
-  JWT_SECRET: 'test-secret',
+  JWT_SECRET: 'test-secret-that-is-at-least-32-characters-long',
   XENDIT_SECRET_KEY: 'xnd_development_test',
   XENDIT_WEBHOOK_TOKEN: 'hook-token',
   QR_PAYMENTS: 'on',
@@ -26,12 +26,23 @@ function reset(status = 'accepted', extra = {}) {
     trade: { transaction_id: '7', buyer_id: BUYER, seller_id: SELLER, status, amount: '200.00', item_description: 'x', item_type: 'item', delivered_at: null, created_by: BUYER, ...extra },
     session: { session_id: 'ps-1', transaction_id: '7', amount: '200.00', status: 'ACTIVE', payment_id: null },
     escrow: [], logs: [], proofs: [], inactive: 0, created: 0, released: false, pin: null, xenditSession: { status: 'ACTIVE' },
+    fails: {}, noFailTable: false, resetUser: null, resetAsked: 0, pinsIssued: 0,
     calls: [], qrOpen: null, prState: { status: 'REQUIRES_ACTION' }, pendingFiles: [], refundSql: null, notes: [], failNotes: false, paidAt: new Date(), existingEmail: null,
   };
 }
 
 function fakeQuery(sql, p = []) {
   if (/^(BEGIN|COMMIT|ROLLBACK)/.test(sql)) return { rows: [] };
+  if (/login_failures/.test(sql)) {
+    if (db.noFailTable) throw Object.assign(new Error('relation "login_failures" does not exist'), { code: '42P01' });
+    if (/^SELECT count/.test(sql)) return { rows: db.fails[p[0]] ? [{ count: db.fails[p[0]] }] : [] };
+    if (/^INSERT INTO login_failures/.test(sql)) { db.fails[p[0]] = (db.fails[p[0]] || 0) + 1; return { rows: [{ count: db.fails[p[0]] }] }; }
+    if (/^DELETE FROM login_failures WHERE key/.test(sql)) { delete db.fails[p[0]]; return { rows: [] }; }
+    return { rows: [] };
+  }
+  if (/SELECT user_id FROM users WHERE email = \$1 AND account_status/.test(sql)) return { rows: db.resetUser ? [{ user_id: db.resetUser }] : [] };
+  if (/action = 'reset_requested'/.test(sql)) return { rows: [{ n: db.resetAsked }] };
+  if (/INSERT INTO email_pins/.test(sql)) { db.pinsIssued++; return { rows: [{ pin_id: 1 }] }; }
   if (/kind = 'qr' AND status = 'ACTIVE'/.test(sql)) return { rows: db.qrOpen ? [db.qrOpen] : [] };
   if (/INSERT INTO xendit_sessions \(session_id, transaction_id, kind/.test(sql)) {
     db.qrOpen = { session_id: p[0], qr_string: p[2], expires_at: new Date(Date.now() + 900000) };
@@ -156,7 +167,7 @@ test('20 PIN guesses at once are limited to 5 tries', async () => {
   let compared = 0;
   const original = bcrypt.compare;
   bcrypt.compare = async (...args) => { compared++; return original(...args); };
-  await Promise.all(Array.from({ length: 20 }, (_, i) => post('/password/reset', null, { email: 'a@b.co', new_password: 'password1', pin: String(200000 + i) })));
+  await Promise.all(Array.from({ length: 20 }, (_, i) => post('/password/reset', null, { email: 'a@b.co', new_password: 'blue-mango-42', pin: String(200000 + i) })));
   bcrypt.compare = original;
   assert.equal(compared, 5);
 });
@@ -617,4 +628,108 @@ test('a refused email gives an error with the status only, never the key', async
     assert.doesNotMatch(err.message, /xkeysib/);
     return true;
   });
+});
+
+// ---------- Quick security set (audit items M1, M5, M7, L1, L2, L6, L7) ----------
+const { settingProblems, assertGoodPassword } = require('../lib/core');
+const { loginFailures } = require('../lib/auth');
+
+test('the server refuses a short login secret and simulated payments in production', () => {
+  const good = { JWT_SECRET: 'x'.repeat(32) };
+  assert.deepEqual(settingProblems(good), []);
+  assert.equal(settingProblems({ JWT_SECRET: 'short' }).length, 1);
+  assert.equal(settingProblems({}).length, 1);
+  assert.equal(settingProblems({ ...good, NODE_ENV: 'production', ALLOW_SIMULATED_PAYMENTS: 'true' }).length, 1);
+  assert.deepEqual(settingProblems({ ...good, ALLOW_SIMULATED_PAYMENTS: 'true' }), [], 'allowed on a developer computer');
+});
+
+test('a password that is guessed first is refused everywhere a password is chosen', async () => {
+  for (const weak of ['12345678', 'Password123', 'aaaaaaaa', 'QWERTYUIOP']) assert.throws(() => assertGoodPassword(weak), /too easy to guess/);
+  assert.doesNotThrow(() => assertGoodPassword('blue-mango-42'));
+  const signUp = await post('/register/start', null, { first_name: 'Ana', last_name: 'Cruz', username: 'ana_new', email: 'new@example.com', password: '12345678', is_adult: true });
+  assert.equal(signUp.status, 400);
+  assert.match(signUp.body.message, /too easy to guess/);
+  const resetTry = await post('/password/reset', null, { email: 'a@b.co', new_password: 'password', pin: '123456' });
+  assert.equal(resetTry.status, 400);
+  const change = await post('/profile/password', BUYER, { current_password: 'whatever-it-was', new_password: 'iloveyou' });
+  assert.equal(change.status, 400);
+  assert.match(change.body.message, /too easy to guess/);
+});
+
+test('sign-in checks a password even when the email is unknown', async () => {
+  const realCompare = bcrypt.compare;
+  let compared = 0;
+  bcrypt.compare = (...args) => { compared++; return realCompare(...args); };
+  try {
+    const r = await post('/login', null, { email: 'nobody@example.com', password: 'whatever1' });
+    assert.equal(r.status, 401);
+    assert.equal(compared, 1, 'the slow password check ran, so the answer takes as long as for a real account');
+  } finally {
+    bcrypt.compare = realCompare;
+  }
+});
+
+test('wrong passwords are counted in the database and lock after 5', async () => {
+  const tries = [];
+  for (let i = 0; i < 6; i++) tries.push((await post('/login', null, { email: 'lock@example.com', password: 'wrong-one' })).status);
+  assert.deepEqual(tries, [401, 401, 401, 401, 401, 429]);
+  const keys = Object.keys(db.fails);
+  assert.equal(keys.length, 1);
+  assert.equal(db.fails[keys[0]], 5);
+  assert.match(keys[0], /^[a-f0-9]{64}$/, 'only a fingerprint is saved, not the email');
+  assert.equal(loginFailures.size, 0, 'nothing is kept in memory, so a restart does not forget the count');
+});
+
+test('one account gets at most 5 reset PINs a day, and the answer never changes', async () => {
+  process.env.DEV_LOG_PIN = 'true';
+  const realLog = console.log;
+  console.log = () => {};   // the test PIN is not printed
+  try {
+    db.resetUser = 1;
+    db.resetAsked = 4;
+    const allowed = await post('/password/forgot', null, { email: 'owner@example.com' });
+    assert.deepEqual(allowed.body, { ok: true });
+    assert.equal(db.pinsIssued, 1);
+    assert.ok(db.logs.includes('reset_requested'));
+
+    db.resetAsked = 5;
+    const capped = await post('/password/forgot', null, { email: 'owner@example.com' });
+    assert.deepEqual(capped.body, { ok: true }, 'same answer, so the limit does not reveal that the account exists');
+    assert.equal(db.pinsIssued, 1, 'no new PIN was made');
+  } finally {
+    console.log = realLog;
+    delete process.env.DEV_LOG_PIN;
+  }
+});
+
+test('a password reset is written in the log', async () => {
+  db.pin = { pin_id: 1, pin_hash: bcrypt.hashSync('123456', 4), attempts: 0, expires_at: new Date(Date.now() + 60000) };
+  const r = await post('/password/reset', null, { email: 'owner@example.com', new_password: 'blue-mango-42', pin: '123456' });
+  assert.equal(r.status, 200);
+  assert.ok(db.logs.includes('password_changed'));
+});
+
+test('the return link never sends anyone to localhost on a live site', async () => {
+  const go = async () => (await fetch(base + '/xendit/return?id=7&to=local', { redirect: 'manual' })).headers.get('location');
+  assert.match(await go(), /^http:\/\/localhost:/, 'allowed on a developer computer');
+  process.env.NODE_ENV = 'production';
+  try {
+    assert.equal(await go(), 'https://example.test/transaction.html?id=7&payment=returned');
+  } finally {
+    delete process.env.NODE_ENV;
+  }
+});
+
+// Keep this one last: after it, the server stays on the in-memory count for the rest of the run
+test('before migration 005 is run, wrong passwords are still counted (in memory)', async () => {
+  db.noFailTable = true;
+  const realWarn = console.warn;
+  console.warn = () => {};
+  try {
+    const tries = [];
+    for (let i = 0; i < 6; i++) { db.noFailTable = true; tries.push((await post('/login', null, { email: 'old@example.com', password: 'wrong-one' })).status); }
+    assert.deepEqual(tries, [401, 401, 401, 401, 401, 429]);
+  } finally {
+    console.warn = realWarn;
+  }
 });

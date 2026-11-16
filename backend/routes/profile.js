@@ -1,7 +1,7 @@
 const bcrypt = require('bcryptjs');
 const path = require('path');
 const { auth } = require('../lib/auth');
-const { AVG_RATING_SQL, EMAIL_RE, HttpError, PROCESS_STATUSES, RATING_COUNT_SQL, USERNAME_COOLDOWN_DAYS, USERNAME_RE, cleanEmail, logActivity, numberOrNull, pool, queryOne, route, verifiedSql, withTx } = require('../lib/core');
+const { AVG_RATING_SQL, EMAIL_RE, HttpError, assertGoodPassword, PROCESS_STATUSES, RATING_COUNT_SQL, USERNAME_COOLDOWN_DAYS, USERNAME_RE, cleanEmail, logActivity, numberOrNull, pool, queryOne, route, verifiedSql, withTx } = require('../lib/core');
 const { MAX_PIN_TRIES, deleteEmailChange, issueEmailChangePin, sendSecurityNotice } = require('../lib/mail');
 const { MIME_BY_EXT, looksLikeImage, removeAvatarFile, saveUploads, storage, uploadAvatar } = require('../lib/uploads');
 
@@ -195,8 +195,7 @@ function register(app) {
   app.post('/api/profile/password', auth, route(async (req, res) => {
     const current = String(req.body.current_password || '');
     const next = String(req.body.new_password || '');
-    if (next.length < 8) throw new HttpError(400, 'The new password must be at least 8 characters.');
-    if (Buffer.byteLength(next) > 72) throw new HttpError(400, 'The new password is too long. Please use up to 72 characters.');
+    assertGoodPassword(next, 'new password');
     if (next === current) throw new HttpError(400, 'The new password must be different from the current one.');
     const me = await queryOne(pool, 'SELECT email, password_hash FROM users WHERE user_id = $1', [req.user.user_id]);
     if (!(await bcrypt.compare(current, me.password_hash))) throw new HttpError(400, 'Your current password is wrong.');

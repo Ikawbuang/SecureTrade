@@ -1,10 +1,14 @@
 const bcrypt = require('bcryptjs');
-const { MAX_FAILS_PER_ACCOUNT, addLoginFailure, assertLoginAllowed, auth, loginFailures, warnAboutBlockedLogin } = require('../lib/auth');
-const { EMAIL_RE, HttpError, IDLE_MINUTES, NAME_PART_RE, USERNAME_RE, cleanEmail, cleanName, pool, queryOne, route, signToken, splitFullName, startSession, verifiedSql } = require('../lib/core');
+const { MAX_FAILS_PER_ACCOUNT, assertLoginAllowed, auth, clearLoginFailures, recordLoginFailure, warnAboutBlockedLogin } = require('../lib/auth');
+const { EMAIL_RE, HttpError, IDLE_MINUTES, NAME_PART_RE, USERNAME_RE, assertGoodPassword, cleanEmail, cleanName, logActivity, pool, queryOne, route, signToken, splitFullName, startSession, verifiedSql } = require('../lib/core');
 const { checkPin, deletePins, issuePin, sendSecurityNotice } = require('../lib/mail');
 
 // Compared against when the email is unknown, so a wrong email is as slow as a wrong password
 const DUMMY_HASH = bcrypt.hashSync('no account has this password', 10);
+
+// One account can ask for this many password-reset PINs in 24 hours. Each PIN allows 5 guesses,
+// so nobody gets more than 25 guesses a day at a 6-digit PIN, however many computers they use.
+const MAX_RESET_PINS_PER_DAY = 5;
 
 
 
@@ -37,7 +41,7 @@ function register(app) {
     const adult = req.body.is_adult === true || req.body.is_adult === 'true';
 
     if (!first_name || !last_name || !username || !EMAIL_RE.test(email) || password.length < 8) throw new HttpError(400, 'First name, last name, username, a valid email, and a password of at least 8 characters are required.');
-    if (Buffer.byteLength(password) > 72) throw new HttpError(400, 'The password is too long. Please use up to 72 characters.');
+    assertGoodPassword(password);
     if (!adult) throw new HttpError(400, 'SecureTrade is for users 18 and older. Please confirm that you are 18 years old or older.');
     if (!NAME_PART_RE.test(first_name) || !NAME_PART_RE.test(last_name)) throw new HttpError(400, 'Names can have letters, spaces, dots, apostrophes, and hyphens only (up to 45 characters each).');
     if (!USERNAME_RE.test(username)) throw new HttpError(400, 'Username must be 3 to 30 letters, numbers, or underscores.');
@@ -118,10 +122,18 @@ function register(app) {
   app.post('/api/password/forgot', route(async (req, res) => {
     const email = cleanEmail(req.body.email);
     if (!EMAIL_RE.test(email)) throw new HttpError(400, 'Enter a valid email.');
-    const found = await pool.query(`SELECT 1 FROM users WHERE email = $1 AND account_status = 'active'`, [email]);
-    if (found.rows[0]) {
+    const user = await queryOne(pool, `SELECT user_id FROM users WHERE email = $1 AND account_status = 'active'`, [email]);
+    const asked = user && await queryOne(
+      pool,
+      `SELECT COUNT(*) AS n FROM activity_log
+       WHERE user_id = $1 AND action = 'reset_requested' AND created_at > now() - interval '24 hours'`,
+      [user.user_id]
+    );
+    // Past the daily limit nothing is sent, and the answer stays the same as always
+    if (user && Number(asked.n) < MAX_RESET_PINS_PER_DAY) {
       try {
         await issuePin(email, 'reset', null);
+        await logActivity(pool, user.user_id, null, 'reset_requested', null);
       } catch (err) {
         // Waiting period: answer the same way, so nobody can tell whether an account exists
         if (!(err instanceof HttpError && err.status === 429)) throw err;
@@ -136,8 +148,7 @@ function register(app) {
   app.post('/api/password/reset', route(async (req, res) => {
     const email = cleanEmail(req.body.email);
     const newPassword = String(req.body.new_password || '');
-    if (newPassword.length < 8) throw new HttpError(400, 'The new password must be at least 8 characters.');
-    if (Buffer.byteLength(newPassword) > 72) throw new HttpError(400, 'The new password is too long. Please use up to 72 characters.');
+    assertGoodPassword(newPassword, 'new password');
     await checkPin(email, 'reset', req.body.pin);
     const password_hash = await bcrypt.hash(newPassword, 10);
     const updated = await pool.query(
@@ -146,6 +157,10 @@ function register(app) {
     );
     await deletePins(email, 'reset');
     if (!updated.rows[0]) throw new HttpError(400, 'Wrong or expired PIN. Please request a new one.');
+    await logActivity(pool, updated.rows[0].user_id, null, 'password_changed', 'with a reset PIN');
+    sendSecurityNotice(email, 'Your SecureTrade password was reset',
+      'The password on your SecureTrade account was just reset with a PIN sent to this email, and every device was signed out.\n\n' +
+      'If this was not you, reset your password again now and contact SecureTrade Support.');
     res.json({ ok: true });
   }));
 
@@ -160,16 +175,18 @@ function register(app) {
     const force = req.body.force === true;
     if (!email || !password) throw new HttpError(400, 'Email and password are required.');
     const accountKey = req.ip + '|' + String(email).toLowerCase();
-    assertLoginAllowed(accountKey);
+    await assertLoginAllowed(accountKey);
 
     const user = await queryOne(pool, 'SELECT * FROM users WHERE email = $1', [String(email).toLowerCase()]);
-    // An unknown email still runs one password check, so the answer takes as long as for a real account
-    if (!user || !(await bcrypt.compare(password, user ? user.password_hash : DUMMY_HASH))) {
-      const failures = addLoginFailure(accountKey);
+    // An unknown email still runs one password check, so the answer takes as long as for a real account.
+    // The check runs first, on its own line: inside the "if" it would be skipped when there is no user.
+    const passwordRight = await bcrypt.compare(password, user ? user.password_hash : DUMMY_HASH);
+    if (!user || !passwordRight) {
+      const failures = await recordLoginFailure(accountKey);
       if (user && failures === MAX_FAILS_PER_ACCOUNT) warnAboutBlockedLogin(user, req.ip);
       throw new HttpError(401, 'Wrong email or password.');
     }
-    loginFailures.delete(accountKey);
+    await clearLoginFailures(accountKey);
 
     const status = String(user.account_status);
     if (status === 'banned') throw new HttpError(403, 'This account was banned.');

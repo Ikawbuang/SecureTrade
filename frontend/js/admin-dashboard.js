@@ -181,6 +181,7 @@ function describe(a) {
     case 'verification_approved':  return 'was verified ' + detail;
     case 'verification_rejected':  return 'verification rejected ' + detail;
     case 'login_blocked':          return 'had sign-in blocked after too many wrong passwords ' + detail;
+    case 'reset_requested':        return 'asked for a password-reset PIN';
     case 'payment_needs_review':   return 'has a payment that needs an admin: ' + detail;
     case 'payment_review_refunded': return 'refunded a payment under review. ' + detail;
     case 'payment_review_closed':  return 'closed a payment under review. ' + detail;

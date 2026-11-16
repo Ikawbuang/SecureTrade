@@ -25,6 +25,7 @@ function startJobs() {
     pool.query(`DELETE FROM email_changes WHERE expires_at < now() - interval '1 day'`).catch(() => {});
     pool.query(`DELETE FROM trade_attempts WHERE created_at < now() - interval '30 days'`).catch(() => {});
     pool.query(`DELETE FROM rate_dismissals WHERE created_at < now() - interval '30 days'`).catch(() => {});
+    pool.query(`DELETE FROM login_failures WHERE reset_at < now()`).catch(() => {});   // nothing to do before migration 005
   }, 60 * 60 * 1000);
 
 

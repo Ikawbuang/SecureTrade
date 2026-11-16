@@ -44,7 +44,9 @@ function register(app) {
   // After the checkout page, Xendit sends the buyer back here (it only allows https addresses)
   app.get('/api/xendit/return', (req, res) => {
     // Back to the address the buyer started from, so they are still signed in there
-    const site = (process.env.FRONTEND_URL || (req.query.to === 'local' || !PUBLIC_URL ? 'http://localhost:' + PORT : PUBLIC_URL)).replace(/\/$/, '');
+    // "to=local" is only for testing on a developer's computer; a live site never sends anyone to localhost
+    const toLocal = req.query.to === 'local' && process.env.NODE_ENV !== 'production';
+    const site = (process.env.FRONTEND_URL || (toLocal || !PUBLIC_URL ? 'http://localhost:' + PORT : PUBLIC_URL)).replace(/\/$/, '');
     const payment = req.query.result === 'cancel' ? 'cancelled' : 'returned';
     res.redirect(/^\d+$/.test(req.query.id) ? site + '/transaction.html?id=' + req.query.id + '&payment=' + payment : site + '/dashboard.html');
   });

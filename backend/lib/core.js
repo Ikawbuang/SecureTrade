@@ -17,6 +17,24 @@ function readSupabaseCa() {
 }
 const SUPABASE_CA = readSupabaseCa();
 
+
+// Settings that would make the site unsafe. The server refuses to start with any of them,
+// so a mistake in the host's settings is noticed at once instead of by an attacker.
+function settingProblems(env = process.env) {
+  const problems = [];
+  const secret = env.JWT_SECRET || '';
+  if (secret.length < 32) {
+    problems.push('JWT_SECRET must be a random text of at least 32 characters (it signs every login).');
+  }
+  if (env.NODE_ENV === 'production' && env.ALLOW_SIMULATED_PAYMENTS === 'true') {
+    problems.push('ALLOW_SIMULATED_PAYMENTS must be off in production: buyers could mark a trade as paid without paying.');
+  }
+  return problems;
+}
+
+const problems = settingProblems();
+if (problems.length) throw new Error('Unsafe settings:\n- ' + problems.join('\n- '));
+
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
   ssl: { ca: SUPABASE_CA, rejectUnauthorized: true },
@@ -110,6 +128,27 @@ const SUPPORT_PER_MINUTE = 10;
 // ---------- Small helpers ----------
 class HttpError extends Error {
   constructor(status, message) { super(message); this.status = status; }
+}
+
+
+// ---------- Passwords ----------
+// The passwords attackers try first. Compared without capitals.
+const COMMON_PASSWORDS = new Set([
+  '12345678', '123456789', '1234567890', '87654321', '11111111', '00000000', '12341234', '11223344',
+  'password', 'password1', 'password12', 'password123', 'passw0rd', 'p@ssw0rd', 'qwertyui', 'qwerty123',
+  'qwertyuiop', '1q2w3e4r', '1qaz2wsx', 'asdfghjk', 'asdfghjkl', 'zxcvbnm1', 'iloveyou', 'iloveyou1',
+  'letmein1', 'welcome1', 'admin123', 'administrator', 'abc12345', 'abcd1234', 'a1b2c3d4', 'football1',
+  'securetrade', 'securetrade1', 'mobilelegends', 'pilipinas', 'philippines',
+]);
+
+// A new password: 8 to 72 characters, and not one that is guessed first
+function assertGoodPassword(password, label = 'password') {
+  if (typeof password !== 'string' || password.length < 8) throw new HttpError(400, 'The ' + label + ' must be at least 8 characters.');
+  if (Buffer.byteLength(password) > 72) throw new HttpError(400, 'The ' + label + ' is too long. Please use up to 72 characters.');
+  const oneCharacter = new Set(password).size === 1;
+  if (oneCharacter || COMMON_PASSWORDS.has(password.toLowerCase())) {
+    throw new HttpError(400, 'That ' + label + ' is too easy to guess. Please choose a different one.');
+  }
 }
 
 
@@ -358,4 +397,4 @@ const USERNAME_COOLDOWN_DAYS = 30;
 
 
 const PORT = process.env.PORT || 3000;
-module.exports = { recentErrors, rememberError, pool, ONLINE_SQL, verifiedSql, JOIN_BUYER_SELLER, AVG_RATING_SQL, RATING_COUNT_SQL, PROCESS_STATUSES, ALL_TRADE_STATUSES, PAID_STATUSES, IDLE_MINUTES, REQUEST_EXPIRE_HOURS, PAYMENT_DUE_HOURS, DELIVERY_DUE_HOURS, PAID_AT_SQL, ITEM_TYPES, ACCOUNT_HOLD_HOURS, AUTO_RELEASE_HOURS, holdHours, MAX_TRADE_AMOUNT, MAX_ITEM_LENGTH, MAX_PENDING_SENT, CHAT_PER_MINUTE, CHAT_MAX_SHOWN, MAX_EVIDENCE_PER_PERSON, FINISHED_STATUSES, ID_TYPES, VERIFY_CODE_HOURS, MAX_FAVORITES, SUPPORT_MAX, SUPPORT_PER_MINUTE, HttpError, sendError, route, queryOne, queryAll, isDbId, requireNumeric, assertBothActive, requireNote, numberOrNull, sameId, isParty, cleanEmail, cleanHandle, cleanSearch, ADMIN_PAGE_SIZE, ADMIN_MAX_PAGE, pageOffset, pageResult, findUsername, withTx, maskNumber, NAME_PART_RE, cleanName, splitFullName, isAdmin, assertVerified, recordTradeAttempt, logActivity, signToken, startSession, EMAIL_RE, USERNAME_RE, USERNAME_COOLDOWN_DAYS, PORT };
+module.exports = { settingProblems, assertGoodPassword, recentErrors, rememberError, pool, ONLINE_SQL, verifiedSql, JOIN_BUYER_SELLER, AVG_RATING_SQL, RATING_COUNT_SQL, PROCESS_STATUSES, ALL_TRADE_STATUSES, PAID_STATUSES, IDLE_MINUTES, REQUEST_EXPIRE_HOURS, PAYMENT_DUE_HOURS, DELIVERY_DUE_HOURS, PAID_AT_SQL, ITEM_TYPES, ACCOUNT_HOLD_HOURS, AUTO_RELEASE_HOURS, holdHours, MAX_TRADE_AMOUNT, MAX_ITEM_LENGTH, MAX_PENDING_SENT, CHAT_PER_MINUTE, CHAT_MAX_SHOWN, MAX_EVIDENCE_PER_PERSON, FINISHED_STATUSES, ID_TYPES, VERIFY_CODE_HOURS, MAX_FAVORITES, SUPPORT_MAX, SUPPORT_PER_MINUTE, HttpError, sendError, route, queryOne, queryAll, isDbId, requireNumeric, assertBothActive, requireNote, numberOrNull, sameId, isParty, cleanEmail, cleanHandle, cleanSearch, ADMIN_PAGE_SIZE, ADMIN_MAX_PAGE, pageOffset, pageResult, findUsername, withTx, maskNumber, NAME_PART_RE, cleanName, splitFullName, isAdmin, assertVerified, recordTradeAttempt, logActivity, signToken, startSession, EMAIL_RE, USERNAME_RE, USERNAME_COOLDOWN_DAYS, PORT };
