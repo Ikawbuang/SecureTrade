@@ -74,7 +74,7 @@ const limiter = (limit, message) => rateLimit({
 
 const TOO_MANY_TRIES = 'Too many attempts. Please wait 15 minutes and try again.';
 
-app.use(['/api/login', '/api/register', '/api/password', '/api/profile/password', '/api/profile/email'], limiter(60, TOO_MANY_TRIES));
+app.use(['/api/login', '/api/register', '/api/password', '/api/profile/password', '/api/profile/email', '/api/2fa'], limiter(60, TOO_MANY_TRIES));
 
 app.use(['/api/register/start', '/api/register/resend', '/api/password/forgot'], limiter(10, 'Too many emails were requested. Please wait 15 minutes and try again.'));
 
@@ -90,6 +90,7 @@ require('./routes/profile').register(app);
 require('./routes/verification').register(app);
 require('./routes/admin').register(app);
 require('./routes/notifications').register(app);
+require('./routes/twofa').register(app);
 
 
 // Anything no route handled (for example broken JSON) still gets a JSON answer

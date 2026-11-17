@@ -140,6 +140,8 @@ async function auth(req, res, next) {
   } catch {
     return res.status(401).json({ message: 'Invalid or expired token.' });
   }
+  // The short ticket given between the password and the 6-digit code is not a login
+  if (req.user.purpose) return res.status(401).json({ message: 'Please log in.' });
   try {
     const u = await queryOne(
       pool,
@@ -187,11 +189,19 @@ async function auth(req, res, next) {
 }
 
 
-// Only admins may continue (the role is read from the database)
+// Only admins may continue (the role is read from the database), and only once their
+// two-step sign-in is set up. Before migration 007 is run there is nothing to set up.
 async function adminOnly(req, res, next) {
   try {
     if (!(await isAdmin(req.user.user_id))) {
       return res.status(403).json({ message: 'This page is for admins only.' });
+    }
+    const two = await require('./totp').getTwoFactor(pool, req.user.user_id);   // loaded here: totp.js needs this file
+    if (two.available && !two.enabled) {
+      return res.status(403).json({
+        code: 'TOTP_SETUP_REQUIRED',
+        message: 'Set up two-step sign-in first. Admin accounts need an authenticator app.'
+      });
     }
     next();
   } catch (err) {

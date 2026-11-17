@@ -162,7 +162,7 @@ function rememberError(err) {
 
 
 function sendError(res, err) {
-  if (err instanceof HttpError) return res.status(err.status).json({ message: err.message });
+  if (err instanceof HttpError) return res.status(err.status).json({ message: err.message, ...(typeof err.code === 'string' ? { code: err.code } : {}) });
   console.error(err);
   rememberError(err);
   res.status(500).json({ message: 'Server error.' });

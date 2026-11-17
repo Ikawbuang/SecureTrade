@@ -371,3 +371,11 @@ dialog.ui-viewer::backdrop { background: rgba(8, 10, 24, .9); }
   .table-wrap td[data-label=""]::before, .table-wrap td:not([data-label])::before { content: none; }
   .table-wrap td:first-child { font-weight: 600; }
 }
+
+/* ---------- A code box inside a pop-up (6-digit code from an authenticator app) ---------- */
+.ui-pop-body .ui-pop-code {
+  width: 100%; padding: .7rem .85rem; margin-bottom: .75rem;
+  font: 600 1.35rem var(--font-display); letter-spacing: .2em; text-align: center; color: var(--text);
+  border: 2px solid #d5d8ec; border-radius: var(--radius-s);
+}
+.ui-pop-body .ui-pop-code:focus { outline: none; border-color: var(--gold); }

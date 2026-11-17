@@ -1078,3 +1078,20 @@
   .page-dashboard .person .acts { margin-left: auto; }
   .page-dashboard .vault { padding: 1.25rem; }
 }
+
+/* ---------- Security page: two-step sign-in ---------- */
+.page-security .card { max-width: 640px; margin-bottom: 1.25rem; }
+.page-security .card h2 { margin: 0 0 .5rem; font-size: 1.25rem; }
+.page-security .steps { margin: 0 0 1rem; padding-left: 1.2rem; color: var(--text-soft); }
+.page-security .steps li { margin-bottom: .35rem; }
+.page-security .qr-box { display: flex; gap: 1.25rem; align-items: center; flex-wrap: wrap; margin: 1rem 0; }
+.page-security .qr-box img { width: 200px; height: 200px; border: 1px solid #e6e8f5; border-radius: var(--radius-s); background: var(--white); }
+.page-security .secret { font: 600 1rem ui-monospace, Consolas, monospace; letter-spacing: .08em; word-break: break-all; background: #f3f4fb; padding: .5rem .7rem; border-radius: var(--radius-s); }
+.page-security .codes { list-style: none; margin: 1rem 0; padding: 1rem; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .5rem 1rem; background: #f3f4fb; border-radius: var(--radius-s); font: 600 1rem ui-monospace, Consolas, monospace; }
+.page-security .state { display: inline-block; padding: .2rem .7rem; border-radius: 999px; font-weight: 700; font-size: .85rem; }
+.page-security .state.on { background: #d8f5ee; color: #0d6b58; }
+.page-security .state.off { background: #fde8e8; color: #9b1c1c; }
+.page-security .actions { display: flex; gap: .6rem; flex-wrap: wrap; margin-top: 1rem; }
+.page-security .code-row { display: flex; gap: .6rem; flex-wrap: wrap; align-items: flex-end; }
+.page-security .code-row .field { flex: 1; min-width: 180px; margin: 0; }
+@media (max-width: 480px) { .page-security .codes { grid-template-columns: 1fr; } }

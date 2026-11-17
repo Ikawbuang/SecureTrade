@@ -26,6 +26,7 @@ function reset(status = 'accepted', extra = {}) {
     trade: { transaction_id: '7', buyer_id: BUYER, seller_id: SELLER, status, amount: '200.00', item_description: 'x', item_type: 'item', delivered_at: null, created_by: BUYER, ...extra },
     session: { session_id: 'ps-1', transaction_id: '7', amount: '200.00', status: 'ACTIVE', payment_id: null },
     escrow: [], logs: [], proofs: [], inactive: 0, created: 0, released: false, pin: null, xenditSession: { status: 'ACTIVE' },
+    twofa: null, recovery: [], loginUser: null, passwordHash: null,
     fails: {}, noFailTable: false, resetUser: null, resetAsked: 0, pinsIssued: 0,
     calls: [], qrOpen: null, prState: { status: 'REQUIRES_ACTION' }, pendingFiles: [], refundSql: null, notes: [], failNotes: false, paidAt: new Date(), existingEmail: null,
   };
@@ -40,6 +41,31 @@ function fakeQuery(sql, p = []) {
     if (/^DELETE FROM login_failures WHERE key/.test(sql)) { delete db.fails[p[0]]; return { rows: [] }; }
     return { rows: [] };
   }
+  if (/AS open_disputes/.test(sql)) return { rows: [{ open_disputes: 0, held: 0 }] };   // the admin overview numbers
+  // Two-step sign-in. db.twofa = null means migration 007 was not run (the columns do not exist).
+  if (/totp_secret, totp_pending_secret, totp_enabled_at/.test(sql)) {
+    if (!db.twofa) throw Object.assign(new Error('column "totp_secret" does not exist'), { code: '42703' });
+    return { rows: [{ role: String(p[0]) === ADMIN ? 'admin' : 'user', totp_secret: db.twofa.secret, totp_pending_secret: db.twofa.pending,
+      totp_enabled_at: db.twofa.secret ? new Date() : null, totp_last_step: db.twofa.lastStep }] };
+  }
+  if (/UPDATE users SET totp_last_step/.test(sql)) {
+    if (db.twofa.lastStep === null || db.twofa.lastStep < p[1]) { db.twofa.lastStep = p[1]; return { rows: [{ user_id: p[0] }] }; }
+    return { rows: [] };
+  }
+  if (/UPDATE users SET totp_pending_secret/.test(sql)) { db.twofa.pending = p[0]; return { rows: [] }; }
+  if (/SET totp_secret = totp_pending_secret/.test(sql)) { db.twofa.secret = db.twofa.pending; db.twofa.pending = null; db.twofa.lastStep = p[1]; return { rows: [] }; }
+  if (/UPDATE recovery_codes SET used_at/.test(sql)) {
+    const i = db.recovery.indexOf(p[1]);
+    if (i < 0) return { rows: [] };
+    db.recovery.splice(i, 1);
+    return { rows: [{ code_id: 1 }] };
+  }
+  if (/DELETE FROM recovery_codes/.test(sql)) { db.recovery = []; return { rows: [] }; }
+  if (/INSERT INTO recovery_codes/.test(sql)) { db.recovery.push(p[1]); return { rows: [] }; }
+  if (/FROM recovery_codes/.test(sql)) return { rows: [{ n: db.recovery.length }] };
+  if (/SELECT username, email, password_hash FROM users/.test(sql)) return { rows: [{ username: 'boss', email: 'boss@example.com', password_hash: db.passwordHash }] };
+  if (/^SELECT email FROM users WHERE user_id/.test(sql)) return { rows: [{ email: 'boss@example.com' }] };
+  if (/SELECT \* FROM users WHERE (email|user_id)/.test(sql)) return { rows: db.loginUser ? [{ ...db.loginUser }] : [] };
   if (/SELECT user_id FROM users WHERE email = \$1 AND account_status/.test(sql)) return { rows: db.resetUser ? [{ user_id: db.resetUser }] : [] };
   if (/action = 'reset_requested'/.test(sql)) return { rows: [{ n: db.resetAsked }] };
   if (/INSERT INTO email_pins/.test(sql)) { db.pinsIssued++; return { rows: [{ pin_id: 1 }] }; }
@@ -718,6 +744,136 @@ test('the return link never sends anyone to localhost on a live site', async () 
   } finally {
     delete process.env.NODE_ENV;
   }
+});
+
+
+// ---------- Two-step sign-in for admins (audit item H4) ----------
+const totp = require('../lib/totp');
+const SECRET = totp.base32Encode(Buffer.from('12345678901234567890'));   // the secret of the standard's own examples
+const codeNow = () => totp.codeAt(SECRET, totp.currentStep());
+const twoFactorOn = () => { db.twofa = { secret: totp.encryptSecret(SECRET), pending: null, lastStep: null }; };
+
+test('the 6-digit codes match the published examples of the standard', () => {
+  assert.equal(totp.codeAt(SECRET, Math.floor(59 / 30)), '287082');            // RFC 6238: 94287082 at 59 seconds
+  assert.equal(totp.codeAt(SECRET, Math.floor(1111111109 / 30)), '081804');    // 07081804
+  assert.equal(totp.codeAt(SECRET, Math.floor(20000000000 / 30)), '353130');   // 65353130
+  assert.equal(totp.base32Decode(totp.base32Encode(Buffer.from('hello world'))).toString(), 'hello world');
+});
+
+test('a code works one step early or late, and never twice', () => {
+  const now = 1700000000000;
+  const step = totp.currentStep(now);
+  assert.equal(totp.matchStep(SECRET, totp.codeAt(SECRET, step), null, now), step);
+  assert.equal(totp.matchStep(SECRET, totp.codeAt(SECRET, step - 1), null, now), step - 1);
+  assert.equal(totp.matchStep(SECRET, totp.codeAt(SECRET, step + 1), null, now), step + 1);
+  assert.equal(totp.matchStep(SECRET, totp.codeAt(SECRET, step - 2), null, now), null, 'two steps old is too old');
+  assert.equal(totp.matchStep(SECRET, totp.codeAt(SECRET, step), step, now), 'used');
+  assert.equal(totp.matchStep(SECRET, 'abcdef', null, now), null);
+  assert.equal(totp.matchStep(SECRET, '', null, now), null);
+});
+
+test('the authenticator secret is saved encrypted, and a changed copy is refused', () => {
+  const saved = totp.encryptSecret(SECRET);
+  assert.ok(!saved.includes(SECRET));
+  assert.notEqual(saved, totp.encryptSecret(SECRET), 'a fresh random start each time');
+  assert.equal(totp.decryptSecret(saved), SECRET);
+  const parts = saved.split('.');
+  parts[3] = parts[3].slice(0, -2) + (parts[3].endsWith('AA') ? 'BB' : 'AA');
+  assert.throws(() => totp.decryptSecret(parts.join('.')));
+});
+
+test('an admin with two-step sign-in gets a ticket after the password, and signs in with the code', async () => {
+  twoFactorOn();
+  db.loginUser = { user_id: ADMIN, email: 'boss@example.com', username: 'boss', role: 'admin', account_status: 'active', password_hash: bcrypt.hashSync('right-password-1', 4), session_id: null };
+  const first = await post('/login', null, { email: 'boss@example.com', password: 'right-password-1' });
+  assert.equal(first.status, 200);
+  assert.equal(first.body.code, 'CODE_NEEDED');
+  assert.equal(first.body.token, undefined, 'the password alone gives no login');
+
+  const res = await fetch(base + '/me', { headers: { Authorization: 'Bearer ' + first.body.ticket } });
+  assert.equal(res.status, 401, 'the ticket cannot be used as a login');
+
+  const second = await post('/login/2fa', null, { ticket: first.body.ticket, code: codeNow() });
+  assert.equal(second.status, 200);
+  assert.ok(second.body.token);
+  assert.equal(second.body.user.role, 'admin');
+
+  const bad = await post('/login/2fa', null, { ticket: 'not-a-ticket', code: codeNow() });
+  assert.equal(bad.status, 401);
+});
+
+test('a wrong code, a used code and a used recovery code are refused; 5 wrong codes lock', async () => {
+  twoFactorOn();
+  assert.equal(await totp.checkSecondFactor(ADMIN, codeNow()), 'code');
+  await assert.rejects(totp.checkSecondFactor(ADMIN, codeNow()), /already used/);
+
+  const [recovery] = totp.newRecoveryCodes();
+  db.recovery = [totp.hashRecovery(recovery)];
+  assert.match(recovery, /^[A-Z2-7]{4}-[A-Z2-7]{4}-[A-Z2-7]{4}$/);
+  assert.equal(await totp.checkSecondFactor(ADMIN, recovery.toLowerCase()), 'recovery', 'small letters and dashes do not matter');
+  await assert.rejects(totp.checkSecondFactor(ADMIN, recovery), /wrong or was already used/);
+  assert.ok(db.logs.includes('twofa_recovery_used'));
+
+  db.fails = {};
+  for (let i = 0; i < 5; i++) await assert.rejects(totp.checkSecondFactor(ADMIN, '000000'), err => err.status === 403 && err.code === 'CODE_WRONG');
+  await assert.rejects(totp.checkSecondFactor(ADMIN, '000000'), err => err.status === 429);
+});
+
+test('the admin panel stays locked until two-step sign-in is set up', async () => {
+  db.twofa = { secret: null, pending: null, lastStep: null };
+  const locked = await get('/admin/overview', ADMIN);
+  assert.equal(locked.status, 403);
+  assert.equal(locked.body.code, 'TOTP_SETUP_REQUIRED');
+  twoFactorOn();
+  assert.equal((await get('/admin/overview', ADMIN)).status, 200);
+  assert.equal((await get('/admin/overview', BUYER)).status, 403, 'still admins only');
+});
+
+test('an admin refund needs a fresh code', async () => {
+  reset('paid');
+  twoFactorOn();
+  const none = await post('/admin/transactions/7/refund', ADMIN, { note: 'seller was banned' });
+  assert.equal(none.status, 403);
+  assert.equal(none.body.code, 'CODE_REQUIRED');
+  const wrong = await post('/admin/transactions/7/refund', ADMIN, { note: 'seller was banned', code: '000000' });
+  assert.equal(wrong.status, 403);
+  assert.equal(wrong.body.code, 'CODE_WRONG');
+  assert.equal(db.refundSql, null, 'nothing was refunded');
+  const right = await post('/admin/transactions/7/refund', ADMIN, { note: 'seller was banned', code: codeNow() });
+  assert.equal(right.status, 200);
+  assert.ok(db.refundSql);
+});
+
+test('setting it up: password, scan, one code, then 8 recovery codes', async () => {
+  db.twofa = { secret: null, pending: null, lastStep: null };
+  db.passwordHash = bcrypt.hashSync('right-password-1', 4);
+  assert.equal((await post('/2fa/setup', BUYER, { password: 'right-password-1' })).status, 403, 'admin accounts only, for now');
+  assert.equal((await post('/2fa/setup', ADMIN, { password: 'wrong' })).status, 400);
+
+  const setup = await post('/2fa/setup', ADMIN, { password: 'right-password-1' });
+  assert.equal(setup.status, 200);
+  assert.match(setup.body.secret, /^[A-Z2-7]{32}$/);
+  assert.match(setup.body.qr_image, /^data:image\/png;base64,/);
+  assert.equal(db.twofa.secret, null, 'not on until a code proves the scan worked');
+
+  assert.equal((await post('/2fa/enable', ADMIN, { code: '000000' })).status, 400);
+  const on = await post('/2fa/enable', ADMIN, { code: totp.codeAt(setup.body.secret, totp.currentStep()) });
+  assert.equal(on.status, 200);
+  assert.equal(on.body.recovery_codes.length, 8);
+  assert.equal(db.recovery.length, 8);
+  assert.ok(!db.recovery.includes(on.body.recovery_codes[0]), 'only hashes are saved');
+  assert.equal(totp.decryptSecret(db.twofa.secret), setup.body.secret);
+  assert.ok(db.logs.includes('twofa_enabled'));
+
+  const status = await get('/2fa', ADMIN);
+  assert.deepEqual(status.body, { available: true, enabled: true, required: true, recovery_codes_left: 8 });
+});
+
+test('before migration 007 is run, nothing about sign-in or the admin panel changes', async () => {
+  assert.equal(db.twofa, null);
+  assert.deepEqual((await get('/2fa', ADMIN)).body, { available: false, enabled: false, required: false, recovery_codes_left: 0 });
+  assert.equal((await get('/admin/overview', ADMIN)).status, 200);
+  assert.equal((await post('/2fa/setup', ADMIN, { password: 'x' })).status, 503);
 });
 
 // Keep this one last: after it, the server stays on the in-memory count for the rest of the run

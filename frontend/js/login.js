@@ -6,6 +6,7 @@ const forms = {
   login:    $('form-login'),
   register: $('form-register'),
   verify:   $('form-verify'),
+  code:     $('form-code'),
   forgot:   $('form-forgot'),
   reset:    $('form-reset')
 };
@@ -99,9 +100,47 @@ async function doLogin(force) {
     password: $('login-password').value,
     force: !!force
   });
+  // An account with two-step sign-in: the password was right, now the 6-digit code
+  if (data.code === 'CODE_NEEDED') {
+    loginTicket = data.ticket;
+    show('code');
+    $('code-input').value = '';
+    $('code-input').focus();
+    return;
+  }
   saveSession(data);
   goHome(data.user);
 }
+
+// ---------- Sign in, step 2: the code from the authenticator app ----------
+let loginTicket = '';
+
+async function sendCode(force) {
+  const data = await callApi('/login/2fa', { ticket: loginTicket, code: $('code-input').value.trim(), force: !!force });
+  saveSession(data);
+  goHome(data.user);
+}
+
+$('form-code').addEventListener('submit', async e => {
+  e.preventDefault();
+  setMessage('code-error', '');
+  const btn = $('code-submit');
+  btn.disabled = true;
+  try {
+    try {
+      await sendCode(false);
+    } catch (err) {
+      if (err.code !== 'ALREADY_LOGGED_IN') throw err;
+      // The account is open somewhere else. The code was not used up, so it can be sent again.
+      const go = await UI.confirm(err.message, { title: 'Sign out the other device?', okText: 'Continue', cancelText: 'Cancel' });
+      if (go) await sendCode(true);
+    }
+  } catch (err) {
+    setMessage('code-error', netError(err));
+    $('code-input').select();
+  }
+  btn.disabled = false;
+});
 
 $('form-login').addEventListener('submit', async e => {
   e.preventDefault();

@@ -13,7 +13,7 @@
 
   // ---------- Pop-up cards ----------
   // Resolves with true (OK), the typed text (prompt), or null (Cancel, Esc, or a click outside).
-  function popup({ title, text, field, okText = 'OK', cancelText, danger, minLength = 0 }) {
+  function popup({ title, text, field, code, okText = 'OK', cancelText, danger, minLength = 0 }) {
     return new Promise(resolve => {
       const dlg = make('dialog', 'ui-pop');
       const form = make('form', 'ui-pop-body');
@@ -24,7 +24,17 @@
       if (text) form.appendChild(make('p', 'ui-pop-text', text));
 
       let input = null;
-      if (field) {
+      if (code) {
+        // A 6-digit code from an authenticator app (a recovery code also fits)
+        input = make('input', 'ui-pop-code');
+        input.type = 'text';
+        input.inputMode = 'numeric';
+        input.autocomplete = 'one-time-code';
+        input.maxLength = 14;
+        input.placeholder = '6-digit code';
+        input.setAttribute('aria-label', '6-digit code from your authenticator app');
+        form.appendChild(input);
+      } else if (field) {
         input = make('textarea');
         input.rows = 3;
         input.maxLength = 500;
@@ -63,7 +73,7 @@
         if (!input) return finish(true);
         const value = input.value.trim();
         if (value.length < minLength) {
-          error.textContent = 'Write at least ' + minLength + ' characters.';
+          error.textContent = code ? 'Enter the 6-digit code from your authenticator app.' : 'Write at least ' + minLength + ' characters.';
           error.hidden = false;
           input.focus();
           return;
@@ -85,6 +95,10 @@
     },
     async confirm(text, { title = 'Are you sure?', okText = 'Yes, continue', cancelText = 'Go back', danger = false } = {}) {
       return (await popup({ title, text, okText, cancelText, danger })) === true;
+    },
+    // Asks for the 6-digit code. Gives the code, or null when the person goes back.
+    code(text, { title = 'Enter your code', okText = 'Confirm', danger = false } = {}) {
+      return popup({ title, text, code: true, okText, cancelText: 'Go back', minLength: 6, danger });
     },
     prompt(text, { title = 'Add a note', placeholder = 'Type here', okText = 'Continue', minLength = 0, danger = false } = {}) {
       return popup({ title, text, field: placeholder, okText, cancelText: 'Cancel', minLength, danger });

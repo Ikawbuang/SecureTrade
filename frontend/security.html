@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Security – SecureTrade</title>
+  <link rel="icon" href="data:,">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=Figtree:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/global.css">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body class="page-profile page-security">
+  <div class="app">
+
+    <nav class="sidebar" aria-label="Main">
+      <a class="brand" href="admin-dashboard.html">Secure<span>Trade</span></a>
+      <a href="admin-dashboard.html">Admin panel</a>
+      <a href="security.html" aria-current="page">Security</a>
+      <div class="spacer">
+        <a href="login.html" id="signout">Sign out</a>
+      </div>
+    </nav>
+
+    <main class="main">
+
+      <header class="page-head">
+        <h1>Two-step sign-in</h1>
+        <p>After your password, signing in also needs a 6-digit code from an app on your phone. Admin accounts must use it.</p>
+      </header>
+
+      <p class="form-error" id="page-error" role="alert" hidden></p>
+
+      <!-- Where I stand -->
+      <section class="card" id="status-card" hidden>
+        <h2>Status <span class="state" id="state"></span></h2>
+        <p id="status-text" style="margin:0; color:var(--text-soft)"></p>
+        <div class="actions" id="status-actions" hidden>
+          <button class="btn btn-outline" type="button" id="new-codes">Get new recovery codes</button>
+          <button class="btn btn-outline" type="button" id="move-phone">Move to a new phone</button>
+          <a class="btn btn-primary" href="admin-dashboard.html">Open the admin panel</a>
+        </div>
+      </section>
+
+      <!-- Step 1: my password -->
+      <section class="card" id="step-password" hidden>
+        <h2>Step 1: get an authenticator app</h2>
+        <ol class="steps">
+          <li>On your phone, install an authenticator app: Google Authenticator, Microsoft Authenticator, or Authy.</li>
+          <li>Type your SecureTrade password below to continue.</li>
+        </ol>
+        <form id="password-form">
+          <div class="field">
+            <label for="sec-password">Your password</label>
+            <input id="sec-password" type="password" autocomplete="current-password" required>
+          </div>
+          <div class="field" id="move-code-field" hidden>
+            <label for="sec-move-code">A code from your current app, or a recovery code</label>
+            <input id="sec-move-code" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="14">
+          </div>
+          <p class="form-error" id="password-error" role="alert" hidden></p>
+          <button class="btn btn-primary" type="submit" id="password-submit">Continue</button>
+        </form>
+      </section>
+
+      <!-- Step 2: scan and prove it -->
+      <section class="card" id="step-scan" hidden>
+        <h2>Step 2: scan this with the app</h2>
+        <div class="qr-box">
+          <img id="qr" alt="QR code to scan with your authenticator app">
+          <div>
+            <p style="margin:0 0 .4rem">Cannot scan? Type this key into the app instead:</p>
+            <p class="secret" id="secret"></p>
+            <p class="hint" id="account"></p>
+          </div>
+        </div>
+        <form id="code-form">
+          <div class="code-row">
+            <div class="field">
+              <label for="sec-code">The 6-digit code the app shows now</label>
+              <input id="sec-code" class="pin-input" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="••••••" required>
+            </div>
+            <button class="btn btn-primary" type="submit" id="code-submit">Turn it on</button>
+          </div>
+          <p class="form-error" id="code-error" role="alert" hidden style="margin-top:.75rem"></p>
+        </form>
+      </section>
+
+      <!-- Step 3: recovery codes, shown once -->
+      <section class="card" id="step-codes" hidden>
+        <h2>Save your recovery codes</h2>
+        <p style="margin:0; color:var(--text-soft)">If you lose your phone, each of these codes signs you in once. They are shown only now. Write them down or save them somewhere safe, not in your email.</p>
+        <ul class="codes" id="codes"></ul>
+        <div class="actions">
+          <button class="btn btn-outline" type="button" id="copy-codes">Copy the codes</button>
+          <a class="btn btn-primary" href="admin-dashboard.html" id="codes-done">I saved them, open the admin panel</a>
+        </div>
+        <p class="form-ok" id="copied" role="status" hidden>Copied.</p>
+      </section>
+
+    </main>
+  </div>
+
+  <script src="js/data.js"></script>
+  <script src="js/ui.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/security.js"></script>
+</body>
+</html>

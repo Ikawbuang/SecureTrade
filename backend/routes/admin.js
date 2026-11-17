@@ -4,6 +4,7 @@ const { assertPaymentHeld, getDeliveryProofs, markPaymentRefunded, releasePaymen
 const { removeVerifFile } = require('../lib/uploads');
 const { notify } = require('../lib/notify');
 const { checkoutEnabled, xenditRequest } = require('../lib/xendit');
+const { requireFreshCode } = require('../lib/totp');
 
 
 // ---------- Admin ----------
@@ -167,7 +168,7 @@ function register(app) {
 
   // Refund the buyer through Xendit, or close the review because it was handled another way.
   // The trade stays locked during the refund, so two admins can never refund the same payment.
-  app.post('/api/admin/payment-reviews/:id/resolve', auth, adminOnly, route(async (req, res) => {
+  app.post('/api/admin/payment-reviews/:id/resolve', auth, adminOnly, requireFreshCode, route(async (req, res) => {
     const action = req.body.action;
     const note = String(req.body.note || '').trim();
     requireNumeric(req.params.id, 'Invalid review.');
@@ -560,7 +561,7 @@ function register(app) {
 
 
   // The admin's decision: pay the seller or refund the buyer. It cannot be changed afterwards.
-  app.post('/api/admin/disputes/:id/resolve', auth, adminOnly, route(async (req, res) => {
+  app.post('/api/admin/disputes/:id/resolve', auth, adminOnly, requireFreshCode, route(async (req, res) => {
     const decision = req.body.decision;
     const note = String(req.body.note || '').trim();
     requireNumeric(req.params.id, 'Invalid dispute.');
@@ -709,7 +710,7 @@ function register(app) {
 
   // Refund the buyer in full without a dispute, for a trade whose payment is held
   // (for example when the seller was banned). A note is needed, and both people can see it.
-  app.post('/api/admin/transactions/:id/refund', auth, adminOnly, route(async (req, res) => {
+  app.post('/api/admin/transactions/:id/refund', auth, adminOnly, requireFreshCode, route(async (req, res) => {
     const note = String(req.body.note || '').trim();
     requireNumeric(req.params.id, 'Invalid trade.');
     requireNote(note, 300, 'Write a short note that explains why.');
@@ -737,7 +738,7 @@ function register(app) {
 
   // Pay the seller when the item was delivered but one of the two accounts is suspended or banned,
   // so the trade cannot finish by itself. A note is needed.
-  app.post('/api/admin/transactions/:id/release', auth, adminOnly, route(async (req, res) => {
+  app.post('/api/admin/transactions/:id/release', auth, adminOnly, requireFreshCode, route(async (req, res) => {
     const note = String(req.body.note || '').trim();
     requireNumeric(req.params.id, 'Invalid trade.');
     requireNote(note, 300, 'Write a short note that explains why.');

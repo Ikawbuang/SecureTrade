@@ -91,6 +91,23 @@
           <p class="auth-switch">New here? <a href="#" data-switch="register">Create an account</a></p>
         </form>
 
+        <!-- Sign in (step 2, admin accounts): the code from the authenticator app -->
+        <form id="form-code" hidden>
+          <h2>Enter your code</h2>
+          <p class="hint" style="margin-bottom:1.5rem">Open your authenticator app and type the 6-digit code for SecureTrade.</p>
+
+          <div class="field">
+            <label for="code-input">6-digit code</label>
+            <input id="code-input" class="pin-input" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="14" placeholder="••••••" required>
+            <p class="hint">Lost your phone? Type one of your recovery codes instead.</p>
+          </div>
+
+          <p class="form-error" id="code-error" role="alert" hidden></p>
+
+          <button class="btn btn-primary btn-block" type="submit" id="code-submit">Sign in</button>
+          <p class="auth-switch"><a href="#" data-switch="login">Back to sign in</a></p>
+        </form>
+
         <!-- Create account (step 1) -->
         <form id="form-register" aria-labelledby="tab-register" hidden data-keep>
           <h2>Create your account</h2>

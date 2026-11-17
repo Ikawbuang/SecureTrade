@@ -91,7 +91,14 @@ async function readReply(res) {
     goToSupport();
     throw new Error(data.message || 'Your account is suspended.');
   }
-  if (!res.ok) throw new Error(data.message || 'Something went wrong. Please try again.');
+  if (res.status === 403 && data.code === 'TOTP_SETUP_REQUIRED' && !/security\.html$/.test(location.pathname)) {
+    window.location.href = 'security.html';
+  }
+  if (!res.ok) {
+    const err = new Error(data.message || 'Something went wrong. Please try again.');
+    err.code = data.code;
+    throw err;
+  }
   return data;
 }
 

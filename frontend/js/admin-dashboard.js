@@ -182,6 +182,10 @@ function describe(a) {
     case 'verification_rejected':  return 'verification rejected ' + detail;
     case 'login_blocked':          return 'had sign-in blocked after too many wrong passwords ' + detail;
     case 'reset_requested':        return 'asked for a password-reset PIN';
+    case 'twofa_enabled':          return 'turned on two-step sign-in' + (detail ? ' (' + detail + ')' : '');
+    case 'twofa_recovery_used':    return 'signed in or confirmed with a recovery code';
+    case 'twofa_recovery_renewed': return 'made new recovery codes';
+    case 'twofa_reset':            return 'had two-step sign-in reset ' + detail;
     case 'payment_needs_review':   return 'has a payment that needs an admin: ' + detail;
     case 'payment_review_refunded': return 'refunded a payment under review. ' + detail;
     case 'payment_review_closed':  return 'closed a payment under review. ' + detail;
@@ -326,6 +330,17 @@ function markAlertsSeen() {
   navCount('nav-alert-count', 0);
 }
 
+// ---------- A money action: "are you sure?", plus the 6-digit code when two-step sign-in is on ----------
+// Gives what to add to the request ({ code } or nothing), or null when the admin goes back.
+let twoStepOn = false;
+apiFetch('/2fa').then(s => { twoStepOn = s.enabled; }).catch(() => {});
+
+async function confirmMoney(text, options) {
+  if (!twoStepOn) return (await UI.confirm(text, options)) ? {} : null;
+  const code = await UI.code(text + '\n\nType the 6-digit code from your authenticator app to confirm.', options);
+  return code === null ? null : { code };
+}
+
 // ---------- Payments to review ----------
 async function decidePaymentReview(r, action, button) {
   const note = await UI.prompt('At least 5 characters. It is saved in the log.', {
@@ -333,11 +348,14 @@ async function decidePaymentReview(r, action, button) {
     placeholder: 'Your note', minLength: 5,
   });
   if (note === null) return;
-  if (action === 'refund' && !(await UI.confirm('Refund ' + peso(r.amount) + ' to @' + r.buyer_username + ' through Xendit? This cannot be undone.', { title: 'Refund this payment?', okText: 'Refund', danger: true }))) return;
+  const extra = action === 'refund'
+    ? await confirmMoney('Refund ' + peso(r.amount) + ' to @' + r.buyer_username + ' through Xendit? This cannot be undone.', { title: 'Refund this payment?', okText: 'Refund', danger: true })
+    : await confirmMoney('Close this review without a refund? Do this only if the payment was already handled another way.', { title: 'Close this review?', okText: 'Close review' });
+  if (!extra) return;
 
   button.disabled = true;
   try {
-    await postJson('/admin/payment-reviews/' + r.log_id + '/resolve', { action, note });
+    await postJson('/admin/payment-reviews/' + r.log_id + '/resolve', { action, note, ...extra });
     await load();
   } catch (err) {
     UI.alert(netError(err));
@@ -944,11 +962,12 @@ async function decide(decision) {
   const question = decision === 'refund'
     ? 'Refund ' + peso(current.amount) + ' to @' + current.buyer_username + '? This cannot be undone.'
     : 'Pay @' + current.seller_username + ' for this trade? This cannot be undone.';
-  if (!(await UI.confirm(question, { title: decision === 'refund' ? 'Refund the buyer?' : 'Pay the seller?', okText: decision === 'refund' ? 'Refund' : 'Pay the seller', danger: true }))) return;
+  const extra = await confirmMoney(question, { title: decision === 'refund' ? 'Refund the buyer?' : 'Pay the seller?', okText: decision === 'refund' ? 'Refund' : 'Pay the seller', danger: true });
+  if (!extra) return;
 
   submitDecision({
     path: '/admin/disputes/' + current.dispute_id + '/resolve',
-    body: { decision, note },
+    body: { decision, note, ...extra },
     errorId: 'rv-error',
     buttonIds: DISPUTE_BUTTONS,
     dialogId: 'review',
@@ -1013,11 +1032,12 @@ $('td-refund-btn').addEventListener('click', async () => {
   setMessage('td-refund-error', '');
   const note = $('td-refund-note').value.trim();
   if (note.length < 5) { setMessage('td-refund-error', 'Write a short note that explains why.'); return; }
-  if (!(await UI.confirm('Refund ' + peso(currentTrade.amount) + ' to @' + currentTrade.buyer_username + '? This cannot be undone.', { title: 'Refund the buyer?', okText: 'Refund', danger: true }))) return;
+  const extra = await confirmMoney('Refund ' + peso(currentTrade.amount) + ' to @' + currentTrade.buyer_username + '? This cannot be undone.', { title: 'Refund the buyer?', okText: 'Refund', danger: true });
+  if (!extra) return;
 
   submitDecision({
     path: '/admin/transactions/' + currentTrade.transaction_id + '/refund',
-    body: { note },
+    body: { note, ...extra },
     errorId: 'td-refund-error',
     buttonIds: ['td-refund-btn', 'td-release-btn'],
     dialogId: 'trade-dialog',
@@ -1030,11 +1050,12 @@ $('td-release-btn').addEventListener('click', async () => {
   setMessage('td-refund-error', '');
   const note = $('td-refund-note').value.trim();
   if (note.length < 5) { setMessage('td-refund-error', 'Write a short note that explains why.'); return; }
-  if (!(await UI.confirm('Release ' + peso(currentTrade.amount) + ' to @' + currentTrade.seller_username + '? This cannot be undone.', { title: 'Pay the seller?', okText: 'Release', danger: true }))) return;
+  const extra = await confirmMoney('Release ' + peso(currentTrade.amount) + ' to @' + currentTrade.seller_username + '? This cannot be undone.', { title: 'Pay the seller?', okText: 'Release', danger: true });
+  if (!extra) return;
 
   submitDecision({
     path: '/admin/transactions/' + currentTrade.transaction_id + '/release',
-    body: { note },
+    body: { note, ...extra },
     errorId: 'td-refund-error',
     buttonIds: ['td-refund-btn', 'td-release-btn'],
     dialogId: 'trade-dialog',

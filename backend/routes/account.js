@@ -2,6 +2,8 @@ const bcrypt = require('bcryptjs');
 const { MAX_FAILS_PER_ACCOUNT, assertLoginAllowed, auth, clearLoginFailures, recordLoginFailure, warnAboutBlockedLogin } = require('../lib/auth');
 const { EMAIL_RE, HttpError, IDLE_MINUTES, NAME_PART_RE, USERNAME_RE, assertGoodPassword, cleanEmail, cleanName, logActivity, pool, queryOne, route, signToken, splitFullName, startSession, verifiedSql } = require('../lib/core');
 const { checkPin, deletePins, issuePin, sendSecurityNotice } = require('../lib/mail');
+const jwt = require('jsonwebtoken');
+const { checkSecondFactor, getTwoFactor } = require('../lib/totp');
 
 // Compared against when the email is unknown, so a wrong email is as slow as a wrong password
 const DUMMY_HASH = bcrypt.hashSync('no account has this password', 10);
@@ -9,6 +11,54 @@ const DUMMY_HASH = bcrypt.hashSync('no account has this password', 10);
 // One account can ask for this many password-reset PINs in 24 hours. Each PIN allows 5 guesses,
 // so nobody gets more than 25 guesses a day at a 6-digit PIN, however many computers they use.
 const MAX_RESET_PINS_PER_DAY = 5;
+
+// Between the password and the 6-digit code, the page holds this ticket for a few minutes.
+// It only proves "the password was right"; it cannot be used as a login.
+const TICKET_MINUTES = 5;
+
+const signTicket = userId => jwt.sign({ user_id: userId, purpose: '2fa' }, process.env.JWT_SECRET, { expiresIn: TICKET_MINUTES + 'm' });
+
+function readTicket(ticket) {
+  try {
+    const data = jwt.verify(String(ticket || ''), process.env.JWT_SECRET);
+    if (data.purpose === '2fa') return data;
+  } catch { /* expired or not ours */ }
+  throw new HttpError(401, 'That took too long. Please sign in again.');
+}
+
+
+// Is this account in use on another device right now?
+const otherDeviceActive = user => !!(user.session_id && user.last_activity_at &&
+  Date.now() - new Date(user.last_activity_at).getTime() <= IDLE_MINUTES * 60000);
+
+const ALREADY_LOGGED_IN = {
+  code: 'ALREADY_LOGGED_IN',
+  message: 'This account is already logged in on another device. If you continue, the other device will be signed out.'
+};
+
+// The last part of every sign-in: the account must be allowed in, another device is warned about,
+// and a new session starts.
+async function finishLogin(user, force, res) {
+  const status = String(user.account_status);
+  if (status === 'banned') throw new HttpError(403, 'This account was banned.');
+  if (status !== 'active' && status !== 'suspended') throw new HttpError(403, 'This account is not active.');
+
+  // The password is right, so it is safe to say the account is open somewhere else
+  if (otherDeviceActive(user) && !force) return res.status(409).json(ALREADY_LOGGED_IN);
+
+  const sid = await startSession(user.user_id);
+  const token = signToken(user, sid);
+  res.json({
+    token,
+    user: {
+      user_id: user.user_id, first_name: user.first_name, last_name: user.last_name,
+      full_name: user.full_name, username: user.username,
+      email: user.email, role: user.role, avatar_file: user.avatar_file,
+      account_status: status,
+      verified: !!user.verified_at || user.role === 'admin'
+    },
+  });
+}
 
 
 
@@ -188,32 +238,28 @@ function register(app) {
     }
     await clearLoginFailures(accountKey);
 
-    const status = String(user.account_status);
-    if (status === 'banned') throw new HttpError(403, 'This account was banned.');
-    if (status !== 'active' && status !== 'suspended') throw new HttpError(403, 'This account is not active.');
-
-    // The password is right, so it is safe to say the account is open somewhere else
-    const otherDeviceActive = user.session_id && user.last_activity_at &&
-      Date.now() - new Date(user.last_activity_at).getTime() <= IDLE_MINUTES * 60000;
-    if (otherDeviceActive && !force) {
-      return res.status(409).json({
-        code: 'ALREADY_LOGGED_IN',
-        message: 'This account is already logged in on another device. If you continue, the other device will be signed out.'
-      });
+    // An account with two-step sign-in gets a ticket now, and signs in with its 6-digit code next
+    if (String(user.account_status) !== 'banned' && (await getTwoFactor(pool, user.user_id)).enabled) {
+      return res.json({ code: 'CODE_NEEDED', ticket: signTicket(user.user_id), minutes: TICKET_MINUTES });
     }
+    await finishLogin(user, force, res);
+  }));
 
-    const sid = await startSession(user.user_id);
-    const token = signToken(user, sid);
-    res.json({
-      token,
-      user: {
-        user_id: user.user_id, first_name: user.first_name, last_name: user.last_name,
-        full_name: user.full_name, username: user.username,
-        email: user.email, role: user.role, avatar_file: user.avatar_file,
-        account_status: status,
-        verified: !!user.verified_at || user.role === 'admin'
-      },
-    });
+
+  // ---------- Login, second step: the 6-digit code (or a recovery code) ----------
+  app.post('/api/login/2fa', route(async (req, res) => {
+    const ticket = readTicket(req.body.ticket);
+    const user = await queryOne(pool, 'SELECT * FROM users WHERE user_id = $1', [ticket.user_id]);
+    if (!user) throw new HttpError(401, 'Please sign in again.');
+    // Asked first, so the same code can still be sent again with "continue" (a code only works once)
+    if (otherDeviceActive(user) && req.body.force !== true) return res.status(409).json(ALREADY_LOGGED_IN);
+    const how = await checkSecondFactor(user.user_id, req.body.code, { wrongStatus: 400 });
+    if (how === 'recovery') {
+      sendSecurityNotice(user.email, 'A recovery code was used to sign in to SecureTrade',
+        'Someone just signed in to your SecureTrade account with one of your recovery codes instead of the authenticator app.\n\n' +
+        'If this was not you, change your password now and contact the site owner.');
+    }
+    await finishLogin(user, req.body.force === true, res);
   }));
 
 
