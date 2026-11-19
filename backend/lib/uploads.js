@@ -4,6 +4,7 @@ const multer = require('multer');
 const path = require('path');
 const { HttpError, sendError } = require('./core');
 const { makeStorage } = require('./storage');
+const { BadImage, stripImage } = require('./imagemeta');
 const ROOT = path.join(__dirname, '..');
 
 
@@ -89,9 +90,25 @@ async function removeFiles(files) {
 }
 
 
-// Keep checked uploads for good: online they move to the Supabase bucket. Call it after the image
-// checks and before saving the file names in the database.
+// Remove the hidden data (location, phone model, dates) from an uploaded picture, in place.
+// A picture that cannot be read is refused, so it is never kept with its hidden data.
+async function stripHiddenData(file) {
+  const before = await fs.promises.readFile(file.path);
+  let after;
+  try {
+    after = stripImage(before, path.extname(file.filename).toLowerCase());
+  } catch (err) {
+    if (err instanceof BadImage) throw new HttpError(400, 'One of the pictures could not be read. Please try another picture or a screenshot.');
+    throw err;
+  }
+  if (after !== before) await fs.promises.writeFile(file.path, after);
+}
+
+
+// Keep checked uploads for good: their hidden data is removed, and online they move to the
+// Supabase bucket. Call it after the image checks and before saving the file names in the database.
 async function saveUploads(files) {
+  for (const f of files || []) await stripHiddenData(f);
   for (const f of files || []) await storage.put(folderOf(path.dirname(f.path)), f);
 }
 

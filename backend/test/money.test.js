@@ -155,7 +155,7 @@ global.setInterval = realSetInterval;
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 const UPLOADS = path.join(__dirname, '..', 'uploads');
-const PNG = Buffer.from('89504e470d0a1a0a0000000d49484452', 'hex');
+const PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==', 'base64');   // a complete 1x1 picture
 const PAID = { status: 'COMPLETED', amount: 200, payment_id: 'py-1' };
 let server, base;
 
@@ -934,4 +934,92 @@ test('a failed email is tried again, and a second failure is shown to the admin 
   } finally {
     console.error = realError;
   }
+});
+
+// ---------- Hidden photo data (location, phone model) is removed from uploads ----------
+const zlib = require('zlib');
+const { stripJpeg, stripPng, stripWebp, readOrientation } = require('../lib/imagemeta');
+const seg = (marker, body) => { const b = Buffer.from(body, 'latin1'); const h = Buffer.from([0xff, marker, 0, 0]); h.writeUInt16BE(b.length + 2, 2); return Buffer.concat([h, b]); };
+const pngChunk = (type, data) => {
+  const d = Buffer.from(data, 'latin1');
+  const len = Buffer.alloc(4); len.writeUInt32BE(d.length);
+  const crc = Buffer.alloc(4); crc.writeUInt32BE(zlib.crc32(Buffer.concat([Buffer.from(type, 'latin1'), d])));
+  return Buffer.concat([len, Buffer.from(type, 'latin1'), d, crc]);
+};
+// An EXIF block: orientation 6 (phone held upright) plus a fake GPS text in a second entry's data
+function exifBlock(orientation) {
+  const tiff = Buffer.alloc(60);
+  tiff.write('II', 0, 'latin1'); tiff.writeUInt16LE(42, 2); tiff.writeUInt32LE(8, 4);
+  tiff.writeUInt16LE(2, 8);
+  tiff.writeUInt16LE(0x0112, 10); tiff.writeUInt16LE(3, 12); tiff.writeUInt32LE(1, 14); tiff.writeUInt16LE(orientation, 18);
+  tiff.writeUInt16LE(0x8825, 22); tiff.writeUInt16LE(4, 24); tiff.writeUInt32LE(1, 26); tiff.writeUInt32LE(40, 30);
+  tiff.write('GPS 14.5995N 120.9842E', 38, 'latin1');
+  return 'Exif\0\0' + tiff.toString('latin1');
+}
+
+test('a JPEG loses its location, comments and extra pictures, but keeps which way up it is', () => {
+  const jpeg = Buffer.concat([
+    Buffer.from([0xff, 0xd8]),
+    seg(0xe0, 'JFIF\0\x01\x01\0\0\x01\0\x01\0\0'),
+    seg(0xe1, exifBlock(6)),
+    seg(0xe1, 'http://ns.adobe.com/xap/1.0/\0<x>Camera Samsung</x>'),
+    seg(0xe2, 'MPF\0secondary picture info'),
+    seg(0xe2, 'ICC_PROFILE\0\x01\x01colour data'),
+    seg(0xfe, 'taken at home'),
+    seg(0xdb, '\0' + 'q'.repeat(64)),
+    seg(0xda, '\x01\x01\0\0\x3f\0'),
+    Buffer.from([0x12, 0xff, 0x00, 0x34, 0xff, 0xd0, 0x56]),   // coded data with a coded 0xFF and a restart marker
+    Buffer.from([0xff, 0xd9]),
+    Buffer.from('second picture Exif GPS 14.5995N', 'latin1'),
+  ]);
+  const out = stripJpeg(jpeg);
+  const text = out.toString('latin1');
+  for (const gone of ['GPS', 'Samsung', 'MPF', 'taken at home', 'second picture']) assert.ok(!text.includes(gone), gone + ' was removed');
+  assert.ok(text.includes('ICC_PROFILE'), 'the colour profile stays');
+  assert.ok(text.includes('JFIF'));
+  assert.ok(out.subarray(-2).equals(Buffer.from([0xff, 0xd9])), 'ends at the end of the picture');
+  assert.ok(out.includes(Buffer.from([0x12, 0xff, 0x00, 0x34, 0xff, 0xd0, 0x56])), 'the picture data is untouched');
+  const app1 = out.indexOf(Buffer.from('Exif\0\0', 'latin1'));
+  assert.equal(readOrientation(out.subarray(app1)), 6, 'which way up it is stays');
+  assert.ok(out.indexOf(Buffer.from('JFIF', 'latin1')) < app1, 'JFIF stays first');
+
+  const upright = stripJpeg(Buffer.concat([Buffer.from([0xff, 0xd8]), seg(0xe1, exifBlock(1)), seg(0xda, '\x01\x01\0\0\x3f\0'), Buffer.from([0xff, 0xd9])]));
+  assert.ok(!upright.includes(Buffer.from('Exif', 'latin1')), 'a normal orientation needs no EXIF at all');
+});
+
+test('a PNG loses its text and EXIF chunks, and a WEBP its EXIF and XMP', () => {
+  const ihdr = PNG.subarray(8, 33);
+  const rest = PNG.subarray(33);   // IDAT and IEND of the tiny picture
+  const png = Buffer.concat([PNG.subarray(0, 8), ihdr, pngChunk('tEXt', 'Location\0Manila'), pngChunk('eXIf', exifBlock(6).slice(6)), pngChunk('tIME', '1234567'), rest, Buffer.from('trailing GPS')]);
+  const cleanPng = stripPng(png);
+  assert.ok(cleanPng.equals(PNG), 'only the original picture is left');
+
+  const chunk = (fourcc, data) => { const d = Buffer.from(data, 'latin1'); const h = Buffer.alloc(8); h.write(fourcc, 0, 'latin1'); h.writeUInt32LE(d.length, 4); return Buffer.concat([h, d, d.length % 2 ? Buffer.alloc(1) : Buffer.alloc(0)]); };
+  const body = Buffer.concat([chunk('VP8X', '\x0c\0\0\0\0\0\0\0\0\0'), chunk('VP8 ', 'picture-data'), chunk('EXIF', exifBlock(6)), chunk('XMP ', '<x>GPS Manila</x>')]);
+  const riff = Buffer.concat([Buffer.from('RIFF\0\0\0\0WEBP', 'latin1'), body]);
+  riff.writeUInt32LE(riff.length - 8, 4);
+  const cleanWebp = stripWebp(riff);
+  assert.ok(!cleanWebp.toString('latin1').includes('GPS'));
+  assert.ok(cleanWebp.toString('latin1').includes('picture-data'));
+  assert.equal(cleanWebp.readUInt32LE(4), cleanWebp.length - 8, 'the size in the header is right');
+  assert.equal(cleanWebp[20] & 0x0c, 0, 'the header no longer says EXIF or XMP are there');
+});
+
+test('a cut-off picture is refused instead of kept with its hidden data', () => {
+  assert.throws(() => stripPng(PNG.subarray(0, 20)));
+  assert.throws(() => stripJpeg(Buffer.from([0xff, 0xd8, 0xff, 0xe1, 0x00, 0x40])));
+});
+
+test('a delivery picture is saved without its location', async () => {
+  reset('paid');
+  const withLocation = Buffer.concat([PNG.subarray(0, 33), pngChunk('tEXt', 'GPS\0' + '14.5995N 120.9842E'), PNG.subarray(33)]);
+  const form = new FormData();   // not the deliver() helper: it deletes the saved file straight away
+  form.append('number', '09171234567');
+  form.append('files', new Blob([withLocation], { type: 'image/png' }), 'proof.png');
+  const r = await fetch(base + '/transactions/7/deliver', { method: 'POST', headers: headers(SELLER), body: form });
+  assert.equal(r.status, 200);
+  const saved = fs.readFileSync(path.join(UPLOADS, db.proofs[0]));
+  assert.ok(!saved.toString('latin1').includes('GPS'));
+  assert.ok(saved.equals(PNG));
+  fs.rmSync(path.join(UPLOADS, db.proofs[0]), { force: true });
 });

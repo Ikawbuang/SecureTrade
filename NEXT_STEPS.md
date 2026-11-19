@@ -27,7 +27,7 @@ Live site: https://securetrade-production.up.railway.app (Railway, branch `xendi
 | ~~1~~ | Test-mode clarity | **Done 20 Nov 2026.** Yellow test-mode bar on every page, [TEST] in email subjects, refund and payout messages say no real money moved. |
 | ~~2~~ | M9 | **Done 20 Nov 2026.** A failed trade email is retried once, then shown on the admin overview. |
 | 3 | M4 | The server connects to the database with a limited account, not the owner. Needs SQL in Supabase and a new `DATABASE_URL`. Do it carefully, last. |
-| 4 | L8 | Re-save uploaded pictures without hidden photo data (such as location). |
+| ~~4~~ | L8 | **Done 20 Nov 2026.** New uploads lose their hidden data (location, phone model). Pictures uploaded before that still have it; a one-time cleanup script is possible. |
 | 5 | L10, L12 | Let the person who opened a dispute add evidence later. Log report dismissals. |
 | 6 | M8 | Tests that run against a real test database, including two requests at the same moment. |
 | 7 | L11 | Split the largest files (`routes/admin.js`, the exports of `lib/core.js`). |
