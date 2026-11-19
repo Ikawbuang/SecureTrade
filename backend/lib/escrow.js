@@ -1,4 +1,4 @@
-const { HttpError, isParty, logActivity, pool, queryAll, queryOne, requireNumeric, sameId } = require('./core');
+const { HttpError, TEST_MODE, TEST_NOTE, isParty, logActivity, pool, queryAll, queryOne, requireNumeric, sameId } = require('./core');
 const { notify, peso } = require('./notify');
 
 
@@ -37,7 +37,8 @@ async function assertPaymentHeld(client, transactionId, message) {
 async function markPaymentRefunded(client, transactionId, why = '') {
   await client.query(`UPDATE escrow_payments SET payment_status = 'refunded', released_at = now() WHERE transaction_id = $1`, [transactionId]);
   const t = await queryOne(client, 'SELECT buyer_id, amount FROM transactions WHERE transaction_id = $1', [transactionId]);
-  await notify(client, [t.buyer_id], transactionId, (why ? why + ' ' : '') + 'Your payment of ' + peso(t.amount) + ' is refunded in full.');
+  await notify(client, [t.buyer_id], transactionId, (why ? why + ' ' : '') + 'Your payment of ' + peso(t.amount)
+    + (TEST_MODE ? ' is marked as refunded in full ' + TEST_NOTE + '.' : ' is refunded in full.'));
 }
 
 
@@ -56,7 +57,8 @@ async function releasePayment(client, transactionId, why = '') {
   );
   const t = await queryOne(client, 'SELECT seller_id, amount, service_fee FROM transactions WHERE transaction_id = $1', [transactionId]);
   await notify(client, [t.seller_id], transactionId,
-    (why ? why + ' ' : '') + 'The trade is complete: ' + peso(Number(t.amount) - Number(t.service_fee || 0)) + ' is released to your GCash.');
+    (why ? why + ' ' : '') + 'The trade is complete: ' + peso(Number(t.amount) - Number(t.service_fee || 0))
+    + (TEST_MODE ? ' is marked as released to your GCash ' + TEST_NOTE + '.' : ' is released to your GCash.'));
 }
 
 

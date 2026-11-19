@@ -195,7 +195,7 @@ const REMINDERS = [
            WHERE t.status = 'delivered'
              AND t.delivered_at + make_interval(hours => CASE t.item_type WHEN 'account' THEN ${ACCOUNT_HOLD_HOURS} ELSE ${AUTO_RELEASE_HOURS} END)
                  BETWEEN now() AND now() + interval '${RELEASE_REMINDER_HOURS} hours'`,
-    send: r => [[r.buyer_id], 'Reminder: ' + peso(r.amount) + ' releases to @' + r.seller + ' on ' + manilaTime(r.release_at) + '. If something is wrong with the item, report it on the trade page before then.'],
+    send: r => [[r.buyer_id], 'Reminder: ' + peso(r.amount) + ' releases to @' + r.seller + ' on ' + manilaTime(r.release_at) + '. If something is wrong with the item, report it on the trade page before then. Every update is also in 🔔 Updates on your dashboard.'],
   },
   {
     // The seller: half the delivery time has passed

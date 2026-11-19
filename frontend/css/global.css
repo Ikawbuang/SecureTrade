@@ -379,3 +379,10 @@ dialog.ui-viewer::backdrop { background: rgba(8, 10, 24, .9); }
   border: 2px solid #d5d8ec; border-radius: var(--radius-s);
 }
 .ui-pop-body .ui-pop-code:focus { outline: none; border-color: var(--gold); }
+
+/* ---------- Test mode bar (top of every page while no real money moves) ---------- */
+.test-bar {
+  padding: .45rem 1rem; text-align: center; font-size: .88rem; line-height: 1.4;
+  color: #4a3500; background: #ffd666; border-bottom: 1px solid #e0b23a;
+}
+.test-bar strong { margin-right: .35rem; letter-spacing: .04em; }

@@ -263,12 +263,38 @@
     });
   }
 
+  // ---------- Test mode bar ----------
+  // Shown at the top of every page while no real money moves. The last answer is remembered,
+  // so the bar appears at once on the next page instead of after the server answers.
+  function showTestBar(on) {
+    let bar = document.getElementById('test-bar');
+    if (!on) { if (bar) bar.remove(); return; }
+    if (bar) return;
+    bar = make('div', 'test-bar');
+    bar.id = 'test-bar';
+    bar.setAttribute('role', 'note');
+    bar.append(make('strong', '', 'TEST MODE'), ' No real money moves. Payments, refunds and payouts are only practice.');
+    document.body.insertBefore(bar, document.body.firstChild);
+  }
+
+  function testModeBar() {
+    let remembered = null;
+    try { remembered = localStorage.getItem('st_test_mode'); } catch { /* storage is blocked */ }
+    showTestBar(remembered !== 'false');   // shown until the server says otherwise
+    fetch('/api/config').then(r => r.json()).then(c => {
+      const on = c.test_mode !== false;
+      try { localStorage.setItem('st_test_mode', String(on)); } catch { /* storage is blocked */ }
+      showTestBar(on);
+    }).catch(() => {});
+  }
+
   window.UI = UI;
 
   const start = () => {
     UI.addPasswordToggles();
     addMenuButton();
     labelTables();
+    testModeBar();
     document.querySelectorAll('form[data-keep]').forEach(UI.keepForm);
   };
   // The scripts sit at the end of <body>, so the forms already exist; run before the page script

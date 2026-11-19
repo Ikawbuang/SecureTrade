@@ -1,6 +1,6 @@
 const bcrypt = require('bcryptjs');
 const { MAX_FAILS_PER_ACCOUNT, assertLoginAllowed, auth, clearLoginFailures, recordLoginFailure, warnAboutBlockedLogin } = require('../lib/auth');
-const { EMAIL_RE, HttpError, IDLE_MINUTES, NAME_PART_RE, USERNAME_RE, assertGoodPassword, cleanEmail, cleanName, logActivity, pool, queryOne, route, signToken, splitFullName, startSession, verifiedSql } = require('../lib/core');
+const { EMAIL_RE, HttpError, IDLE_MINUTES, TEST_MODE, NAME_PART_RE, USERNAME_RE, assertGoodPassword, cleanEmail, cleanName, logActivity, pool, queryOne, route, signToken, splitFullName, startSession, verifiedSql } = require('../lib/core');
 const { checkPin, deletePins, issuePin, sendSecurityNotice } = require('../lib/mail');
 const jwt = require('jsonwebtoken');
 const { checkSecondFactor, getTwoFactor } = require('../lib/totp');
@@ -78,7 +78,7 @@ function register(app) {
 
 
   // The pages ask for the idle limit so their timer matches the server
-  app.get('/api/config', (req, res) => res.json({ idle_minutes: IDLE_MINUTES }));
+  app.get('/api/config', (req, res) => res.json({ idle_minutes: IDLE_MINUTES, test_mode: TEST_MODE }));
 
 
   // ---------- Create account: step 1, check the form and email a PIN ----------

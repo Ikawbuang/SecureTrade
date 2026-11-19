@@ -889,3 +889,49 @@ test('before migration 005 is run, wrong passwords are still counted (in memory)
     console.warn = realWarn;
   }
 });
+
+// ---------- Test mode: pages, messages and emails say no real money moved ----------
+test('pages are told the site is in test mode', async () => {
+  const r = await fetch(base + '/config');
+  assert.deepEqual(await r.json(), { idle_minutes: 15, test_mode: true });
+});
+
+test('refund and payout messages say no real money moved', async () => {
+  const { markPaymentRefunded, releasePayment } = require('../lib/escrow');
+  const client = { query: async (sql, p) => fakeQuery(sql, p) };
+  await markPaymentRefunded(client, '7');
+  await releasePayment(client, '7');
+  assert.ok(db.notes.some(n => n.user === BUYER && /marked as refunded in full \(test mode: no real money moved\)/.test(n.text)));
+  assert.ok(db.notes.some(n => n.user === SELLER && /marked as released to your GCash \(test mode: no real money moved\)/.test(n.text)));
+});
+
+test('a trade email starts with the test-mode line and its subject with [TEST]', () => {
+  const { tradeEmail, TEST_LINE } = require('../lib/notify');
+  const mail = tradeEmail('7', 'Trade #7: The buyer paid.');
+  assert.equal(mail.subject, '[TEST] SecureTrade: update on trade #7');
+  assert.ok(mail.text.startsWith(TEST_LINE));
+  assert.match(mail.text, /Trade #7: The buyer paid\./);
+  assert.match(mail.text, /transaction\.html\?id=7/);
+});
+
+test('a failed email is tried again, and a second failure is shown to the admin without the address', async () => {
+  const { deliverEmail } = require('../lib/notify');
+  const { recentErrors } = require('../lib/core');
+  const realError = console.error;
+  console.error = () => {};
+  try {
+    let tries = 0;
+    await deliverEmail({ to: 'a@example.test' }, '7', { retryMs: 5, send: async () => { tries++; if (tries === 1) throw new Error('busy'); } });
+    await new Promise(r => setTimeout(r, 30));
+    assert.equal(tries, 2, 'the second try went through');
+    assert.ok(!recentErrors.some(e => /update email/.test(e.message)));
+
+    await deliverEmail({ to: 'a@example.test' }, '8', { retryMs: 5, send: async () => { throw new Error('refused for buyer@example.test'); } });
+    await new Promise(r => setTimeout(r, 30));
+    const shown = recentErrors.find(e => /Trade #8: an update email could not be sent/.test(e.message));
+    assert.ok(shown);
+    assert.doesNotMatch(shown.message, /@/);
+  } finally {
+    console.error = realError;
+  }
+});

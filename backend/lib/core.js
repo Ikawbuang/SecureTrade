@@ -48,6 +48,14 @@ pool.on('error', err => {
 });
 
 
+// Test mode: no real money moves (refunds and payouts only change the database).
+// It ends only when real money is turned on on purpose with XENDIT_ALLOW_LIVE=true.
+// Pages, emails and messages say so while it is on.
+const TEST_MODE = process.env.XENDIT_ALLOW_LIVE !== 'true';
+
+const TEST_NOTE = '(test mode: no real money moved)';
+
+
 // A user counts as online if we heard from them in the last 2 minutes
 const ONLINE_SQL = `(last_seen IS NOT NULL AND last_seen > now() - interval '2 minutes')`;
 
@@ -397,4 +405,4 @@ const USERNAME_COOLDOWN_DAYS = 30;
 
 
 const PORT = process.env.PORT || 3000;
-module.exports = { settingProblems, assertGoodPassword, recentErrors, rememberError, pool, ONLINE_SQL, verifiedSql, JOIN_BUYER_SELLER, AVG_RATING_SQL, RATING_COUNT_SQL, PROCESS_STATUSES, ALL_TRADE_STATUSES, PAID_STATUSES, IDLE_MINUTES, REQUEST_EXPIRE_HOURS, PAYMENT_DUE_HOURS, DELIVERY_DUE_HOURS, PAID_AT_SQL, ITEM_TYPES, ACCOUNT_HOLD_HOURS, AUTO_RELEASE_HOURS, holdHours, MAX_TRADE_AMOUNT, MAX_ITEM_LENGTH, MAX_PENDING_SENT, CHAT_PER_MINUTE, CHAT_MAX_SHOWN, MAX_EVIDENCE_PER_PERSON, FINISHED_STATUSES, ID_TYPES, VERIFY_CODE_HOURS, MAX_FAVORITES, SUPPORT_MAX, SUPPORT_PER_MINUTE, HttpError, sendError, route, queryOne, queryAll, isDbId, requireNumeric, assertBothActive, requireNote, numberOrNull, sameId, isParty, cleanEmail, cleanHandle, cleanSearch, ADMIN_PAGE_SIZE, ADMIN_MAX_PAGE, pageOffset, pageResult, findUsername, withTx, maskNumber, NAME_PART_RE, cleanName, splitFullName, isAdmin, assertVerified, recordTradeAttempt, logActivity, signToken, startSession, EMAIL_RE, USERNAME_RE, USERNAME_COOLDOWN_DAYS, PORT };
+module.exports = { TEST_MODE, TEST_NOTE, settingProblems, assertGoodPassword, recentErrors, rememberError, pool, ONLINE_SQL, verifiedSql, JOIN_BUYER_SELLER, AVG_RATING_SQL, RATING_COUNT_SQL, PROCESS_STATUSES, ALL_TRADE_STATUSES, PAID_STATUSES, IDLE_MINUTES, REQUEST_EXPIRE_HOURS, PAYMENT_DUE_HOURS, DELIVERY_DUE_HOURS, PAID_AT_SQL, ITEM_TYPES, ACCOUNT_HOLD_HOURS, AUTO_RELEASE_HOURS, holdHours, MAX_TRADE_AMOUNT, MAX_ITEM_LENGTH, MAX_PENDING_SENT, CHAT_PER_MINUTE, CHAT_MAX_SHOWN, MAX_EVIDENCE_PER_PERSON, FINISHED_STATUSES, ID_TYPES, VERIFY_CODE_HOURS, MAX_FAVORITES, SUPPORT_MAX, SUPPORT_PER_MINUTE, HttpError, sendError, route, queryOne, queryAll, isDbId, requireNumeric, assertBothActive, requireNote, numberOrNull, sameId, isParty, cleanEmail, cleanHandle, cleanSearch, ADMIN_PAGE_SIZE, ADMIN_MAX_PAGE, pageOffset, pageResult, findUsername, withTx, maskNumber, NAME_PART_RE, cleanName, splitFullName, isAdmin, assertVerified, recordTradeAttempt, logActivity, signToken, startSession, EMAIL_RE, USERNAME_RE, USERNAME_COOLDOWN_DAYS, PORT };
