@@ -122,6 +122,7 @@ function register(app) {
         [d.dispute_id, userId]
       );
       const filedByMe = sameId(d.filed_by, userId);
+      const mine = evidence.rows.filter(e => e.mine).length;
       dispute = {
         dispute_id: d.dispute_id,
         reason: d.reason,
@@ -135,6 +136,8 @@ function register(app) {
         reply: d.reply,
         replied_at: d.replied_at,
         can_reply: d.dispute_status !== 'resolved' && !filedByMe,
+        can_add_evidence: d.dispute_status !== 'resolved' && mine < MAX_EVIDENCE_PER_PERSON,
+        evidence_left: Math.max(0, MAX_EVIDENCE_PER_PERSON - mine),
         evidence: evidence.rows,
       };
     }
@@ -249,6 +252,50 @@ function register(app) {
         await notify(client, [d.filed_by], d.transaction_id, 'The other person replied to your dispute. An admin will review both sides.');
       });
       res.json({ ok: true });
+    } catch (err) {
+      await removeFiles(files);
+      throw err;
+    }
+  }));
+
+
+  // Add more screenshots to a dispute that is not decided yet. Either side can, for example after
+  // reading the other person's reply. Each person can add up to MAX_EVIDENCE_PER_PERSON in all.
+  app.post('/api/transactions/:id/dispute/evidence', auth, uploadFiles, route(async (req, res) => {
+    const files = req.files || [];
+    try {
+      requireNumeric(req.params.id, 'Invalid trade.');
+      if (files.length === 0) throw new HttpError(400, 'Choose at least one screenshot to add.');
+      await assertRealImages(files, 'One of the files is not a valid JPG, PNG, WEBP, or GIF image.');
+      await saveUploads(files);
+
+      await withTx(async client => {
+        const userId = req.user.user_id;
+        const d = await queryOne(
+          client,
+          `SELECT d.dispute_id, d.dispute_status, t.transaction_id, t.buyer_id, t.seller_id
+           FROM disputes d JOIN transactions t ON t.transaction_id = d.transaction_id
+           WHERE d.transaction_id = $1
+           FOR UPDATE OF d`,
+          [req.params.id]
+        );
+        if (!d || !isParty(d, userId)) throw new HttpError(404, 'Dispute not found.');
+        if (d.dispute_status === 'resolved') throw new HttpError(409, 'This dispute was already decided.');
+        const saved = await queryOne(client, 'SELECT COUNT(*) AS n FROM evidence WHERE dispute_id = $1 AND submitted_by = $2', [d.dispute_id, userId]);
+        const left = MAX_EVIDENCE_PER_PERSON - Number(saved.n);
+        if (files.length > left) {
+          throw new HttpError(400, left > 0
+            ? 'You can add ' + left + ' more ' + (left === 1 ? 'image' : 'images') + ' to this dispute.'
+            : 'You already added the most images allowed (' + MAX_EVIDENCE_PER_PERSON + ').');
+        }
+
+        await saveEvidence(client, d.dispute_id, userId, files);
+        await logActivity(client, userId, d.transaction_id, 'dispute_evidence', files.length + (files.length === 1 ? ' image' : ' images'));
+        const role = sameId(d.buyer_id, userId) ? 'buyer' : 'seller';
+        await notify(client, [role === 'buyer' ? d.seller_id : d.buyer_id], d.transaction_id,
+          'The ' + role + ' added ' + files.length + (files.length === 1 ? ' screenshot' : ' screenshots') + ' to the dispute. You can see them on the dispute page.');
+      });
+      res.status(201).json({ ok: true });
     } catch (err) {
       await removeFiles(files);
       throw err;

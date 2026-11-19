@@ -26,6 +26,20 @@ const OPEN_PAYMENT_REVIEWS_SQL = `activity_log a
        )`;
 
 
+// An admin is about to read a trade's private chat: write it in the log, at most once an hour
+// per admin and trade, so the traders' privacy is accounted for without filling the log.
+function logChatView(adminId, transactionId) {
+  return pool.query(
+    `INSERT INTO activity_log (user_id, transaction_id, action, detail)
+     SELECT $1, $2, 'admin_viewed_chat', NULL
+     WHERE NOT EXISTS (
+       SELECT 1 FROM activity_log WHERE user_id = $1 AND transaction_id = $2
+         AND action = 'admin_viewed_chat' AND created_at > now() - interval '1 hour')`,
+    [adminId, transactionId]
+  ).catch(err => console.error('Logging a chat view failed:', err.message));
+}
+
+
 function getTradeChat(transactionId) {
   return queryAll(
     pool,
@@ -431,14 +445,22 @@ function register(app) {
   }));
 
 
-  // Close a report without deleting the review
+  // Close a report without deleting the review. Written in the log, like a deleted review.
   app.post('/api/admin/reports/:id/dismiss', auth, adminOnly, route(async (req, res) => {
     requireNumeric(req.params.id, 'Invalid report.');
-    const r = await pool.query(
-      `UPDATE review_reports SET status = 'dismissed' WHERE report_id = $1 AND status = 'open' RETURNING report_id`,
-      [req.params.id]
-    );
-    if (!r.rows[0]) throw new HttpError(404, 'Report not found, or it was already closed.');
+    const me = await findUsername(req.user.user_id);
+    await withTx(async client => {
+      const r = await queryOne(
+        client,
+        `UPDATE review_reports rr SET status = 'dismissed'
+         FROM ratings r
+         WHERE rr.report_id = $1 AND rr.status = 'open' AND r.review_ref = rr.review_ref
+         RETURNING rr.report_id, r.transaction_id`,
+        [req.params.id]
+      );
+      if (!r) throw new HttpError(404, 'Report not found, or it was already closed.');
+      await logActivity(client, req.user.user_id, r.transaction_id, 'report_dismissed', 'Report #' + r.report_id + ' by @' + me.username);
+    });
     res.json({ ok: true });
   }));
 
@@ -481,6 +503,7 @@ function register(app) {
     const d = found.rows[0];
     if (!d) throw new HttpError(404, 'Dispute not found.');
 
+    await logChatView(req.user.user_id, d.transaction_id);
     const evidence = await pool.query(
       `SELECT e.evidence_id, e.description AS name, u.username AS submitted_by_username
        FROM evidence e JOIN users u ON u.user_id = e.submitted_by
@@ -662,6 +685,7 @@ function register(app) {
     );
     const t = found.rows[0];
     if (!t) throw new HttpError(404, 'Trade not found.');
+    await logChatView(req.user.user_id, t.transaction_id);
 
     const payment = await getAdminPayment(t.transaction_id);
     const receipt = await queryOne(
@@ -914,4 +938,4 @@ function register(app) {
   }));
 }
 
-module.exports = { register, assertNotOwnTrade, OPEN_PAYMENT_REVIEWS_SQL, getTradeChat, getTradeActivity, getAdminPayment, findReviewPaymentId, NEEDS_ADMIN_SQL, USER_LIST_SIZE, USER_LISTS, userListPage };
+module.exports = { register, logChatView, assertNotOwnTrade, OPEN_PAYMENT_REVIEWS_SQL, getTradeChat, getTradeActivity, getAdminPayment, findReviewPaymentId, NEEDS_ADMIN_SQL, USER_LIST_SIZE, USER_LISTS, userListPage };

@@ -26,6 +26,7 @@ function reset(status = 'accepted', extra = {}) {
     trade: { transaction_id: '7', buyer_id: BUYER, seller_id: SELLER, status, amount: '200.00', item_description: 'x', item_type: 'item', delivered_at: null, created_by: BUYER, ...extra },
     session: { session_id: 'ps-1', transaction_id: '7', amount: '200.00', status: 'ACTIVE', payment_id: null },
     escrow: [], logs: [], proofs: [], inactive: 0, created: 0, released: false, pin: null, xenditSession: { status: 'ACTIVE' },
+    dispute: null, evidenceCount: 0, evidence: [], reportOpen: true, chatViews: 0,
     twofa: null, recovery: [], loginUser: null, passwordHash: null,
     fails: {}, noFailTable: false, resetUser: null, resetAsked: 0, pinsIssued: 0,
     calls: [], qrOpen: null, prState: { status: 'REQUIRES_ACTION' }, pendingFiles: [], refundSql: null, notes: [], failNotes: false, paidAt: new Date(), existingEmail: null,
@@ -41,6 +42,13 @@ function fakeQuery(sql, p = []) {
     if (/^DELETE FROM login_failures WHERE key/.test(sql)) { delete db.fails[p[0]]; return { rows: [] }; }
     return { rows: [] };
   }
+  if (/FROM disputes d JOIN transactions t ON t.transaction_id = d.transaction_id\s+WHERE d.transaction_id = \$1\s+FOR UPDATE OF d/.test(sql) && /d.dispute_status, t.transaction_id/.test(sql)) {
+    return { rows: db.dispute ? [{ dispute_id: '4', dispute_status: db.dispute.status, transaction_id: '7', buyer_id: BUYER, seller_id: SELLER, filed_by: db.dispute.filedBy }] : [] };
+  }
+  if (/SELECT COUNT\(\*\) AS n FROM evidence WHERE dispute_id/.test(sql)) return { rows: [{ n: db.evidenceCount }] };
+  if (/INSERT INTO evidence/.test(sql)) { db.evidence.push(p[2]); return { rows: [] }; }
+  if (/UPDATE review_reports rr SET status = 'dismissed'/.test(sql)) { if (!db.reportOpen) return { rows: [] }; db.reportOpen = false; return { rows: [{ report_id: p[0], transaction_id: '7' }] }; }
+  if (/'admin_viewed_chat'/.test(sql)) { db.chatViews++; return { rows: [] }; }
   if (/AS open_disputes/.test(sql)) return { rows: [{ open_disputes: 0, held: 0 }] };   // the admin overview numbers
   // Two-step sign-in. db.twofa = null means migration 007 was not run (the columns do not exist).
   if (/totp_secret, totp_pending_secret, totp_enabled_at/.test(sql)) {
@@ -1022,4 +1030,52 @@ test('a delivery picture is saved without its location', async () => {
   assert.ok(!saved.toString('latin1').includes('GPS'));
   assert.ok(saved.equals(PNG));
   fs.rmSync(path.join(UPLOADS, db.proofs[0]), { force: true });
+});
+
+// ---------- Disputes: more evidence from either side; admin actions in the log ----------
+async function addEvidence(user, count = 1) {
+  const form = new FormData();
+  for (let i = 0; i < count; i++) form.append('files', new Blob([PNG], { type: 'image/png' }), 'more' + i + '.png');
+  const res = await fetch(base + '/transactions/7/dispute/evidence', { method: 'POST', headers: headers(user), body: form });
+  const body = await res.json().catch(() => ({}));
+  db.evidence.forEach(name => fs.rmSync(path.join(UPLOADS, name), { force: true }));
+  return { status: res.status, body };
+}
+
+test('the person who opened a dispute can add screenshots later, and the other side is told', async () => {
+  reset('disputed');
+  db.dispute = { status: 'open', filedBy: BUYER };
+  const r = await addEvidence(BUYER, 2);
+  assert.equal(r.status, 201);
+  assert.equal(db.evidence.length, 2);
+  assert.ok(db.logs.includes('dispute_evidence'));
+  assert.ok(db.notes.some(n => n.user === SELLER && /added 2 screenshots to the dispute/.test(n.text)));
+});
+
+test('more evidence is refused for strangers, after the decision, and past the limit', async () => {
+  reset('disputed');
+  db.dispute = { status: 'open', filedBy: BUYER };
+  assert.equal((await addEvidence(STRANGER)).status, 404);
+  db.evidenceCount = 9;
+  const over = await addEvidence(SELLER, 2);
+  assert.equal(over.status, 400);
+  assert.match(over.body.message, /add 1 more image/);
+  db.evidenceCount = 0;
+  db.dispute.status = 'resolved';
+  assert.equal((await addEvidence(SELLER)).status, 409);
+  assert.equal(db.evidence.length, 0, 'nothing was saved');
+});
+
+test('dismissing a review report is written in the log', async () => {
+  db.twofa = null;
+  const r = await post('/admin/reports/5/dismiss', ADMIN);
+  assert.equal(r.status, 200);
+  assert.ok(db.logs.includes('report_dismissed'));
+  assert.equal((await post('/admin/reports/5/dismiss', ADMIN)).status, 404, 'already closed');
+});
+
+test('an admin opening a trade is written in the log (at most once an hour, in SQL)', async () => {
+  const { logChatView } = require('../routes/admin');
+  await logChatView(ADMIN, '7');
+  assert.equal(db.chatViews, 1);
 });

@@ -173,6 +173,9 @@ function describe(a) {
     case 'confirmed':              return 'confirmed receipt, so the payment was released';
     case 'dispute_opened':         return 'opened a dispute' + (detail ? ': ' + detail : '');
     case 'dispute_reply':          return 'replied to the dispute';
+    case 'dispute_evidence':       return 'added more evidence to the dispute' + (detail ? ' (' + detail + ')' : '');
+    case 'report_dismissed':       return 'dismissed a review report' + (detail ? ' (' + detail + ')' : '');
+    case 'admin_viewed_chat':      return 'opened the trade and its private chat (admin)';
     case 'rated':                  return 'rated the other person ' + detail;
     case 'username_changed':       return 'changed the username ' + detail;
     case 'email_changed':          return 'changed the email address';

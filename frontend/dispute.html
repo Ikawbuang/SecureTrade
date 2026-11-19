@@ -161,6 +161,21 @@
               </div>
             </form>
 
+            <form class="reply-box" id="evidence-form" hidden>
+              <h3>Add more screenshots</h3>
+              <p id="evidence-hint">Something new to show? Add it here. The other person and the admin will see it.</p>
+              <div class="field evidence">
+                <label for="evidence-proof">Screenshots or proof</label>
+                <input id="evidence-proof" type="file" accept="image/jpeg,image/png,image/webp,image/gif" multiple required>
+                <ul class="files" id="evidence-files"></ul>
+              </div>
+              <p class="form-error" id="evidence-error" role="alert" hidden></p>
+              <p class="form-ok" id="evidence-ok" role="status" hidden></p>
+              <div class="actions">
+                <button class="btn btn-outline" type="submit" id="evidence-submit">Add screenshots</button>
+              </div>
+            </form>
+
             <div class="notice" id="resolution" hidden></div>
 
             <div class="actions">

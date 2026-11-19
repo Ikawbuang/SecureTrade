@@ -63,6 +63,7 @@ function listFiles(input, listId) {
 }
 $('proof').addEventListener('change', e => listFiles(e.target, 'files'));
 $('reply-proof').addEventListener('change', e => listFiles(e.target, 'reply-files'));
+$('evidence-proof').addEventListener('change', e => listFiles(e.target, 'evidence-files'));
 
 const showThumbs = (listEl, items) =>
   addEvidenceThumbs(listEl, items, blobUrls, item => item.name || 'Evidence');
@@ -145,11 +146,14 @@ function renderThread() {
   const replier = d.filed_by_me ? '@' + partner : 'you';
   $('reply-title').textContent = 'Reply from ' + replier;
   const replyEvidence = d.evidence.filter(e => e.submitted_by_username !== d.filed_by_username);
-  $('reply-shown').hidden = !d.reply;
+  // Screenshots can arrive before the written reply, so they show even without it
+  $('reply-shown').hidden = !d.reply && replyEvidence.length === 0;
+  $('reply-text').textContent = d.reply || '';
+  $('reply-text').hidden = !d.reply;
+  showThumbs($('ev-reply'), replyEvidence);
   $('reply-waiting').hidden = true;
   if (d.reply) {
-    $('reply-text').textContent = d.reply;
-    showThumbs($('ev-reply'), replyEvidence);
+    // the reply is shown above
   } else if (d.dispute_status !== 'resolved') {
     $('reply-waiting').textContent = d.filed_by_me
       ? 'Waiting for @' + partner + ' to reply.'
@@ -164,6 +168,11 @@ function renderThread() {
   $('reply-form').hidden = !d.can_reply;
   $('reply-form-title').textContent = d.reply ? 'Update your reply' : 'Reply to this dispute';
   $('reply-submit').textContent = d.reply ? 'Update reply' : 'Send reply';
+
+  // More screenshots, from either side, until the admin decides
+  $('evidence-form').hidden = !d.can_add_evidence;
+  $('evidence-hint').textContent = 'Something new to show? Add it here. The other person and the admin will see it. You can add '
+    + d.evidence_left + ' more ' + (d.evidence_left === 1 ? 'image' : 'images') + ' (JPG, PNG, WEBP, or GIF, 5 MB each).';
 
   // Admin decision
   const resolution = $('resolution');
@@ -266,6 +275,33 @@ $('reply-form').addEventListener('submit', async e => {
     setMessage('reply-ok', 'Your reply was sent.');
   } catch (err) {
     setMessage('reply-error', netError(err));
+  }
+  btn.disabled = false;
+});
+
+// Add more screenshots to the dispute
+$('evidence-form').addEventListener('submit', async e => {
+  e.preventDefault();
+  setMessage('evidence-error', '');
+  setMessage('evidence-ok', '');
+  const files = Array.from($('evidence-proof').files);
+  if (!files.length) { setMessage('evidence-error', 'Choose at least one screenshot.'); return; }
+  const problem = checkImages(files);
+  if (problem) { setMessage('evidence-error', problem); return; }
+
+  const form = new FormData();
+  files.forEach(f => form.append('files', f));
+  const btn = $('evidence-submit');
+  btn.disabled = true;
+  try {
+    await apiUpload('/transactions/' + tradeId + '/dispute/evidence', form);
+    e.target.reset();
+    $('evidence-files').innerHTML = '';
+    lastSignature = '';
+    await load();
+    setMessage('evidence-ok', files.length === 1 ? 'Your screenshot was added.' : 'Your screenshots were added.');
+  } catch (err) {
+    setMessage('evidence-error', netError(err));
   }
   btn.disabled = false;
 });
